@@ -1,0 +1,104 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:      # زر تشغيل يدوي من تبويب Actions
+  push:
+    branches: [ main ]     # يبني تلقائياً مع كل تحديث للملفات
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Prepare web assets
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Generate app icons and splash screen
+        run: npx capacitor-assets generate --android
+
+      - name: Patch AndroidManifest.xml for push notifications
+        run: |
+          python3 - <<'EOF'
+          import re
+          path = 'android/app/src/main/AndroidManifest.xml'
+          with open(path, 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          # صلاحية إظهار الإشعارات (إلزامية على أندرويد 13 فأعلى)
+          if 'POST_NOTIFICATIONS' not in content:
+              content = re.sub(
+                  r'(<manifest[^>]*>)',
+                  r'\1\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+                  content, count=1
+              )
+
+          # أيقونة القناة الافتراضية لإشعارات Firebase عندما يكون التطبيق مغلقاً
+          if 'default_notification_icon' not in content:
+              content = content.replace(
+                  '</application>',
+                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" '
+                  'android:resource="@mipmap/ic_launcher" />\n  </application>'
+              )
+
+          # القناة الافتراضية عالية الأولوية (احتياطية إذا لم تُحدَّد القناة صراحةً في الرسالة)
+          if 'default_notification_channel_id' not in content:
+              content = content.replace(
+                  '</application>',
+                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" '
+                  'android:value="obied_default" />\n  </application>'
+              )
+
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(content)
+          print('AndroidManifest.xml patched successfully')
+          EOF
+
+      - name: Write Firebase config (google-services.json)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
+      - name: Enable Google Services Gradle plugin
+        run: |
+          echo "
+          buildscript {
+            repositories { google(); mavenCentral() }
+            dependencies { classpath 'com.google.gms:google-services:4.4.2' }
+          }" >> android/build.gradle
+          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: obied-app-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
