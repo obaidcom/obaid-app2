@@ -1,0 +1,19 @@
+{
+  "appId": "com.obied.maintenance",
+  "appName": "UBEYD",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#2563eb",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}
