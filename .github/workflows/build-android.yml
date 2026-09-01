@@ -1,26 +1,27 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:      # زر تشغيل يدوي من تبويب Actions
+  workflow_dispatch:
   push:
-    branches: [ main ]     # يبني تلقائياً مع كل تحديث للملفات
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Install npm dependencies
@@ -39,61 +40,75 @@ jobs:
 
       - name: Patch AndroidManifest.xml for push notifications
         run: |
-          python3 - <<'EOF'
+          python3 - <<'PY'
           import re
           path = 'android/app/src/main/AndroidManifest.xml'
           with open(path, 'r', encoding='utf-8') as f:
               content = f.read()
-
-          # صلاحية إظهار الإشعارات (إلزامية على أندرويد 13 فأعلى)
-          if 'POST_NOTIFICATIONS' not in content:
+          if 'android.permission.POST_NOTIFICATIONS' not in content:
               content = re.sub(
                   r'(<manifest[^>]*>)',
                   r'\1\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
                   content, count=1
               )
-
-          # أيقونة القناة الافتراضية لإشعارات Firebase عندما يكون التطبيق مغلقاً
           if 'default_notification_icon' not in content:
               content = content.replace(
                   '</application>',
-                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" '
-                  'android:resource="@mipmap/ic_launcher" />\n  </application>'
+                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@mipmap/ic_launcher" />\n  </application>'
               )
-
-          # القناة الافتراضية عالية الأولوية (احتياطية إذا لم تُحدَّد القناة صراحةً في الرسالة)
           if 'default_notification_channel_id' not in content:
               content = content.replace(
                   '</application>',
-                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" '
-                  'android:value="obied_default" />\n  </application>'
+                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="obied_default" />\n  </application>'
               )
-
           with open(path, 'w', encoding='utf-8') as f:
               f.write(content)
           print('AndroidManifest.xml patched successfully')
-          EOF
+          PY
 
-      - name: Write Firebase config (google-services.json)
+      - name: Validate Firebase secret
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "ERROR: GitHub Actions secret GOOGLE_SERVICES_JSON is missing or empty."
+            echo "Add the complete google-services.json content in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('android/app/google-services.json')
+          try:
+              data = json.loads(path.read_text(encoding='utf-8'))
+          except Exception as exc:
+              raise SystemExit(f'ERROR: GOOGLE_SERVICES_JSON is not valid JSON: {exc}')
+          apps = data.get('client', [])
+          package_name = 'com.obied.maintenance'
+          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in apps]
+          if package_name not in packages:
+              raise SystemExit(f'ERROR: google-services.json does not contain Android package {package_name}.')
+          print('Firebase configuration validated for com.obied.maintenance')
+          PY
 
       - name: Enable Google Services Gradle plugin
         run: |
-          echo "
+          cat >> android/build.gradle <<'EOF'
+
           buildscript {
             repositories { google(); mavenCentral() }
             dependencies { classpath 'com.google.gms:google-services:4.4.2' }
-          }" >> android/build.gradle
-          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+          }
+          EOF
+          printf "%s\n" "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
 
       - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Build debug APK
+        working-directory: android
         run: |
-          cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
