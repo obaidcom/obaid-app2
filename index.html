@@ -3962,7 +3962,7 @@ async function updateOrderStatus(orderId, newStatus) {
     }
   }
 
-  if (newStatus === 'completed' && oldStatus !== 'completed') {
+  if (newStatus === 'completed' && !order.invoice_id && !order.invoiceId) {
     // جلب بيانات المستخدم من Supabase مباشرة دائماً
     let user = null;
     const userId = parseInt(order.user_id || order.userId, 10);
@@ -4773,7 +4773,7 @@ async function showOrderDetails(orderId) {
         <div>
           <h4 style="margin:0 0 10px;color:var(--dark);font-size:0.9rem;"><i class="fas fa-tasks"></i> تغيير الحالة</h4>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${['pending','in-progress','completed','cancelled'].map(s =>
+            ${['pending','in-progress','cancelled'].map(s =>
               `<button onclick="updateOrderStatus('${order.id}','${s}')" style="flex:1;min-width:80px;padding:8px 12px;border:none;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.82rem;font-weight:700;background:${order.status===s?'var(--primary)':'#f1f5f9'};color:${order.status===s?'white':'var(--dark)'};">${getStatusText(s)}</button>`
             ).join('')}
           </div>
