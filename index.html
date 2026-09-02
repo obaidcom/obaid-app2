@@ -4003,10 +4003,47 @@ async function updateOrderStatus(orderId, newStatus) {
     invoiceData.tax   = invoiceData.basePrice * 0.15;
     invoiceData.total = invoiceData.basePrice + invoiceData.tax;
 
-    // أظهر نافذة المراجعة مباشرة بدون حفظ مسبق
+    // ===== إصلاح: حفظ الفاتورة فعلياً في قاعدة البيانات فوراً، ربطها بالطلب
+    // والعميل الصحيحين، وإرسال إشعار حقيقي للعميل - بدل الانتظار لخطوة يدوية
+    // لاحقة قد لا تحدث. نافذة المراجعة تبقى متاحة بعدها لتعديل السعر إن رغب
+    // الموظف، لكن وجود الفاتورة ووصولها للعميل لم يعد يعتمد عليها. =====
+    const saved = await saveInvoice(invoiceData);
+    if (saved) {
+      invoiceData.id = saved.id; // لضمان تحديث نفس الفاتورة لاحقاً بدل تكرارها عند المراجعة
+
+      await sb.from('orders').update({
+        status:         'awaiting_payment',
+        invoice_id:     saved.id,
+        invoice_number: saved.invoice_number || saved.invoiceNumber || '',
+        invoice_amount: saved.total || 0,
+        updated_at:     new Date().toISOString()
+      }).eq('id', order.id);
+
+      allOrders[orderIndex].status        = 'awaiting_payment';
+      allOrders[orderIndex].invoiceId     = saved.id;
+      allOrders[orderIndex].invoiceNumber = saved.invoice_number || saved.invoiceNumber;
+      allOrders[orderIndex].invoiceAmount = saved.total;
+
+      if (invoiceData.customerId) {
+        sb.from('notifications').insert([{
+          user_id: invoiceData.customerId,
+          message: '📄 تم إصدار فاتورة جديدة رقم ' + (saved.invoice_number || saved.invoiceNumber) +
+                    ' بمبلغ ' + parseFloat(saved.total).toFixed(2) + ' ل.س لخدمة ' + order.service,
+          type: 'new_invoice',
+          is_read: false
+        }]).then(({ error }) => { if (error) console.error('invoice notif error:', error); }).catch(()=>{});
+        invoiceData._notifiedCustomer = true;
+      }
+    }
+
+    // أظهر نافذة المراجعة (لتعديل السعر إن رغب الموظف) - الفاتورة محفوظة بالفعل الآن
     showInvoiceForReview(invoiceData, order, user);
     renderOrdersList();
-    showAlert('✅ تم إنهاء الخدمة - راجع الفاتورة قبل الإرسال', 'success', 4000);
+    if (saved) {
+      showAlert('✅ تم إنهاء الخدمة وإنشاء الفاتورة وإرسال إشعار للعميل', 'success', 4000);
+    } else {
+      showAlert('⚠️ تم إنهاء الخدمة، لكن تعذر حفظ الفاتورة تلقائياً - راجعها واضغط "إرسال الفاتورة" يدوياً', 'warning', 6000);
+    }
     return;
   }
 
@@ -4172,6 +4209,21 @@ async function sendInvoiceToClientWithPayment() {
 
   const invNum = saved.invoice_number || saved.invoiceNumber || '';
   const custName = saved.customer_name || saved.customerName || '';
+
+  // إرسال إشعار للعميل - فقط إذا لم يُرسَل له إشعار بهذه الفاتورة مسبقاً
+  // (لتفادي التكرار مع مسار "إتمام الطلب" الذي يُشعر العميل تلقائياً عند الحفظ الأول)
+  if (!window.currentInvoiceData?._notifiedCustomer) {
+    const custId = parseInt(saved.customer_id || saved.customerId, 10);
+    if (custId) {
+      sb.from('notifications').insert([{
+        user_id: custId,
+        message: '📄 تم إصدار فاتورة جديدة رقم ' + invNum + ' بمبلغ ' + parseFloat(saved.total || 0).toFixed(2) + ' ل.س',
+        type: 'new_invoice',
+        is_read: false
+      }]).then(({ error }) => { if (error) console.error('invoice notif error:', error); }).catch(()=>{});
+    }
+  }
+
   showAlert(`✅ تم إرسال الفاتورة ${invNum} للعميل ${custName} بنجاح!`, 'success', 5000);
   closeInvoiceReview();
   loadAdminData();
