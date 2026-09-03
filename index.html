@@ -4780,10 +4780,6 @@ async function showOrderDetails(orderId) {
           </div>
         </div>
 
-        <button onclick="showAssignTechToOrder('${order.id}')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;">
-          <i class="fas fa-hard-hat"></i> ${order.tech_name ? 'تغيير الفني المعيّن' : 'تعيين فني'}
-        </button>
-
         <div style="display:flex;gap:10px;">
           <button onclick="updateOrderStatus('${order.id}','completed');closeModal()" style="flex:2;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-check"></i> إتمام الطلب وإنشاء فاتورة</button>
           <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
@@ -4791,74 +4787,6 @@ async function showOrderDetails(orderId) {
       </div>
     </div>`;
   showModal(modal);
-}
-
-// ===== تعيين فني لطلب محدد مباشرة من لوحة الإدارة =====
-async function showAssignTechToOrder(orderId) {
-  const { data: techs, error } = await sb.from('technicians').select('id,name,phone,governorate,is_active').eq('is_active', true).order('name', { ascending: true });
-  if (error) { showAlert('تعذر جلب قائمة الفنيين: ' + error.message, 'error'); return; }
-  if (!techs || !techs.length) { showAlert('لا يوجد فنيون نشطون حالياً - عيّن فنياً أولاً من إدارة المستخدمين', 'warning', 5000); return; }
-
-  showModal(`
-    <div style="padding:0;max-width:460px;width:100%;">
-      <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
-        <h3 style="margin:0;"><i class="fas fa-hard-hat"></i> تعيين فني للطلب #${orderId}</h3>
-      </div>
-      <div style="background:white;padding:20px;max-height:60vh;overflow-y:auto;">
-        ${techs.map(t => `
-          <button onclick="confirmAssignTechToOrder('${orderId}',${t.id},'${(t.name||'').replace(/'/g,"")}','${t.phone||''}')"
-            style="width:100%;text-align:right;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 16px;margin-bottom:8px;cursor:pointer;font-family:inherit;">
-            <span>
-              <strong style="display:block;color:var(--dark);">${t.name}</strong>
-              <span style="font-size:0.8rem;color:var(--gray);">${t.governorate || 'كل المحافظات'} ${t.phone ? '· ' + t.phone : ''}</span>
-            </span>
-            <i class="fas fa-chevron-left" style="color:var(--gray);"></i>
-          </button>
-        `).join('')}
-        <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;margin-top:8px;">إلغاء</button>
-      </div>
-    </div>
-  `);
-}
-
-async function confirmAssignTechToOrder(orderId, techId, techName, techPhone) {
-  try {
-    const { error } = await sb.from('orders').update({
-      tech_id: techId,
-      tech_name: techName,
-      tech_phone: techPhone || '',
-      accepted_by_tech: techId,
-      tech_accepted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }).eq('id', orderId);
-    if (error) throw error;
-
-    const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
-    if (idx !== -1) {
-      allOrders[idx].tech_id = techId;
-      allOrders[idx].tech_name = techName;
-      allOrders[idx].tech_phone = techPhone || '';
-      allOrders[idx].accepted_by_tech = techId;
-    }
-
-    // إشعار العميل بتعيين الفني (يستخدم نفس مسار الإشعارات الموجود والمُختبر)
-    const order = allOrders[idx];
-    const custId = parseInt(order?.user_id || order?.userId, 10);
-    if (custId) {
-      sb.from('notifications').insert([{
-        user_id: custId,
-        message: '🔧 تم تعيين الفني ' + techName + ' لطلبك: ' + (order?.service || ''),
-        type: 'order_update',
-        is_read: false
-      }]).catch(()=>{});
-    }
-
-    closeModal();
-    renderOrdersList();
-    showAlert('✅ تم تعيين الفني ' + techName + ' للطلب بنجاح', 'success', 4000);
-  } catch (e) {
-    showAlert('خطأ في تعيين الفني: ' + e.message, 'error');
-  }
 }
 
 // (دالة verifyReceipt الموحّدة معرّفة أعلاه مع إشعار العميل عند تأكيد/رفض الدفع)
