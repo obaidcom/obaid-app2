@@ -1562,6 +1562,14 @@ async function showComplaintsPanel() {
     .select('*').order('created_at', { ascending: false }).limit(50);
   const list = complaints || [];
 
+  // جلب أسماء الفنيين المرتبطين بالشكاوى لعرضها
+  const techIds = [...new Set(list.map(c => c.tech_id).filter(Boolean))];
+  let techMap = {};
+  if (techIds.length) {
+    const { data: techs } = await sb.from('technicians').select('id,name').in('id', techIds);
+    (techs || []).forEach(t => { techMap[t.id] = t.name; });
+  }
+
   const statusColor = { pending:'#f59e0b', reviewing:'#3b82f6', resolved:'#10b981', rejected:'#ef4444' };
   const statusLabel = { pending:'جديدة', reviewing:'قيد المراجعة', resolved:'محلولة', rejected:'مرفوضة' };
 
@@ -1578,14 +1586,14 @@ async function showComplaintsPanel() {
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
               <div>
                 <div style="font-weight:700;color:var(--dark);">${c.subject}</div>
-                <div style="font-size:0.82rem;color:var(--gray);">طلب #${c.order_id||'—'} • ${new Date(c.created_at).toLocaleDateString('ar-SA')}</div>
+                <div style="font-size:0.82rem;color:var(--gray);">طلب #${c.order_id||'—'} ${c.tech_id ? '• الفني: ' + (techMap[c.tech_id] || '#'+c.tech_id) : ''} • ${new Date(c.created_at).toLocaleDateString('ar-SA')}</div>
               </div>
               <span style="background:${statusColor[c.status]||'#e2e8f0'};color:white;padding:3px 10px;border-radius:50px;font-size:0.78rem;font-weight:700;">${statusLabel[c.status]||c.status}</span>
             </div>
             <p style="color:var(--gray);font-size:0.88rem;margin:0 0 12px;background:#f8fafc;padding:10px;border-radius:8px;">${c.message}</p>
             ${c.admin_reply ? `<div style="background:#f0fdf4;padding:10px;border-radius:8px;margin-bottom:10px;"><span style="font-size:0.82rem;font-weight:600;color:#065f46;"><i class="fas fa-reply"></i> ردك: </span><span style="font-size:0.85rem;color:#047857;">${c.admin_reply}</span></div>` : ''}
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button onclick="replyToComplaint(${c.id})" style="background:#3b82f6;color:white;border:none;padding:7px 16px;border-radius:50px;cursor:pointer;font-size:0.82rem;font-family:inherit;">
+              <button onclick="showReplyToComplaintForm(${c.id},'${(c.subject||'').replace(/'/g,"")}')" style="background:#3b82f6;color:white;border:none;padding:7px 16px;border-radius:50px;cursor:pointer;font-size:0.82rem;font-family:inherit;">
                 <i class="fas fa-reply"></i> رد
               </button>
               <button onclick="updateComplaintStatus(${c.id},'resolved')" style="background:#10b981;color:white;border:none;padding:7px 16px;border-radius:50px;cursor:pointer;font-size:0.82rem;font-family:inherit;">
@@ -1603,9 +1611,28 @@ async function showComplaintsPanel() {
   `);
 }
 
+// ===== إصلاح: نافذة رد فعلية بدل prompt() الذي لا يعمل داخل تطبيق أندرويد =====
+function showReplyToComplaintForm(complaintId, subject) {
+  showModal(`
+    <div style="padding:0;max-width:460px;width:100%;">
+      <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-reply"></i> الرد على الشكوى</h3>
+        <p style="margin:6px 0 0;opacity:0.85;font-size:0.88rem;">${subject}</p>
+      </div>
+      <div style="background:white;padding:20px;">
+        <textarea id="complaintReplyText" class="form-control" rows="4" placeholder="اكتب ردك هنا..." autofocus></textarea>
+        <div style="display:flex;gap:10px;margin-top:15px;">
+          <button onclick="replyToComplaint(${complaintId})" style="flex:2;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-paper-plane"></i> إرسال الرد</button>
+          <button onclick="closeModal();showComplaintsPanel()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
 async function replyToComplaint(complaintId) {
-  const reply = prompt('اكتب ردك على الشكوى:');
-  if (!reply?.trim()) return;
+  const reply = document.getElementById('complaintReplyText')?.value?.trim();
+  if (!reply) { showAlert('اكتب نص الرد أولاً', 'error'); return; }
   // جلب بيانات الشكوى
   const { data: comp } = await sb.from('complaints').select('user_id,subject').eq('id', complaintId).single();
   await sb.from('complaints').update({ admin_reply: reply, status: 'resolved', updated_at: new Date().toISOString() }).eq('id', complaintId);
@@ -2577,6 +2604,10 @@ function restoreSession() {
         currentUser = u;
         _showUserHome(u);
         if (typeof syncPushToken === 'function') syncPushToken();
+        // إعادة تحقق صامتة من الدور الفعلي في قاعدة البيانات: لو تغيّر منذ آخر
+        // تسجيل دخول (مثلاً صار فنياً أو أدمن)، ينتقل للوحته الصحيحة تلقائياً
+        // دون الحاجة لتسجيل خروج ثم دخول يدوياً
+        revalidateRoleInBackground(u);
         return;
       }
       localStorage.removeItem('obied_current_user');
@@ -2586,6 +2617,18 @@ function restoreSession() {
   } catch(e) {
     _showWelcome();
   }
+}
+
+// يتحقق بصمت من دور المستخدم الحقيقي في قاعدة البيانات، ويعيد توجيهه للوحته
+// الصحيحة تلقائياً إذا تغيّر دوره منذ آخر تسجيل دخول (بدون أي تأثير إن لم يتغيّر)
+async function revalidateRoleInBackground(u) {
+  try {
+    const freshRole = await resolveUserRole(u);
+    const cachedRole = u.role || 'user';
+    if (freshRole && freshRole !== cachedRole && (freshRole === 'technician' || freshRole === 'admin')) {
+      await applyRoleAndRoute(u, freshRole);
+    }
+  } catch(e) {}
 }
 
 function _showTechPanel() {
@@ -2707,7 +2750,7 @@ async function loadUserData(userId) {
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
   try {
     const [oRes, iRes] = await Promise.all([
-      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,tech_id,tech_name,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
+      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
       sb.from('invoices').select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
@@ -2779,7 +2822,6 @@ async function submitComplaint(orderId) {
   }]);
 
   if (error) { showAlert('خطأ في إرسال الشكوى', 'error'); return; }
-  // إشعار للأدمن (تحديث إحصائيات الشكاوى)
   // إشعار للمستخدم نفسه بإرسال الشكوى بنجاح
   if (currentUser) {
     sb.from('notifications').insert([{
@@ -2789,17 +2831,102 @@ async function submitComplaint(orderId) {
       is_read: false
     }]).catch(()=>{});
   }
-  // إشعار للمستخدم بأن شكواه وصلت
-  if (currentUser) {
-    sb.from('notifications').insert([{
-      user_id: parseInt(currentUser.id,10),
-      message: 'تم استلام شكواك "' + subject + '". سنراجعها ونرد خلال 24 ساعة.',
-      type: 'complaint_sent',
-      is_read: false
-    }]).catch(()=>{});
-  }
   closeModal();
   showAlert('✅ تم إرسال شكواك، ستتم المراجعة خلال 24 ساعة', 'success', 5000);
+}
+
+// ===== نظام تقييم الفني =====
+function showRateTechForm(orderId, techId, techName) {
+  showModal(`
+    <div style="padding:0;max-width:420px;width:100%;">
+      <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <h3 style="margin:0;"><i class="fas fa-star"></i> تقييم الفني</h3>
+        <p style="margin:6px 0 0;opacity:0.9;">${techName}</p>
+      </div>
+      <div style="background:white;padding:25px;text-align:center;">
+        <div id="starPicker" style="font-size:2.5rem;color:#e2e8f0;margin-bottom:20px;letter-spacing:6px;">
+          ${[1,2,3,4,5].map(n => `<i class="fas fa-star" data-star="${n}" onclick="setStarRating(${n})" style="cursor:pointer;transition:color 0.15s;"></i>`).join('')}
+        </div>
+        <textarea id="ratingComment" class="form-control" rows="3" placeholder="تعليق اختياري عن تجربتك..." style="margin-bottom:15px;"></textarea>
+        <div style="display:flex;gap:10px;">
+          <button onclick="submitTechRating('${orderId}','${techId}')" style="flex:2;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-paper-plane"></i> إرسال التقييم</button>
+          <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  `);
+  window._selectedStars = 0;
+}
+
+function setStarRating(n) {
+  window._selectedStars = n;
+  document.querySelectorAll('#starPicker i').forEach(star => {
+    star.style.color = parseInt(star.dataset.star, 10) <= n ? '#fbbf24' : '#e2e8f0';
+  });
+}
+
+async function submitTechRating(orderId, techId) {
+  const stars = window._selectedStars || 0;
+  if (!stars) { showAlert('اختر عدد النجوم أولاً', 'error'); return; }
+  if (!currentUser) return;
+  const comment = document.getElementById('ratingComment')?.value?.trim() || '';
+  try {
+    const { error } = await sb.from('ratings').upsert({
+      order_id: parseInt(orderId, 10),
+      tech_id:  techId ? parseInt(techId, 10) : null,
+      user_id:  parseInt(currentUser.id, 10),
+      stars,
+      comment,
+      created_at: new Date().toISOString()
+    }, { onConflict: 'order_id' });
+    if (error) throw error;
+    closeModal();
+    showAlert('✅ شكرًا لتقييمك!', 'success', 3000);
+  } catch (e) {
+    showAlert('تعذر حفظ التقييم: ' + e.message, 'error', 6000);
+  }
+}
+
+// ===== ملف الفني (يظهر للعميل): التقييم + عدد الطلبات المنجزة =====
+async function showTechProfile(techId, techName, techPhone) {
+  if (!techId) { showAlert('بيانات الفني غير مكتملة', 'warning'); return; }
+  showModal(`<div style="padding:60px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:var(--primary);"></i></div>`);
+  let completedCount = 0, avgRating = 0, ratingCount = 0;
+  try {
+    const [{ count: cCount }, { data: ratingsData }] = await Promise.all([
+      sb.from('orders').select('id', { count: 'exact', head: true }).eq('tech_id', techId).eq('status', 'completed'),
+      sb.from('ratings').select('stars').eq('tech_id', techId)
+    ]);
+    completedCount = cCount || 0;
+    ratingCount = ratingsData?.length || 0;
+    avgRating = ratingCount ? (ratingsData.reduce((s, r) => s + (r.stars || 0), 0) / ratingCount) : 0;
+  } catch (e) {}
+
+  const fullStars = Math.round(avgRating);
+  const starsHtml = [1,2,3,4,5].map(n => `<i class="fas fa-star" style="color:${n<=fullStars?'#fbbf24':'#e2e8f0'};"></i>`).join('');
+
+  showModal(`
+    <div style="padding:0;max-width:420px;width:100%;">
+      <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;padding:30px 25px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <div style="width:70px;height:70px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+          <i class="fas fa-hard-hat" style="font-size:2rem;"></i>
+        </div>
+        <h3 style="margin:0;">${techName || 'الفني'}</h3>
+      </div>
+      <div style="background:white;padding:25px;text-align:center;">
+        <div style="font-size:1.3rem;margin-bottom:6px;">${starsHtml}</div>
+        <p style="color:var(--gray);font-size:0.85rem;margin:0 0 20px;">${ratingCount ? avgRating.toFixed(1) + ' من 5 (' + ratingCount + ' تقييم)' : 'لا توجد تقييمات بعد'}</p>
+        <div style="display:flex;justify-content:center;gap:30px;margin-bottom:20px;">
+          <div>
+            <div style="font-size:1.6rem;font-weight:800;color:var(--primary);">${completedCount}</div>
+            <div style="font-size:0.78rem;color:var(--gray);">طلب مُنجز</div>
+          </div>
+        </div>
+        ${techPhone ? `<button onclick="window.open('tel:${techPhone}')" style="width:100%;background:#10b981;color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;margin-bottom:10px;"><i class="fas fa-phone"></i> اتصال بالفني</button>` : ''}
+        <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+      </div>
+    </div>
+  `);
 }
 
 async function checkUserNotifications(uid) {
@@ -4011,40 +4138,12 @@ async function updateOrderStatus(orderId, newStatus) {
     invoiceData.tax   = invoiceData.basePrice * 0.15;
     invoiceData.total = invoiceData.basePrice + invoiceData.tax;
 
-    // ===== إصلاح: حفظ الفاتورة فعلياً في قاعدة البيانات فوراً، ربطها بالطلب
-    // والعميل الصحيحين، وإرسال إشعار حقيقي للعميل - بدل الانتظار لخطوة يدوية
-    // لاحقة قد لا تحدث. نافذة المراجعة تبقى متاحة بعدها لتعديل السعر إن رغب
-    // الموظف، لكن وجود الفاتورة ووصولها للعميل لم يعد يعتمد عليها. =====
-    const saved = await saveInvoice(invoiceData);
-    if (saved) {
-      invoiceData.id = saved.id; // لضمان تحديث نفس الفاتورة لاحقاً بدل تكرارها عند المراجعة
-
-      await sb.from('orders').update({
-        status:         'awaiting_payment',
-        invoice_id:     saved.id,
-        invoice_number: saved.invoice_number || saved.invoiceNumber || '',
-        invoice_amount: saved.total || 0,
-        updated_at:     new Date().toISOString()
-      }).eq('id', order.id);
-
-      allOrders[orderIndex].status        = 'awaiting_payment';
-      allOrders[orderIndex].invoiceId     = saved.id;
-      allOrders[orderIndex].invoiceNumber = saved.invoice_number || saved.invoiceNumber;
-      allOrders[orderIndex].invoiceAmount = saved.total;
-
-      // ملاحظة: لا يُرسل إشعار للعميل هنا عمداً - الفاتورة محفوظة كمسودة فقط.
-      // الإشعار الفعلي يُرسل حصراً عند ضغط "إرسال الفاتورة" في نافذة المراجعة
-      // (دالة sendInvoiceToClientWithPayment) بعد تعديل السعر إن رغب الموظف.
-    }
-
-    // أظهر نافذة المراجعة (لتعديل السعر قبل الإرسال) - الفاتورة محفوظة بالفعل كمسودة
+    // الفاتورة تُبنى هنا في الذاكرة فقط للعرض والتعديل - لا يتم حفظها في
+    // قاعدة البيانات ولا إشعار العميل بها إلا عند ضغط "إرسال الفاتورة" يدوياً
+    // بعد أن يكتب/يعدّل الموظف السعر بنفسه في نافذة المراجعة التالية.
     showInvoiceForReview(invoiceData, order, user);
     renderOrdersList();
-    if (saved) {
-      showAlert('✅ تم إنهاء الخدمة وحفظ الفاتورة - راجعها واضغط "إرسال الفاتورة" لإشعار العميل', 'success', 5000);
-    } else {
-      showAlert('⚠️ تم إنهاء الخدمة، لكن تعذر حفظ الفاتورة تلقائياً - راجعها واضغط "إرسال الفاتورة" يدوياً', 'warning', 6000);
-    }
+    showAlert('✅ تم إنهاء الخدمة - اكتب السعر وراجع الفاتورة ثم اضغط "إرسال الفاتورة"', 'success', 5000);
     return;
   }
 
@@ -4963,16 +5062,18 @@ async function loadTechOrders() {
 
     // الفني يرى فقط طلبات محافظته أو المعينة له
     if (currentTechnician?.id && !perms.allGovernorates) {
-      // طلبات محافظته: المتاحة (استلام/مقبولة) أو التي قبلها هو بنفسه
       if (currentTechnician.governorate) {
         // يرى: طلبات محافظته المتاحة (لم يعيّن لها فني بعد) + كل طلباته الخاصة بأي حالة
         query = query.or(
-          `and(governorate.eq.${currentTechnician.governorate},accepted_by_tech.is.null,status.in.(pending,accepted)),` +
+          `and(governorate.eq.${currentTechnician.governorate},accepted_by_tech.is.null,status.eq.pending),` +
           `accepted_by_tech.eq.${currentTechnician.id}`
         );
       } else {
-        // بدون محافظة: فقط طلباته المقبولة
-        query = query.eq('accepted_by_tech', currentTechnician.id);
+        // لا توجد محافظة محددة له: يرى كل الطلبات المتاحة (بدل إخفائها بالكامل) + طلباته الخاصة
+        query = query.or(
+          `and(accepted_by_tech.is.null,status.eq.pending),` +
+          `accepted_by_tech.eq.${currentTechnician.id}`
+        );
       }
     }
 
@@ -5208,7 +5309,20 @@ function renderProfileTracking() {
           <div class="step-label">${st.label}</div>
         </div>`;
       }).join('')}
-    </div>`;
+    </div>
+    ${hasTech ? `
+    <div onclick="showTechProfile('${active.tech_id||''}','${(active.tech_name||'').replace(/'/g,"")}','${active.tech_phone||''}')" style="cursor:pointer;margin-top:1.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:42px;height:42px;background:linear-gradient(135deg,#10b981,#059669);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="fas fa-hard-hat" style="color:white;"></i>
+        </div>
+        <div>
+          <div style="font-size:0.78rem;color:var(--gray);">الفني المسؤول عن طلبك (اضغط لعرض الملف)</div>
+          <div style="font-weight:800;color:var(--dark);">${active.tech_name || 'فني'}</div>
+        </div>
+      </div>
+      ${active.tech_phone ? `<button onclick="event.stopPropagation();window.open('tel:${active.tech_phone}')" style="background:#10b981;color:white;border:none;padding:10px 18px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;font-size:0.85rem;"><i class="fas fa-phone"></i> ${active.tech_phone}</button>` : ''}
+    </div>` : ''}`;
 }
 
 function renderProfileHistory() {
@@ -5229,6 +5343,7 @@ function renderProfileHistory() {
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="background:${color}1a;color:${color};padding:5px 12px;border-radius:50px;font-size:0.78rem;font-weight:700;">${getStatusText(o.status)}</span>
+        ${o.status === 'completed' && (o.tech_id || o.tech_name) ? `<button onclick="showRateTechForm('${o.id}','${o.tech_id||''}','${(o.tech_name||'الفني').replace(/'/g,"")}')" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;padding:5px 12px;border-radius:50px;font-size:0.78rem;cursor:pointer;font-family:inherit;"><i class="fas fa-star"></i> قيّم الفني</button>` : ''}
         ${o.status === 'completed' ? `<button onclick="showComplaintForm('${o.id}','${(o.service||'').replace(/'/g,"")}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:5px 12px;border-radius:50px;font-size:0.78rem;cursor:pointer;font-family:inherit;"><i class="fas fa-exclamation-circle"></i> شكوى</button>` : ''}
       </div>
     </div>`;
