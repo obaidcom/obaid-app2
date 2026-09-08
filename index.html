@@ -3269,26 +3269,40 @@ function buildSlider() {
   dotsContainer.innerHTML = '';
 
   CURRENT_SLIDES.forEach((slide, index) => {
+    // توحيد أسماء الحقول: لوحة الإدارة العادية تستخدم (img/bg/desc/btn)
+    // ولوحة AI تستخدم (image/background/description/buttonText) - ندعم الاثنين
+    const img         = slide.image || slide.img || '';
+    const background  = slide.background || slide.bg || 'linear-gradient(135deg,#1e3a8a,#3b82f6)';
+    const description = slide.description || slide.desc || '';
+    const buttonText  = slide.buttonText || slide.btn || 'احجز الآن';
+    // لون/شفافية التراكب فوق الصورة - قابل للتخصيص لكل سلايد
+    const overlayColor   = slide.overlayColor   || 'rgba(15,23,42,0.4)';
+    const overlayGradient= slide.overlayGradient|| 'linear-gradient(0deg, rgba(15,23,42,0.75) 0%, rgba(15,23,42,0.25) 55%, rgba(15,23,42,0.05) 100%)';
+
     const slideEl = document.createElement('div');
     slideEl.className = 'slide' + (index === 0 ? ' active' : '');
 
-    if (slide.type === 'image' && slide.image) {
-      slideEl.style.backgroundImage = `url('${slide.image}')`;
+    let contentBg;
+    if (img) {
+      slideEl.style.backgroundImage = `url('${img}')`;
       slideEl.style.backgroundSize = 'cover';
       slideEl.style.backgroundPosition = 'center';
-      // overlay داكن على الصورة
-      slideEl.innerHTML = `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);border-radius:inherit;"></div>`;
+      // تراكب خفيف يحافظ على وضوح الصورة بدل حجبها بالكامل
+      slideEl.innerHTML = `<div style="position:absolute;inset:0;background:${overlayColor};border-radius:inherit;"></div>`;
+      contentBg = overlayGradient;
     } else {
-      slideEl.style.background = slide.background || 'linear-gradient(135deg,#1e3a8a,#3b82f6)';
+      slideEl.style.background = background;
+      contentBg = 'transparent';
     }
 
     const content = document.createElement('div');
     content.className = 'slide-content';
+    content.style.background = contentBg;
     content.innerHTML = `
       ${slide.icon ? `<h2><i class="fas ${slide.icon}"></i> ${slide.title||''}</h2>` : `<h2>${slide.title||''}</h2>`}
-      <p>${slide.description||''}</p>
+      <p>${description}</p>
       <button class="btn-primary" onclick="scrollToSection('booking')" style="width:auto;max-width:250px;">
-        <i class="fas fa-calendar-alt"></i> ${slide.buttonText||'احجز الآن'}
+        <i class="fas fa-calendar-alt"></i> ${buttonText}
       </button>`;
     slideEl.appendChild(content);
     container.appendChild(slideEl);
@@ -3702,6 +3716,14 @@ function renderSliderModal() {
             ${s.img ? `<span style="font-size:0.78rem;color:#10b981;"><i class="fas fa-check"></i> صورة مرفوعة</span>` : ''}
           </div>
         </div>
+        ${s.img ? `
+        <div>
+          <label style="font-size:0.78rem;color:var(--gray);display:block;margin-bottom:3px;">شفافية التراكب الداكن فوق الصورة (0 = صورة واضحة تمامًا، 1 = داكنة بالكامل)</label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="range" min="0" max="0.8" step="0.05" value="${_overlayOpacity(s.overlayColor)}" oninput="updateSlideOverlay(${i}, this.value)" style="flex:1;">
+            <span id="overlayVal-${i}" style="font-size:0.8rem;color:var(--gray);min-width:32px;">${_overlayOpacity(s.overlayColor)}</span>
+          </div>
+        </div>` : ''}
       </div>
     </div>
   `).join('');
@@ -3734,6 +3756,20 @@ function renderSliderModal() {
 
 function updateSlide(index, field, value) {
   sliderData[index][field] = value;
+}
+
+function _overlayOpacity(overlayColor) {
+  if (!overlayColor) return 0.4;
+  const m = overlayColor.match(/[\d.]+\)$/);
+  return m ? parseFloat(m[0]) : 0.4;
+}
+
+function updateSlideOverlay(index, value) {
+  const v = parseFloat(value);
+  sliderData[index].overlayColor = `rgba(15,23,42,${v})`;
+  sliderData[index].overlayGradient = `linear-gradient(0deg, rgba(15,23,42,${Math.min(v+0.35,0.9)}) 0%, rgba(15,23,42,${Math.min(v+0.1,0.6)}) 55%, rgba(15,23,42,${Math.max(v-0.2,0)}) 100%)`;
+  const label = document.getElementById('overlayVal-' + index);
+  if (label) label.textContent = v;
 }
 
 function deleteSlide(index) {
