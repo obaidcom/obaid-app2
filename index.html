@@ -686,6 +686,7 @@
           <span id="techDashTitle">لوحة الفني</span>
         </div>
         <div class="admin-controls">
+          <button class="admin-btn" onclick="showTechBarcodeManagement()" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);"><i class="fas fa-qrcode"></i> باركودي</button>
           <button class="admin-btn" onclick="refreshTechOrders()"><i class="fas fa-sync-alt" id="techRefreshIcon"></i> تحديث</button>
           <button class="admin-btn logout-btn" onclick="logoutTech()"><i class="fas fa-sign-out-alt"></i> خروج</button>
         </div>
@@ -846,15 +847,10 @@
 
 <script>
 // ======== نظام الإدارة المتكامل ========
-const ADMIN_CONFIG = {
-  // البريد الإلكتروني الثابت للأدمن الرئيسي
-  superAdminEmail: "gomaaobaid4@gmail.com",
-  superAdminPassword: "admin123",
-  // يمكن إضافة أدمن إضافيين من هنا
-  admins: [
-    { email: "gomaaobaid4@gmail.com", password: "admin123", name: "الأدمن الرئيسي" }
-  ]
-};
+// ملاحظة أمنية: تم حذف بيانات دخول ثابتة كانت هنا سابقاً (بريد وكلمة مرور
+// الأدمن الرئيسي بنص صريح) لأنها كانت مقروءة لأي شخص يفتح ملفات التطبيق.
+// صلاحية الأدمن الآن تعتمد حصراً على عمود role='admin' في جدول users
+// بقاعدة البيانات، ولا يوجد أي "مفتاح رئيسي" مضمّن داخل الكود بعد الآن.
 
 // ===== نظام الفنيين =====
 let currentTechnician = null;
@@ -1352,10 +1348,6 @@ async function handleBooking(e) {
 // يحاول جلب دور المستخدم من عمود role في جدول users بأمان تام:
 // إذا كان العمود غير موجود بعد في القاعدة، يتم تجاهل الخطأ والعودة إلى القيمة الافتراضية 'user'
 async function resolveUserRole(userRow) {
-  // الأدمن الرئيسي الثابت يبقى أدمن دائماً بغض النظر عن قاعدة البيانات
-  if (ADMIN_CONFIG.admins.some(a => a.email.toLowerCase() === (userRow.email||'').toLowerCase())) {
-    return 'admin';
-  }
   try {
     const { data: roleRow, error } = await sb.from('users').select('role').eq('id', userRow.id).maybeSingle();
     if (!error && roleRow && roleRow.role) return roleRow.role;
@@ -1482,15 +1474,6 @@ function setupEventListeners() {
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ التحقق...'; }
 
-    const isSuperAdmin = ADMIN_CONFIG.admins.some(a => a.email.toLowerCase() === email && a.password === password);
-    if (isSuperAdmin) {
-      currentAdmin = { email, name: 'الأدمن الرئيسي', role: 'super_admin', loginTime: new Date().toISOString() };
-      localStorage.setItem('obied_admin', JSON.stringify(currentAdmin));
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
-      showAdminDashboard();
-      showAlert('مرحباً بك في لوحة التحكم 👋', 'success', 3000);
-      return;
-    }
     try {
       const { data: adminData } = await sb.from('admins')
         .select('*').eq('email', email).eq('password', password).eq('is_active', true).maybeSingle();
@@ -2814,7 +2797,7 @@ async function loadUserData(userId) {
   try {
     const [oRes, iRes] = await Promise.all([
       sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
-      sb.from('invoices').select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
     if (iRes.error) throw iRes.error;
@@ -3049,6 +3032,7 @@ function normalizeInvoices(arr) {
     invoiceNumber:       inv.invoice_number   || inv.invoiceNumber   || '',
     customerId:          parseInt(inv.customer_id || inv.customerId, 10) || null,
     orderId:             parseInt(inv.order_id    || inv.orderId,    10) || null,
+    techId:              inv.tech_id || inv.techId || null,
     basePrice:           parseFloat(inv.base_price  || inv.basePrice  || 0),
     tax:                 parseFloat(inv.tax || 0),
     total:               parseFloat(inv.total || 0),
@@ -3935,9 +3919,14 @@ async function payInvoice(invoiceId) {
   if (invoice.status === 'pending_verification') { showAlert('هذه الفاتورة قيد المراجعة بالفعل', 'warning'); return; }
   if (invoice.status === 'paid') { showAlert('هذه الفاتورة مدفوعة بالفعل', 'warning'); return; }
 
-  // ===== استخدام QR Code محلي بدلاً من الخارجي =====
-  const barcodeImage = currentBarcodeImage ||
-    generateLocalQRCode(`SHAMKASH:OBIED:${invoice.invoiceNumber}:${invoice.total}`, 300);
+  // ===== باركود خاص بالفني المسؤول عن الفاتورة إن وُجد، وإلا باركود الشركة =====
+  let barcodeImage = currentBarcodeImage || generateLocalQRCode(`SHAMKASH:OBIED:${invoice.invoiceNumber}:${invoice.total}`, 300);
+  if (invoice.techId || invoice.tech_id) {
+    try {
+      const { data: techRow } = await sb.from('technicians').select('barcode_image').eq('id', invoice.techId || invoice.tech_id).maybeSingle();
+      if (techRow?.barcode_image) barcodeImage = techRow.barcode_image;
+    } catch (e) {}
+  }
 
   showModal(`
     <div style="padding:0;max-width:620px;width:100%;max-height:95vh;overflow-y:auto;">
@@ -4584,7 +4573,7 @@ async function viewUserInvoice(invoiceId) {
   }
   if (!invoice) {
     try {
-      const { data } = await sb.from('invoices').select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at').eq('id', invoiceId).single();
+      const { data } = await sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at').eq('id', invoiceId).single();
       if (data) { invoice = normalizeInvoices([data])[0]; allInvoices.unshift(invoice); }
     } catch(e) {}
   }
@@ -4808,7 +4797,7 @@ async function loadAdminData() {
     // اجلب المستخدمين والفواتير في الخلفية بعد ما تظهر الطلبات
     const [uRes, iRes] = await Promise.all([
       sb.from('users').select('id,name,email,phone,created_at').order('created_at', { ascending: true }).limit(500),
-      sb.from('invoices').select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
     ]);
 
     allUsers    = (uRes.data || []).map(u => ({ ...u, profileImage: u.profile_image }));
@@ -5321,6 +5310,71 @@ function refreshTechOrders() {
     if (icon) icon.className = 'fas fa-sync-alt';
     showAlert('✅ تم التحديث', 'success', 1500);
   });
+}
+
+// ===== باركود دفع خاص بكل فني - مستقل تمامًا، محفوظ في سجله فقط =====
+async function showTechBarcodeManagement() {
+  if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني لإدارة باركودك', 'error'); return; }
+  let currentQr = currentTechnician.barcode_image || null;
+  try {
+    const { data } = await sb.from('technicians').select('barcode_image').eq('id', currentTechnician.id).maybeSingle();
+    if (data?.barcode_image) currentQr = data.barcode_image;
+  } catch (e) {}
+
+  showModal(`
+    <div style="padding:0;max-width:420px;width:100%;">
+      <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-qrcode"></i> باركود الدفع الخاص بي</h3>
+        <p style="margin:6px 0 0;opacity:0.85;font-size:0.85rem;">هذا الباركود يظهر للعميل فقط عند دفع فواتيرك أنت، ولا يتداخل مع أي فني آخر</p>
+      </div>
+      <div style="background:white;padding:20px;text-align:center;">
+        ${currentQr ? `<img src="${currentQr}" style="max-width:220px;width:100%;border:3px solid #8b5cf6;padding:8px;background:white;border-radius:12px;margin-bottom:15px;">` :
+          `<div style="padding:40px 20px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:12px;margin-bottom:15px;color:var(--gray);"><i class="fas fa-qrcode" style="font-size:2.5rem;opacity:0.4;display:block;margin-bottom:10px;"></i>لم ترفع باركودك الخاص بعد<br><small>سيُستخدم باركود الشركة الافتراضي حتى ترفع باركودك</small></div>`}
+        <input type="file" id="techBarcodeInput" accept="image/*" style="display:none;" onchange="uploadTechBarcode(this)">
+        <button onclick="document.getElementById('techBarcodeInput').click()" style="width:100%;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;margin-bottom:10px;">
+          <i class="fas fa-upload"></i> ${currentQr ? 'تغيير الباركود' : 'رفع باركودي الخاص'}
+        </button>
+        ${currentQr ? `<button onclick="removeTechBarcode()" style="width:100%;background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;margin-bottom:10px;"><i class="fas fa-trash"></i> حذف باركودي</button>` : ''}
+        <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+      </div>
+    </div>
+  `);
+}
+
+async function uploadTechBarcode(input) {
+  const file = input.files[0];
+  if (!file || !file.type.match('image.*')) { showAlert('يرجى اختيار صورة صالحة', 'error'); return; }
+  if (file.size > 5 * 1024 * 1024) { showAlert('حجم الصورة أكبر من 5MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = async function (e) {
+    try {
+      const compressed = await compressImage(e.target.result, 'barcodes');
+      const { error } = await sb.from('technicians').update({ barcode_image: compressed }).eq('id', currentTechnician.id);
+      if (error) throw error;
+      currentTechnician.barcode_image = compressed;
+      localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
+      showAlert('✅ تم حفظ باركودك الخاص - سيظهر للعملاء عند دفع فواتيرك فقط', 'success', 4000);
+      closeModal();
+      showTechBarcodeManagement();
+    } catch (err) {
+      showAlert('تعذر حفظ الباركود: ' + err.message, 'error', 6000);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function removeTechBarcode() {
+  if (!confirm('حذف باركودك الخاص؟ سيُستخدم باركود الشركة الافتراضي بدلاً منه.')) return;
+  try {
+    await sb.from('technicians').update({ barcode_image: null }).eq('id', currentTechnician.id);
+    currentTechnician.barcode_image = null;
+    localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
+    showAlert('تم حذف باركودك الخاص', 'success');
+    closeModal();
+    showTechBarcodeManagement();
+  } catch (e) {
+    showAlert('خطأ: ' + e.message, 'error');
+  }
 }
 
 function logoutTech() {
