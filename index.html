@@ -585,7 +585,12 @@
         </div>
         <form class="login-form active" id="loginForm">
           <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label><input type="email" id="loginEmail" class="form-control" placeholder="example@email.com" required oninput="checkAdminEmail(this.value)"></div>
-          <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور</label><input type="password" id="loginPassword" class="form-control" placeholder="********" required></div>
+          <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور</label>
+            <div style="position:relative;">
+              <input type="password" id="loginPassword" class="form-control" placeholder="********" required style="padding-left:45px;">
+              <button type="button" onclick="togglePasswordVisibility('loginPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;padding:5px;"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
           <button type="submit" class="btn-primary"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
           <div id="adminLoginHint" style="display:none;margin-top:12px;">
             <button type="button" onclick="goToAdminLogin()" style="width:100%;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.95rem;font-weight:700;">
@@ -909,6 +914,14 @@ let siteSettings = {
 
 // متغير عالمي للسلايدر
 let sliderData = null;
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) icon.className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+}
 // ===== الوضع الليلي =====
 function toggleDarkMode() {
   const isDark = document.body.classList.toggle('dark-mode');
@@ -1004,6 +1017,7 @@ function showLoginPage() {
   const lp = document.getElementById('loginPage');
   if (lp) lp.style.display = 'block';
   closeMenu();
+  setTimeout(() => document.getElementById('loginEmail')?.focus(), 200);
 }
 
 // يبدّل بين تبويبي "تسجيل الدخول" و"إنشاء حساب" داخل صفحة الدخول
@@ -1420,6 +1434,20 @@ async function handleBooking(e) {
         message: 'طلب جديد: ' + booking.service + ' في ' + booking.governorate,
         type: 'new_order', is_read: false
       }]).then(()=>{});
+
+      // إشعار حقيقي (Push) للفني - يصل حتى لو كان التطبيق مغلقاً، عبر نفس
+      // مسار notifications المربوط أصلاً بنظام Push للعملاء
+      sb.from('technicians').select('user_ref_id').eq('id', assignedTechId).maybeSingle()
+        .then(({ data: techRow }) => {
+          if (techRow?.user_ref_id) {
+            sb.from('notifications').insert([{
+              user_id: techRow.user_ref_id,
+              message: '🔔 طلب جديد: ' + booking.service + ' في ' + booking.governorate,
+              type: 'new_order',
+              is_read: false
+            }]).catch(()=>{});
+          }
+        }).catch(()=>{});
     }
 
     e.target.reset();
@@ -3187,7 +3215,7 @@ async function loadUserData(userId) {
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
   try {
     const [oRes, iRes] = await Promise.all([
-      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,photo,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
+      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
       sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
@@ -4570,6 +4598,16 @@ async function updateOrderStatus(orderId, newStatus) {
       type:     'order_confirmed',
       is_read:  false
     }]).then(() => {});
+    sb.from('technicians').select('user_ref_id').eq('id', order.tech_id).maybeSingle()
+      .then(({ data: techRow }) => {
+        if (techRow?.user_ref_id) {
+          sb.from('notifications').insert([{
+            user_id: techRow.user_ref_id,
+            message: '✅ تم تأكيد الطلب: ' + order.service,
+            type: 'order_confirmed', is_read: false
+          }]).catch(()=>{});
+        }
+      }).catch(()=>{});
   }
 
   allOrders[orderIndex].status = newStatus;
@@ -5588,7 +5626,7 @@ function showTechDashboard() {
 async function loadTechOrders() {
   try {
     let query = sb.from('orders')
-      .select('id,user_id,name,phone,service,date,time,status,governorate,photo,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
       .order('created_at', { ascending: false });
 
     const perms = currentTechnician?.permissions || {};
@@ -5703,6 +5741,7 @@ function renderTechOrders() {
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${o.status==='pending'&&!isOther?`<button onclick="techAcceptOrder('${o.id}')" style="flex:2;min-width:110px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-hand-paper"></i> قبول</button>`:''}
         ${o.status==='in-progress'&&isMine&&perms.updateStatus?`
+          ${!o.on_the_way_at ? `<button onclick="techOnTheWay('${o.id}')" style="flex:1;min-width:100px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-car"></i> في الطريق</button>` : `<div style="flex:1;min-width:100px;text-align:center;padding:10px;background:#eff6ff;border-radius:50px;color:#0284c7;font-size:0.8rem;font-weight:700;"><i class="fas fa-car"></i> في الطريق ✓</div>`}
           <button onclick="techUpdateStatus('${o.id}','completed')" style="flex:2;min-width:100px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-check-circle"></i> إنهاء</button>
           <button onclick="techCreateInvoice('${o.id}','${o.user_id||o.userId||''}','${(o.name||'').replace(/'/g,'')}','${o.phone||''}','${(o.service||'').replace(/'/g,'')}')" style="flex:1;min-width:80px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-file-invoice-dollar"></i> فاتورة</button>
         `:''}
@@ -6036,6 +6075,11 @@ function renderProfileTracking() {
   c.innerHTML = `
     <h4 style="margin-bottom:0.25rem;color:var(--dark);">${active.service || ''} <span style="color:var(--gray);font-size:0.85rem;">#${active.id}</span></h4>
     <p style="color:var(--gray);font-size:0.85rem;margin-bottom:1rem;">${active.date || ''}</p>
+    ${active.on_the_way_at && active.status === 'in-progress' ? `
+    <div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;padding:14px 18px;border-radius:14px;margin-bottom:1.2rem;display:flex;align-items:center;gap:12px;animation:pulse 2s infinite;">
+      <i class="fas fa-car" style="font-size:1.5rem;"></i>
+      <div><strong>الفني في الطريق إليك الآن!</strong><br><span style="font-size:0.8rem;opacity:0.9;">${active.tech_name||''}</span></div>
+    </div>` : ''}
     <div class="tracking-steps">
       ${ORDER_FLOW_STEPS.map(st => {
         let done, active_;
@@ -6307,6 +6351,30 @@ async function techAcceptOrder(orderId) {
     updateTechStats();
     showAlert('✅ تم قبول الطلب بنجاح', 'success');
   } catch (e) { showAlert('خطأ في قبول الطلب', 'error'); }
+}
+
+// ===== الفني في الطريق: مرحلة تتبع إضافية دون تغيير حالة الطلب الأساسية =====
+async function techOnTheWay(orderId) {
+  if (!currentTechnician?.id) return;
+  try {
+    const { error } = await sb.from('orders').update({ on_the_way_at: new Date().toISOString() }).eq('id', orderId);
+    if (error) throw error;
+    const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
+    if (idx !== -1) allOrders[idx].on_the_way_at = new Date().toISOString();
+    renderTechOrders();
+    // إشعار حقيقي (Push) للعميل بأن الفني في الطريق
+    const order = allOrders[idx];
+    if (order?.user_id) {
+      sb.from('notifications').insert([{
+        user_id: order.user_id,
+        message: '🚗 الفني ' + (currentTechnician.name||'') + ' في الطريق إليك الآن لخدمة: ' + order.service,
+        type: 'order_update', is_read: false
+      }]).catch(()=>{});
+    }
+    showAlert('✅ تم إعلام العميل أنك في الطريق', 'success');
+  } catch (e) {
+    showAlert('تعذر التحديث: ' + e.message, 'error');
+  }
 }
 
 // ----- الفني: إنشاء فاتورة (يعيد استخدام showInvoiceForReview الموجودة أصلاً) -----
