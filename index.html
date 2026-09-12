@@ -649,6 +649,7 @@
               <div onclick="weeklyCleanup();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-broom" style="color:#10b981;width:18px;"></i> تنظيف البيانات القديمة</div>
               <div onclick="sendDailyReminders();localStorage.removeItem('obied_last_reminder');closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-bell" style="color:#f59e0b;width:18px;"></i> الفواتير غير المدفوعة</div>
               <div onclick="showNotificationCenter();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-paper-plane" style="color:#3b82f6;width:18px;"></i> إرسال إشعارات الدفع</div>
+              <div onclick="showBroadcastNotification();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-bullhorn" style="color:#f59e0b;width:18px;"></i> إشعار عام للمستخدمين</div>
               <div onclick="showStats();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-bar" style="color:#8b5cf6;width:18px;"></i> الإحصائيات</div>
               <div onclick="showReceiptVerificationSection();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-receipt" style="color:#f59e0b;width:18px;"></i> التحقق من الإيصالات</div>
               <div onclick="showSliderManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-images" style="color:#3b82f6;width:18px;"></i> إدارة السلايدر</div>
@@ -715,7 +716,7 @@
           <button class="admin-btn" onclick="showTechReceiptsPanel()" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i class="fas fa-receipt"></i> إيصالات الدفع</button>
           <button class="admin-btn" onclick="showTechBarcodeManagement()" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);"><i class="fas fa-qrcode"></i> باركودي</button>
           <button class="admin-btn" onclick="refreshTechOrders()"><i class="fas fa-sync-alt" id="techRefreshIcon"></i> تحديث</button>
-          <button class="admin-btn logout-btn" onclick="logoutTech()"><i class="fas fa-sign-out-alt"></i> خروج</button>
+          <button class="admin-btn logout-btn" onclick="exitTechDashboard()"><i class="fas fa-arrow-right"></i> رجوع لحسابي</button>
         </div>
       </div>
     </div>
@@ -1521,13 +1522,17 @@ async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
     hideAllPages();
     showAdminDashboard();
     showAlert((isNewAccount ? '✅ تم إنشاء حسابك، مرحباً بك في لوحة التحكم 👋' : 'مرحباً بك في لوحة التحكم 👋'), 'success', 3000);
-  } else if (currentTechnician) {
-    showTechDashboard();
-    showAlert('مرحباً ' + userRow.name + '! 👷', 'success', 3000);
   } else {
+    // الفني (مثل الأدمن) يدخل لصفحة رئيسية عادية - خيار "لوحة الفني" يبقى
+    // ظاهرًا وثابتًا في القائمة المنسدلة (updateUIForLoggedInUser أعلاه) بدل
+    // توجيهه إجباريًا للوحته في كل مرة يسجّل فيها الدخول
     hideAllPages();
     showHome();
-    showAlert((isNewAccount ? '✅ تم إنشاء حسابك بنجاح، مرحباً ' : 'مرحباً ') + userRow.name + '! 👋', 'success', 4000);
+    if (currentTechnician) {
+      showAlert('مرحباً ' + userRow.name + '! 👷 لوحة الفني متاحة من القائمة', 'success', 4000);
+    } else {
+      showAlert((isNewAccount ? '✅ تم إنشاء حسابك بنجاح، مرحباً ' : 'مرحباً ') + userRow.name + '! 👋', 'success', 4000);
+    }
     if (typeof loadUserData === 'function') loadUserData(userRow.id);
     if (typeof startRealtimeForUser === 'function') startRealtimeForUser(userRow.id);
   }
@@ -2551,6 +2556,69 @@ async function sendMaintenanceReminders() {
   }
 }
 
+// ===== إشعار عام للمستخدمين (تحديث التطبيق، إعلانات، إلخ) =====
+function showBroadcastNotification() {
+  if (!currentAdmin) return;
+  showModal(`
+    <div style="padding:0;max-width:460px;width:100%;">
+      <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-bullhorn"></i> إشعار عام</h3>
+        <p style="margin:6px 0 0;opacity:0.85;font-size:0.85rem;">يصل لكل المستخدمين المختارين، حتى لو التطبيق مغلق</p>
+      </div>
+      <div style="background:white;padding:20px;">
+        <div class="form-group">
+          <label>إرسال إلى:</label>
+          <select id="broadcastTarget" class="form-control">
+            <option value="all">كل المستخدمين</option>
+            <option value="customers">العملاء فقط</option>
+            <option value="technicians">الفنيين فقط</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>نص الإشعار:</label>
+          <textarea id="broadcastMessage" class="form-control" rows="4" placeholder="مثال: تم تحديث التطبيق لإصدار جديد، يرجى التحديث للحصول على أحدث الميزات."></textarea>
+        </div>
+        <button onclick="sendBroadcastNotification()" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;margin-bottom:10px;">
+          <i class="fas fa-paper-plane"></i> إرسال للجميع
+        </button>
+        <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
+      </div>
+    </div>
+  `);
+}
+
+async function sendBroadcastNotification() {
+  const target  = document.getElementById('broadcastTarget')?.value || 'all';
+  const message = document.getElementById('broadcastMessage')?.value?.trim();
+  if (!message) { showAlert('اكتب نص الإشعار أولاً', 'error'); return; }
+  if (!confirm('سيتم إرسال هذا الإشعار لعدد كبير من المستخدمين. متابعة؟')) return;
+
+  try {
+    let query = sb.from('users').select('id');
+    if (target === 'customers') query = query.eq('role', 'user');
+    if (target === 'technicians') query = query.eq('role', 'technician');
+    const { data: users, error } = await query;
+    if (error) throw error;
+    if (!users?.length) { showAlert('لا يوجد مستخدمون مطابقون', 'warning'); return; }
+
+    const rows = users.map(u => ({
+      user_id: u.id,
+      message: '📢 ' + message,
+      type: 'general',
+      is_read: false
+    }));
+    // إدراج على دفعات لتفادي تجاوز حجم الطلب مع أعداد كبيرة
+    const batchSize = 200;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      await sb.from('notifications').insert(rows.slice(i, i + batchSize));
+    }
+    showAlert(`✅ تم إرسال الإشعار لـ ${rows.length} مستخدم`, 'success', 5000);
+    closeModal();
+  } catch (e) {
+    showAlert('خطأ في الإرسال: ' + e.message, 'error', 7000);
+  }
+}
+
 async function showTechActivity() {
   const { data: orders } = await sb.from('orders')
     .select('id,service,status,governorate,tech_id,tech_name,tech_phone,tech_accepted_at,created_at,name')
@@ -2696,8 +2764,9 @@ async function showUserNotificationsPanel() {
               const cfg = typeConfig[n.type] || { icon:'🔔', label:'إشعار', color:'#6b7280', bg:'#f9fafb' };
               const date = new Date(n.created_at).toLocaleDateString('ar-SA', {day:'numeric',month:'short',year:'numeric'});
               const time = new Date(n.created_at).toLocaleTimeString('ar-SA', {hour:'2-digit',minute:'2-digit'});
+              const clickable = n.type === 'new_invoice' && n.related_id;
               return `
-              <div style="background:${n.is_read ? 'white' : cfg.bg};border-radius:12px;padding:14px;margin-bottom:8px;border:1px solid ${n.is_read ? '#e2e8f0' : cfg.color+'40'};transition:all 0.2s;">
+              <div ${clickable ? `onclick="closeModal();viewUserInvoice('${n.related_id}')" style="cursor:pointer;` : 'style="'}background:${n.is_read ? 'white' : cfg.bg};border-radius:12px;padding:14px;margin-bottom:8px;border:1px solid ${n.is_read ? '#e2e8f0' : cfg.color+'40'};transition:all 0.2s;">
                 <div style="display:flex;gap:12px;align-items:flex-start;">
                   <div style="width:40px;height:40px;background:${cfg.bg};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;border:2px solid ${cfg.color}40;">
                     ${cfg.icon}
@@ -3053,11 +3122,10 @@ function restoreSession() {
       if (t && t.id && u && u.id) {
         currentTechnician = t;
         currentUser = u;
-        // أظهر زر الفني
-        const tb = document.getElementById('techNavBtn');
-        if (tb) tb.style.display = 'flex';
-        // إذا كان الفني يستخدم كـ مستخدم عادي أيضاً، أظهر صفحة الفني
-        _showTechPanel();
+        // صفحة رئيسية عادية دائمًا - خيار "لوحة الفني" يبقى ظاهرًا وثابتًا
+        // في القائمة المنسدلة عبر updateUIForLoggedInUser، بدل الدخول
+        // الإجباري للوحته في كل مرة يفتح فيها التطبيق
+        _showUserHome(u);
         if (typeof syncPushToken === 'function') syncPushToken();
         return;
       }
@@ -4869,6 +4937,7 @@ async function sendInvoiceToClientWithPayment() {
         user_id: custId,
         message: '📄 تم إصدار فاتورة جديدة رقم ' + invNum + ' بمبلغ ' + parseFloat(saved.total || 0).toFixed(2) + ' ل.س',
         type: 'new_invoice',
+        related_id: saved.id,
         is_read: false
       }]).then(({ error }) => { if (error) console.error('invoice notif error:', error); }).catch(()=>{});
     }
@@ -5626,7 +5695,7 @@ function showTechDashboard() {
 async function loadTechOrders() {
   try {
     let query = sb.from('orders')
-      .select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,invoice_id,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
       .order('created_at', { ascending: false });
 
     const perms = currentTechnician?.permissions || {};
@@ -5738,6 +5807,7 @@ function renderTechOrders() {
         ${o.notes?`<div style="grid-column:1/-1;"><i class="fas fa-comment" style="color:#94a3b8;"></i> ${o.notes}</div>`:''}
       </div>
       ${o.photo?`<img src="${o.photo}" onclick="window.open(this.src)" style="max-width:120px;max-height:90px;border-radius:8px;cursor:pointer;margin-bottom:10px;border:1px solid #e2e8f0;">`:''}
+      ${isMine && o.status !== 'pending' ? renderTechMiniTracker(o) : ''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${o.status==='pending'&&!isOther?`<button onclick="techAcceptOrder('${o.id}')" style="flex:2;min-width:110px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-hand-paper"></i> قبول</button>`:''}
         ${o.status==='in-progress'&&isMine&&perms.updateStatus?`
@@ -5753,6 +5823,28 @@ function renderTechOrders() {
   }).join('');
 }
 
+
+// ===== شريط تتبع مصغّر واحترافي داخل بطاقة طلب الفني نفسه =====
+function renderTechMiniTracker(o) {
+  const steps = [
+    { key: 'accepted',  label: 'تم القبول',    icon: 'fa-hand-paper', done: true },
+    { key: 'assigned',  label: 'تعيين فني',     icon: 'fa-hard-hat',   done: true },
+    { key: 'onway',     label: 'في الطريق',     icon: 'fa-car',        done: !!o.on_the_way_at },
+    { key: 'finished',  label: 'إنهاء الخدمة',  icon: 'fa-check-circle', done: o.status === 'completed' || o.status === 'awaiting_payment' },
+    { key: 'invoiced',  label: 'إرسال فاتورة',  icon: 'fa-file-invoice-dollar', done: !!(o.invoice_id || o.invoiceId) }
+  ];
+  return `<div style="display:flex;justify-content:space-between;align-items:flex-start;background:#f8fafc;border-radius:12px;padding:12px 8px;margin-bottom:10px;">
+    ${steps.map((s, i) => `
+      <div style="flex:1;text-align:center;position:relative;">
+        ${i>0 ? `<div style="position:absolute;top:14px;right:50%;width:100%;height:2px;background:${s.done?'#10b981':'#e2e8f0'};z-index:0;"></div>` : ''}
+        <div style="position:relative;z-index:1;width:28px;height:28px;border-radius:50%;background:${s.done?'#10b981':'#e2e8f0'};color:white;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:0.7rem;">
+          <i class="fas ${s.icon}"></i>
+        </div>
+        <div style="font-size:0.62rem;color:${s.done?'#059669':'#94a3b8'};font-weight:${s.done?'700':'400'};">${s.label}</div>
+      </div>
+    `).join('')}
+  </div>`;
+}
 
 async function techUpdateStatus(orderId, newStatus) {
   try {
@@ -5990,6 +6082,13 @@ async function removeTechBarcode() {
   } catch (e) {
     showAlert('خطأ: ' + e.message, 'error');
   }
+}
+
+// الرجوع للحساب العادي بدون تسجيل خروج - يبقى مسجلاً دخوله بالكامل
+function exitTechDashboard() {
+  if (window._techPollInterval) { clearInterval(window._techPollInterval); window._techPollInterval = null; }
+  if (currentUser) _showUserHome(currentUser);
+  else _showWelcome();
 }
 
 function logoutTech() {
@@ -6518,7 +6617,13 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
     PushNotifications.addListener('pushNotificationActionPerformed', function (action) {
       const data = (action.notification && action.notification.data) || {};
       try {
-        if (data.type === 'new_invoice' && typeof showProfile === 'function') showProfile();
+        if (data.type === 'new_invoice') {
+          if (typeof showProfile === 'function') showProfile();
+          setTimeout(() => {
+            if (data.related_id && typeof viewUserInvoice === 'function') viewUserInvoice(data.related_id);
+            else if (typeof switchProfileTab === 'function') switchProfileTab('invoices');
+          }, 500);
+        }
         else if (data.type === 'order_update' && typeof showProfile === 'function') showProfile();
         else if (typeof showHome === 'function') showHome();
       } catch (e) {}
