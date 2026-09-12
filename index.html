@@ -21,6 +21,20 @@
     --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
   }
+  body.dark-mode {
+    --dark: #f1f5f9;
+    --light: #0f172a;
+    --gray: #94a3b8;
+    background: #0b1220 !important;
+    color: #f1f5f9 !important;
+  }
+  body.dark-mode .service-card, body.dark-mode .booking-form, body.dark-mode .stat-card,
+  body.dark-mode .order-item, body.dark-mode .history-item, body.dark-mode .form-control,
+  body.dark-mode .invoice-review-modal > div, body.dark-mode section {
+    background: #161f32 !important; color: #f1f5f9 !important; border-color: #2a3652 !important;
+  }
+  body.dark-mode input, body.dark-mode select, body.dark-mode textarea { background:#0f172a !important; color:#f1f5f9 !important; border-color:#2a3652 !important; }
+  body.dark-mode .nav { background: rgba(11,18,32,0.95) !important; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Tajawal', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #ffffff; color: var(--dark); direction: rtl; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   .welcome-page.hidden { display: none !important; }
@@ -67,9 +81,9 @@
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
   .slider-controls { position: absolute; bottom: clamp(1rem, 2vw, 2rem); right: 50%; transform: translateX(50%); display: flex; align-items: center; gap: 1.5rem; z-index: 10; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1rem, 2vw, 1.5rem); border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
   .slider-dots { display: flex; gap: 0.75rem; }
-  .dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
   .dot::before { content: ''; position: absolute; top: 0; right: 0; width: 0; height: 100%; background: var(--accent); transition: width 0.4s ease; }
-  .dot.active { background: rgba(255, 255, 255, 0.2); transform: scale(1.3); }
+  .dot.active { background: white; transform: scaleX(2.4); border-radius: 6px; box-shadow: 0 2px 8px rgba(255,255,255,0.5); }
   .dot.active::before { width: 100%; }
   .dot:hover { transform: scale(1.2); background: rgba(255, 255, 255, 0.6); }
   .slider-nav { display: flex; gap: 0.5rem; }
@@ -123,7 +137,7 @@
   .admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 20px; padding: 30px clamp(1rem, 2vw, 30px); max-width: 1400px; margin: 0 auto; }
   .stat-card { background: white; border-radius: var(--radius); padding: clamp(1.5rem, 2.5vw, 25px); display: flex; align-items: center; gap: 20px; box-shadow: var(--shadow); transition: all var(--transition); cursor: pointer; }
   .stat-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
-  .stat-icon { width: clamp(50px, 6vw, 60px); height: clamp(50px, 6vw, 60px); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: clamp(1.25rem, 2vw, 24px); }
+  .stat-icon { width: clamp(50px, 6vw, 60px); height: clamp(50px, 6vw, 60px); border-radius: 14px; display: flex; align-items: center; justify-content: center; color: white; font-size: clamp(1.25rem, 2vw, 24px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
   .stat-info h3 { font-size: clamp(1.5rem, 3vw, 32px); font-weight: 800; color: var(--dark); margin-bottom: 5px; }
   .stat-info p { color: var(--gray); font-size: 14px; }
   .orders-container { background: white; border-radius: var(--radius); margin: 30px clamp(1rem, 2vw, 30px); box-shadow: var(--shadow); overflow: hidden; }
@@ -483,6 +497,7 @@
       <a href="#" class="nav-link" onclick="navLinkClick('services')"><i class="fas fa-cogs"></i> خدماتنا</a>
       <a href="#" class="nav-link" onclick="navLinkClick('ratings')"><i class="fas fa-star"></i> التقييمات</a>
       <a href="#" class="nav-link" onclick="navLinkClick('booking')"><i class="fas fa-calendar-check"></i> حجز موعد</a>
+      <a href="#" class="nav-link" onclick="toggleDarkMode();closeMenu()"><i class="fas fa-moon" id="darkModeIcon"></i> <span id="darkModeLabel">الوضع الليلي</span></a>
       <a href="#" class="nav-link" onclick="navLinkClick('profile')"><i class="fas fa-user"></i> ملفي</a>
       <a href="#" class="nav-link" id="adminNavBtn" onclick="currentAdmin?showAdminDashboard():showAdminLogin()" style="display:none;"><i class="fas fa-cog"></i> الإدارة</a>
       <a href="#" class="nav-link" id="techNavBtn" onclick="showTechDashboard()" style="display:none;background:#8b5cf6;color:white;border-radius:var(--radius);justify-content:center;"><i class="fas fa-hard-hat"></i> لوحة الفني</a>
@@ -637,6 +652,10 @@
               <div onclick="showAdminManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-user-shield" style="color:#ef4444;width:18px;"></i> إدارة المشرفين</div>
               <div onclick="showAssignTechFromEmail();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-user-plus" style="color:#10b981;width:18px;"></i> تعيين فني من الإيميل</div>
               <div onclick="showTechActivity();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-line" style="color:#8b5cf6;width:18px;"></i> نشاط الفنيين</div>
+              <div onclick="showAdminStats();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-pie" style="color:#2563eb;width:18px;"></i> الإحصائيات العامة</div>
+              <div onclick="showDiscountCodesManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-tags" style="color:#ec4899;width:18px;"></i> أكواد الخصم</div>
+              <div onclick="showExportReport();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-file-export" style="color:#059669;width:18px;"></i> تصدير تقرير</div>
+              <div onclick="sendMaintenanceReminders();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-bell" style="color:#f59e0b;width:18px;"></i> تذكيرات الصيانة</div>
               <div onclick="showTechManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-hard-hat" style="color:#8b5cf6;width:18px;"></i> إدارة الفنيين</div>
               <div onclick="showComplaintsPanel();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-exclamation-circle" style="color:#ef4444;width:18px;"></i> الشكاوى</div>
               <div onclick="showSettingsPanel();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-palette" style="color:#3b82f6;width:18px;"></i> التسميات والألوان</div>
@@ -686,6 +705,9 @@
           <span id="techDashTitle">لوحة الفني</span>
         </div>
         <div class="admin-controls">
+          <button class="admin-btn" onclick="showTechEarnings()" style="background:linear-gradient(135deg,#10b981,#059669);"><i class="fas fa-wallet"></i> أرباحي</button>
+          <button class="admin-btn" id="techAvailabilityBtn" onclick="toggleTechAvailability()" style="background:#10b981;"><i class="fas fa-circle" style="font-size:0.6rem;"></i> متاح</button>
+          <button class="admin-btn" onclick="showTechReceiptsPanel()" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i class="fas fa-receipt"></i> إيصالات الدفع</button>
           <button class="admin-btn" onclick="showTechBarcodeManagement()" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);"><i class="fas fa-qrcode"></i> باركودي</button>
           <button class="admin-btn" onclick="refreshTechOrders()"><i class="fas fa-sync-alt" id="techRefreshIcon"></i> تحديث</button>
           <button class="admin-btn logout-btn" onclick="logoutTech()"><i class="fas fa-sign-out-alt"></i> خروج</button>
@@ -697,6 +719,7 @@
         <div class="stat-card"><div class="stat-icon" style="background:#f59e0b;"><i class="fas fa-clock"></i></div><div class="stat-info"><h3 id="techPendingStat">0</h3><p>طلبات معلقة</p></div></div>
         <div class="stat-card"><div class="stat-icon" style="background:#3b82f6;"><i class="fas fa-tools"></i></div><div class="stat-info"><h3 id="techInProgressStat">0</h3><p>قيد التنفيذ</p></div></div>
         <div class="stat-card"><div class="stat-icon" style="background:#10b981;"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="techCompletedStat">0</h3><p>مكتملة اليوم</p></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:#8b5cf6;"><i class="fas fa-trophy"></i></div><div class="stat-info"><h3 id="techTotalCompletedStat">0</h3><p>إجمالي المُنجز</p></div></div>
       </div>
       <div style="background:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;">
         <div style="padding:20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
@@ -886,6 +909,23 @@ let siteSettings = {
 
 // متغير عالمي للسلايدر
 let sliderData = null;
+// ===== الوضع الليلي =====
+function toggleDarkMode() {
+  const isDark = document.body.classList.toggle('dark-mode');
+  localStorage.setItem('obied_dark_mode', isDark ? '1' : '0');
+  updateDarkModeUI(isDark);
+}
+function updateDarkModeUI(isDark) {
+  const icon  = document.getElementById('darkModeIcon');
+  const label = document.getElementById('darkModeLabel');
+  if (icon)  icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+  if (label) label.textContent = isDark ? 'الوضع النهاري' : 'الوضع الليلي';
+}
+function applyStoredDarkMode() {
+  const isDark = localStorage.getItem('obied_dark_mode') === '1';
+  if (isDark) document.body.classList.add('dark-mode');
+  updateDarkModeUI(isDark);
+}
 
 // ===== Supabase Client =====
 // ===== Supabase Config =====
@@ -1269,12 +1309,41 @@ function renderBookingForm() {
       <div class="form-group" style="background:#f0fdf4;padding:12px;border-radius:12px;border:1px solid #bbf7d0;">
         <label style="color:#065f46;font-weight:700;"><i class="fas fa-wallet" style="color:#10b981;"></i> طريقة الدفع: شام كاش فقط</label>
       </div>
+      <div class="form-group" id="preferredTechGroup" style="display:none;">
+        <label><i class="fas fa-user-check"></i> فني مفضل (اختياري)</label>
+        <select id="bookingPreferredTech" class="form-control">
+          <option value="">بدون تفضيل - أقرب فني متاح</option>
+        </select>
+      </div>
       <div class="form-group"><label><i class="fas fa-comment"></i> ملاحظات</label><textarea id="bookingNotes" class="form-control" rows="2"></textarea></div>
+      <div class="form-group">
+        <label><i class="fas fa-camera"></i> صورة العطل (اختياري - تساعد الفني يجهّز الأدوات المناسبة)</label>
+        <input type="file" id="bookingPhotoInput" accept="image/*" style="display:none;" onchange="previewBookingPhoto(this)">
+        <button type="button" onclick="document.getElementById('bookingPhotoInput').click()" style="width:100%;background:#eff6ff;color:#3b82f6;border:1px dashed #93c5fd;padding:12px;border-radius:12px;cursor:pointer;font-family:inherit;">
+          <i class="fas fa-image"></i> <span id="bookingPhotoLabel">إضافة صورة</span>
+        </button>
+        <img id="bookingPhotoPreview" style="display:none;max-width:100%;max-height:150px;border-radius:12px;margin-top:8px;">
+      </div>
       <button type="submit" class="btn-primary responsive-button" style="width:100%;"><i class="fas fa-paper-plane"></i> تأكيد الحجز</button>
     </form>`;
   const bookingForm = document.getElementById('bookingForm');
   if (bookingForm) bookingForm.addEventListener('submit', handleBooking);
   updateBookingForm();
+}
+
+window._bookingPhotoData = null;
+function previewBookingPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showAlert('الصورة أكبر من 5MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = async function (e) {
+    window._bookingPhotoData = await compressImage(e.target.result, 'orders');
+    document.getElementById('bookingPhotoPreview').src = window._bookingPhotoData;
+    document.getElementById('bookingPhotoPreview').style.display = 'block';
+    document.getElementById('bookingPhotoLabel').textContent = 'تغيير الصورة';
+  };
+  reader.readAsDataURL(file);
 }
 
 function updateBookingForm() {
@@ -1283,6 +1352,24 @@ function updateBookingForm() {
   const p = document.getElementById('bookingPhone');
   if (n) n.value = currentUser.name || '';
   if (p) p.value = currentUser.phone || '';
+  populatePreferredTechs();
+}
+
+// ===== الفني المفضل: يعرض فقط الفنيين اللي أنجزوا طلبات سابقة لهذا العميل =====
+async function populatePreferredTechs() {
+  const group  = document.getElementById('preferredTechGroup');
+  const select = document.getElementById('bookingPreferredTech');
+  if (!group || !select || !currentUser) return;
+  try {
+    const { data } = await sb.from('orders')
+      .select('tech_id,tech_name').eq('user_id', currentUser.id).eq('status', 'completed').not('tech_id', 'is', null);
+    const seen = new Map();
+    (data || []).forEach(o => { if (o.tech_id && !seen.has(o.tech_id)) seen.set(o.tech_id, o.tech_name || 'فني'); });
+    if (!seen.size) { group.style.display = 'none'; return; }
+    select.innerHTML = '<option value="">بدون تفضيل - أقرب فني متاح</option>' +
+      [...seen.entries()].map(([id, name]) => `<option value="${id}">⭐ ${name}</option>`).join('');
+    group.style.display = 'block';
+  } catch (e) { group.style.display = 'none'; }
 }
 
 async function handleBooking(e) {
@@ -1300,6 +1387,7 @@ async function handleBooking(e) {
       time:           document.getElementById('bookingTime')?.value || '',
       governorate:    document.getElementById('bookingGovernorate')?.value || '',
       notes:          document.getElementById('bookingNotes')?.value || '',
+      photo:          window._bookingPhotoData || null,
       payment_method: 'شام كاش',
       status:         'pending'
     };
@@ -1308,8 +1396,9 @@ async function handleBooking(e) {
       return;
     }
 
-    let assignedTechId = null;
-    if (booking.governorate) {
+    const preferredTechId = document.getElementById('bookingPreferredTech')?.value || '';
+    let assignedTechId = preferredTechId ? parseInt(preferredTechId, 10) : null;
+    if (!assignedTechId && booking.governorate) {
       const { data: techList } = await sb.from('technicians')
         .select('id,name').eq('is_active', true).eq('governorate', booking.governorate).limit(5);
       if (techList?.length) {
@@ -1334,6 +1423,11 @@ async function handleBooking(e) {
     }
 
     e.target.reset();
+    window._bookingPhotoData = null;
+    const preview = document.getElementById('bookingPhotoPreview');
+    if (preview) preview.style.display = 'none';
+    const photoLabel = document.getElementById('bookingPhotoLabel');
+    if (photoLabel) photoLabel.textContent = 'إضافة صورة';
     updateBookingForm();
     showAlert('✅ تم إرسال طلبك بنجاح، سيتم التواصل معك قريباً', 'success', 4000);
     if (typeof loadUserData === 'function') loadUserData(currentUser.id);
@@ -2133,6 +2227,302 @@ async function deleteTechnician(techId, name) {
 }
 
 // ===== متابعة نشاط الفنيين من لوحة الأدمن =====
+// ===== لوحة الإحصائيات العامة (خدمة الأكثر طلباً، اتجاه الإيرادات، أوقات الذروة) =====
+async function showAdminStats() {
+  if (!currentAdmin) return;
+  showModal(`<div style="padding:80px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2.2rem;color:var(--primary);"></i></div>`);
+  try {
+    const [{ data: orders }, { data: invoices }] = await Promise.all([
+      sb.from('orders').select('service,time,status,created_at').limit(1000),
+      sb.from('invoices').select('total,status,created_at').limit(1000)
+    ]);
+    const ordersList = orders || [], invoicesList = invoices || [];
+
+    // 1) الخدمة الأكثر طلباً
+    const serviceCounts = {};
+    ordersList.forEach(o => { if (o.service) serviceCounts[o.service] = (serviceCounts[o.service]||0)+1; });
+    const topServices = Object.entries(serviceCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const maxServiceCount = topServices.length ? topServices[0][1] : 1;
+
+    // 2) اتجاه الإيرادات آخر 6 أشهر
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ key: d.getFullYear()+'-'+d.getMonth(), label: d.toLocaleDateString('ar-SA',{month:'short'}), total: 0 });
+    }
+    invoicesList.forEach(inv => {
+      const d = new Date(inv.created_at);
+      const key = d.getFullYear()+'-'+d.getMonth();
+      const m = months.find(m => m.key === key);
+      if (m) m.total += parseFloat(inv.total || 0);
+    });
+    const maxMonthTotal = Math.max(...months.map(m=>m.total), 1);
+
+    // 3) أوقات الذروة (صباح/ظهر/مساء/ليل)
+    const timeSlots = { 'صباحاً':0, 'ظهراً':0, 'مساءً':0, 'ليلاً':0 };
+    ordersList.forEach(o => {
+      const t = (o.time||'').toLowerCase();
+      if (t.includes('صباح')) timeSlots['صباحاً']++;
+      else if (t.includes('ظهر') || t.includes('عصر')) timeSlots['ظهراً']++;
+      else if (t.includes('مساء')) timeSlots['مساءً']++;
+      else timeSlots['ليلاً']++;
+    });
+    const maxSlot = Math.max(...Object.values(timeSlots), 1);
+
+    showModal(`
+      <div style="padding:0;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;">
+        <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;">
+          <h3 style="margin:0;"><i class="fas fa-chart-pie"></i> الإحصائيات العامة</h3>
+        </div>
+        <div style="background:white;padding:20px;">
+
+          <h4 style="color:var(--dark);margin-bottom:12px;font-size:0.95rem;"><i class="fas fa-fire" style="color:#f59e0b;"></i> الخدمات الأكثر طلباً</h4>
+          <div style="margin-bottom:25px;">
+            ${topServices.map(([name,count]) => `
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:3px;"><span>${name}</span><span style="font-weight:700;">${count}</span></div>
+                <div style="background:#f1f5f9;border-radius:50px;height:10px;overflow:hidden;"><div style="background:linear-gradient(90deg,#3b82f6,#2563eb);height:100%;width:${(count/maxServiceCount*100)}%;border-radius:50px;"></div></div>
+              </div>`).join('') || '<p style="color:var(--gray);font-size:0.85rem;">لا توجد بيانات كافية</p>'}
+          </div>
+
+          <h4 style="color:var(--dark);margin-bottom:12px;font-size:0.95rem;"><i class="fas fa-chart-line" style="color:#10b981;"></i> اتجاه الإيرادات (آخر 6 أشهر)</h4>
+          <div style="display:flex;align-items:flex-end;gap:8px;height:120px;margin-bottom:25px;padding:0 5px;">
+            ${months.map(m => `
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+                <div style="font-size:0.7rem;color:var(--gray);margin-bottom:4px;">${m.total.toFixed(0)}</div>
+                <div style="width:100%;background:linear-gradient(180deg,#10b981,#059669);border-radius:6px 6px 0 0;height:${Math.max((m.total/maxMonthTotal*80),3)}px;"></div>
+                <div style="font-size:0.72rem;color:var(--gray);margin-top:4px;">${m.label}</div>
+              </div>`).join('')}
+          </div>
+
+          <h4 style="color:var(--dark);margin-bottom:12px;font-size:0.95rem;"><i class="fas fa-clock" style="color:#8b5cf6;"></i> أوقات الذروة</h4>
+          <div style="display:flex;align-items:flex-end;gap:10px;height:100px;margin-bottom:15px;">
+            ${Object.entries(timeSlots).map(([label,count]) => `
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+                <div style="font-size:0.7rem;color:var(--gray);margin-bottom:4px;">${count}</div>
+                <div style="width:100%;background:linear-gradient(180deg,#8b5cf6,#7c3aed);border-radius:6px 6px 0 0;height:${Math.max((count/maxSlot*60),3)}px;"></div>
+                <div style="font-size:0.72rem;color:var(--gray);margin-top:4px;">${label}</div>
+              </div>`).join('')}
+          </div>
+
+          <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+        </div>
+      </div>
+    `);
+  } catch (e) {
+    showAlert('تعذر جلب الإحصائيات: ' + e.message, 'error', 6000);
+  }
+}
+
+// ===== أكواد الخصم =====
+async function showDiscountCodesManagement() {
+  if (!currentAdmin) return;
+  showModal(`<div style="padding:80px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:var(--primary);"></i></div>`);
+  let codes = [];
+  try {
+    const { data, error } = await sb.from('discount_codes').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    codes = data || [];
+  } catch (e) {}
+  renderDiscountCodesModal(codes);
+}
+
+function renderDiscountCodesModal(codes) {
+  showModal(`
+    <div style="padding:0;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
+      <div style="background:linear-gradient(135deg,#ec4899,#db2777);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;">
+        <h3 style="margin:0;"><i class="fas fa-tags"></i> أكواد الخصم</h3>
+      </div>
+      <div style="background:white;padding:20px;">
+        ${codes.length === 0 ? '<p style="text-align:center;color:var(--gray);padding:20px 0;">لا توجد أكواد خصم بعد</p>' :
+          codes.map(c => `
+          <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div>
+              <div style="font-weight:800;color:var(--dark);letter-spacing:1px;">${c.code}</div>
+              <div style="font-size:0.8rem;color:var(--gray);">خصم ${c.percent}% ${c.expires_at ? '- ينتهي ' + new Date(c.expires_at).toLocaleDateString('ar-SA') : ''}</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="background:${c.is_active?'#10b981':'#9ca3af'};color:white;padding:3px 10px;border-radius:50px;font-size:0.72rem;">${c.is_active?'فعّال':'معطّل'}</span>
+              <button onclick="toggleDiscountCode(${c.id},${!c.is_active})" style="background:#f1f5f9;border:none;padding:6px 8px;border-radius:8px;cursor:pointer;"><i class="fas fa-power-off" style="color:#6b7280;"></i></button>
+              <button onclick="deleteDiscountCode(${c.id})" style="background:#fef2f2;border:none;padding:6px 8px;border-radius:8px;cursor:pointer;"><i class="fas fa-trash" style="color:#ef4444;"></i></button>
+            </div>
+          </div>`).join('')
+        }
+        <div style="border-top:1px solid #f1f5f9;padding-top:15px;margin-top:10px;">
+          <h4 style="font-size:0.88rem;margin-bottom:10px;color:var(--dark);">إضافة كود جديد</h4>
+          <input type="text" id="newDiscountCode" class="form-control" placeholder="مثال: WELCOME10" style="margin-bottom:8px;text-transform:uppercase;">
+          <input type="number" id="newDiscountPercent" class="form-control" placeholder="نسبة الخصم % (مثال: 10)" style="margin-bottom:8px;">
+          <input type="date" id="newDiscountExpiry" class="form-control" style="margin-bottom:10px;">
+          <button onclick="addDiscountCode()" style="width:100%;background:linear-gradient(135deg,#ec4899,#db2777);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-plus"></i> إضافة الكود</button>
+        </div>
+        <button onclick="closeModal()" style="width:100%;margin-top:10px;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+      </div>
+    </div>
+  `);
+}
+
+async function addDiscountCode() {
+  const code = document.getElementById('newDiscountCode')?.value?.trim().toUpperCase();
+  const percent = parseFloat(document.getElementById('newDiscountPercent')?.value);
+  const expiry = document.getElementById('newDiscountExpiry')?.value || null;
+  if (!code || !percent || percent <= 0 || percent > 100) { showAlert('أدخل كود صالح ونسبة خصم بين 1 و100', 'error'); return; }
+  try {
+    const { error } = await sb.from('discount_codes').insert([{ code, percent, expires_at: expiry, is_active: true }]);
+    if (error) throw error;
+    showAlert('✅ تم إضافة كود الخصم', 'success');
+    showDiscountCodesManagement();
+  } catch (e) {
+    showAlert('تعذر الإضافة: ' + e.message + ' - تأكد من إنشاء جدول discount_codes', 'error', 7000);
+  }
+}
+
+async function toggleDiscountCode(id, newState) {
+  try {
+    await sb.from('discount_codes').update({ is_active: newState }).eq('id', id);
+    showDiscountCodesManagement();
+  } catch (e) { showAlert('خطأ: ' + e.message, 'error'); }
+}
+
+async function deleteDiscountCode(id) {
+  if (!confirm('حذف كود الخصم هذا؟')) return;
+  try {
+    await sb.from('discount_codes').delete().eq('id', id);
+    showDiscountCodesManagement();
+  } catch (e) { showAlert('خطأ: ' + e.message, 'error'); }
+}
+
+// ===== التحقق من كود خصم وتطبيقه على الفاتورة (يُستدعى من نافذة مراجعة الفاتورة) =====
+async function applyDiscountCode() {
+  const codeInput = document.getElementById('invoiceDiscountCode');
+  const code = codeInput?.value?.trim().toUpperCase();
+  if (!code) { showAlert('اكتب كود الخصم أولاً', 'error'); return; }
+  try {
+    const { data, error } = await sb.from('discount_codes').select('*').eq('code', code).eq('is_active', true).maybeSingle();
+    if (error) throw error;
+    if (!data) { showAlert('كود الخصم غير صالح أو منتهي', 'error'); return; }
+    if (data.expires_at && new Date(data.expires_at) < new Date()) { showAlert('كود الخصم منتهي الصلاحية', 'error'); return; }
+    window._appliedDiscountPercent = data.percent;
+    showAlert(`✅ تم تطبيق خصم ${data.percent}%`, 'success', 3000);
+    if (typeof recalculateInvoiceReview === 'function') recalculateInvoiceReview();
+  } catch (e) {
+    showAlert('خطأ في التحقق من الكود: ' + e.message, 'error');
+  }
+}
+
+// ===== تصدير تقرير (فواتير) بصيغة CSV تُفتح مباشرة في Excel =====
+async function showExportReport() {
+  if (!currentAdmin) return;
+  showModal(`<div style="padding:80px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:var(--primary);"></i></div>`);
+  try {
+    const { data, error } = await sb.from('invoices')
+      .select('invoice_number,customer_name,customer_phone,service,total,status,created_at')
+      .order('created_at', { ascending: false }).limit(500);
+    if (error) throw error;
+    const rows = data || [];
+    const header = ['رقم الفاتورة','العميل','الهاتف','الخدمة','المبلغ','الحالة','التاريخ'];
+    const csvLines = [header.join(',')];
+    rows.forEach(r => {
+      csvLines.push([
+        r.invoice_number, r.customer_name, r.customer_phone, r.service,
+        r.total, (r.status==='paid'?'مدفوعة':'غير مدفوعة'),
+        new Date(r.created_at).toLocaleDateString('ar-SA')
+      ].map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
+    });
+    const csvContent = '\uFEFF' + csvLines.join('\n'); // BOM لدعم العربية في Excel
+
+    showModal(`
+      <div style="padding:0;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;">
+        <div style="background:linear-gradient(135deg,#059669,#047857);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+          <h3 style="margin:0;"><i class="fas fa-file-export"></i> تصدير تقرير الفواتير</h3>
+          <p style="margin:6px 0 0;opacity:0.85;font-size:0.85rem;">${rows.length} فاتورة</p>
+        </div>
+        <div style="background:white;padding:20px;">
+          <p style="color:var(--gray);font-size:0.85rem;margin-bottom:15px;">انسخ البيانات والصقها في تطبيق Excel أو Google Sheets، أو حمّلها كملف مباشرة:</p>
+          <textarea id="csvExportArea" class="form-control" rows="6" readonly style="font-size:0.75rem;direction:ltr;text-align:left;margin-bottom:12px;">${csvContent}</textarea>
+          <div style="display:flex;gap:10px;">
+            <button onclick="copyExportCSV()" style="flex:1;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-copy"></i> نسخ الكل</button>
+            <button onclick="downloadExportCSV()" style="flex:1;background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-download"></i> تحميل ملف</button>
+          </div>
+          <button onclick="closeModal()" style="width:100%;margin-top:10px;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+        </div>
+      </div>
+    `);
+  } catch (e) {
+    showAlert('تعذر إنشاء التقرير: ' + e.message, 'error', 6000);
+  }
+}
+
+function copyExportCSV() {
+  const area = document.getElementById('csvExportArea');
+  if (!area) return;
+  area.select();
+  try {
+    navigator.clipboard.writeText(area.value).then(() => showAlert('✅ تم نسخ البيانات', 'success', 2500));
+  } catch (e) {
+    document.execCommand('copy');
+    showAlert('✅ تم نسخ البيانات', 'success', 2500);
+  }
+}
+
+function downloadExportCSV() {
+  const area = document.getElementById('csvExportArea');
+  if (!area) return;
+  try {
+    const blob = new Blob([area.value], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'تقرير-الفواتير-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showAlert('تعذر التحميل المباشر - استخدم زر "نسخ الكل" بدلاً منه', 'warning', 5000);
+  }
+}
+
+// ===== تذكيرات الصيانة: يُرسل إشعاراً للعملاء الذين مرّ 6 أشهر على آخر خدمة مكتملة لهم =====
+async function sendMaintenanceReminders() {
+  if (!currentAdmin) return;
+  if (!confirm('سيتم فحص كل العملاء وإرسال تذكير لمن مرّ 6 أشهر على آخر صيانة مكتملة لهم. متابعة؟')) return;
+  showAlert('جارٍ الفحص والإرسال...', 'info', 3000);
+  try {
+    const { data: orders, error } = await sb.from('orders')
+      .select('user_id,service,status,updated_at').eq('status', 'completed');
+    if (error) throw error;
+
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    // آخر خدمة مكتملة لكل (عميل + نوع خدمة)
+    const lastServiceMap = {};
+    (orders || []).forEach(o => {
+      if (!o.user_id || !o.service) return;
+      const key = o.user_id + '::' + o.service;
+      const d = new Date(o.updated_at);
+      if (!lastServiceMap[key] || d > lastServiceMap[key].date) {
+        lastServiceMap[key] = { userId: o.user_id, service: o.service, date: d };
+      }
+    });
+
+    const dueReminders = Object.values(lastServiceMap).filter(r => r.date <= sixMonthsAgo);
+    if (!dueReminders.length) { showAlert('لا يوجد عملاء بحاجة لتذكير حالياً', 'success', 4000); return; }
+
+    let sent = 0;
+    for (const r of dueReminders) {
+      const { error: notifErr } = await sb.from('notifications').insert([{
+        user_id: r.userId,
+        message: `🔔 مرّ وقت طويل منذ آخر صيانة "${r.service}" لديك - هل تحتاج فحصاً دورياً؟`,
+        type: 'maintenance_reminder',
+        is_read: false
+      }]);
+      if (!notifErr) sent++;
+    }
+    showAlert(`✅ تم إرسال ${sent} تذكير صيانة من أصل ${dueReminders.length}`, 'success', 5000);
+  } catch (e) {
+    showAlert('خطأ في إرسال التذكيرات: ' + e.message, 'error', 7000);
+  }
+}
+
 async function showTechActivity() {
   const { data: orders } = await sb.from('orders')
     .select('id,service,status,governorate,tech_id,tech_name,tech_phone,tech_accepted_at,created_at,name')
@@ -2605,6 +2995,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // استعادة الجلسة أولاً ثم تحميل الإعدادات
+  applyStoredDarkMode();
   restoreSession();
   loadSettings().then(() => initSlider()).catch(() => initSlider());
 });
@@ -2796,7 +3187,7 @@ async function loadUserData(userId) {
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
   try {
     const [oRes, iRes] = await Promise.all([
-      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
+      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,photo,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
       sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
@@ -4279,6 +4670,7 @@ function showInvoiceForReview(invoiceData, order, user) {
   window.currentInvoiceData = invoiceData;
   window.currentInvoiceOrder = order;
   window.currentInvoiceUser = user;
+  window._appliedDiscountPercent = 0;
 
   // ===== استخدام QR Code محلي بدلاً من الخارجي =====
   const barcodeImage = currentBarcodeImage ||
@@ -4305,6 +4697,14 @@ function showInvoiceForReview(invoiceData, order, user) {
             <div style="background:#f8fafc;border-radius:var(--radius);padding:20px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><span style="color:var(--gray);">المبلغ الأساسي:</span><div style="display:flex;align-items:center;gap:10px;"><input type="number" id="reviewBasePrice" value="${invoiceData.basePrice}" style="width:120px;padding:8px;border:2px solid #e2e8f0;border-radius:8px;"><span>ل س</span></div></div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><span style="color:var(--gray);">نسبة الضريبة:</span><div style="display:flex;align-items:center;gap:10px;"><select id="reviewTaxRate" style="padding:8px;border:2px solid #e2e8f0;border-radius:8px;background:white;"><option value="15" selected>15%</option><option value="10">10%</option><option value="5">5%</option><option value="0">0%</option></select><span id="reviewTaxAmount" style="font-weight:600;">${invoiceData.tax.toFixed(2)} ل س</span></div></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px;flex-wrap:wrap;">
+                <span style="color:var(--gray);">كود الخصم (اختياري):</span>
+                <div style="display:flex;gap:6px;">
+                  <input type="text" id="invoiceDiscountCode" placeholder="مثال: WELCOME10" style="padding:8px;border:2px solid #e2e8f0;border-radius:8px;width:140px;text-transform:uppercase;">
+                  <button type="button" onclick="applyDiscountCode()" style="background:#ec4899;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.82rem;">تطبيق</button>
+                </div>
+              </div>
+              <div id="reviewDiscountRow" style="display:none;justify-content:space-between;align-items:center;margin-bottom:15px;color:#ec4899;font-weight:700;"><span>الخصم:</span><span id="reviewDiscountAmount">0 ل س</span></div>
               <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:20px;border-top:2px solid #e2e8f0;font-size:1.2rem;font-weight:bold;"><span style="color:var(--primary);">الإجمالي:</span><span style="color:var(--primary);" id="reviewTotalAmount">${invoiceData.total.toFixed(2)} ل س</span></div>
             </div>
           </div>
@@ -4351,9 +4751,18 @@ function updateReviewAmounts() {
   const basePrice = parseFloat(document.getElementById('reviewBasePrice').value) || 0;
   const taxRate = parseFloat(document.getElementById('reviewTaxRate').value) || 15;
   const tax = basePrice * (taxRate / 100);
+  const discountPercent = window._appliedDiscountPercent || 0;
+  const discountAmount = (basePrice + tax) * (discountPercent / 100);
+  const total = (basePrice + tax) - discountAmount;
   document.getElementById('reviewTaxAmount').textContent = tax.toFixed(2) + ' ل س';
-  document.getElementById('reviewTotalAmount').textContent = (basePrice + tax).toFixed(2) + ' ل س';
+  const discountRow = document.getElementById('reviewDiscountRow');
+  if (discountRow) {
+    discountRow.style.display = discountPercent > 0 ? 'flex' : 'none';
+    document.getElementById('reviewDiscountAmount').textContent = '-' + discountAmount.toFixed(2) + ' ل س (' + discountPercent + '%)';
+  }
+  document.getElementById('reviewTotalAmount').textContent = total.toFixed(2) + ' ل س';
 }
+function recalculateInvoiceReview() { updateReviewAmounts(); }
 
 async function sendInvoiceToClientWithPayment() {
   if (!window.currentInvoiceData || !window.currentInvoiceOrder) {
@@ -4366,7 +4775,9 @@ async function sendInvoiceToClientWithPayment() {
   const basePrice = parseFloat(document.getElementById('reviewBasePrice').value) || 0;
   const taxRate   = parseFloat(document.getElementById('reviewTaxRate').value) || 15;
   const tax       = basePrice * (taxRate / 100);
-  const total     = basePrice + tax;
+  const discountPercent = window._appliedDiscountPercent || 0;
+  const discountAmount  = (basePrice + tax) * (discountPercent / 100);
+  const total     = (basePrice + tax) - discountAmount;
 
   const updatedInvoice = {
     ...window.currentInvoiceData,
@@ -4708,11 +5119,29 @@ function showReceiptVerification(invoiceId) {
   document.getElementById('receiptVerificationBody').innerHTML = `<div class="detail-row"><div class="detail-label">رقم الفاتورة</div><div class="detail-value">${invoice.invoiceNumber}</div></div><div class="detail-row"><div class="detail-label">العميل</div><div class="detail-value">${user?.name||invoice.customerName}</div></div><div class="detail-row"><div class="detail-label">المبلغ</div><div class="detail-value">${invoice.total.toFixed(2)} ل س</div></div>`;
   let actionsHTML = '';
   if (invoice.receiptStatus !== 'verified' && invoice.receiptStatus !== 'rejected') {
-    actionsHTML = `<button class="btn-primary" onclick="verifyReceipt('verified')" style="background:#10b981;"><i class="fas fa-check"></i> قبول</button><button class="btn-danger" onclick="verifyReceipt('rejected')"><i class="fas fa-times"></i> رفض</button>`;
+    actionsHTML = `<button class="btn-primary" onclick="verifyReceipt('verified')" style="background:#10b981;"><i class="fas fa-check"></i> قبول</button><button class="btn-danger" onclick="showRejectReceiptForm()"><i class="fas fa-times"></i> رفض</button>`;
   }
   actionsHTML += `<button class="btn-primary" onclick="closeReceiptVerification()" style="background:#6b7280;"><i class="fas fa-times"></i> إغلاق</button>`;
   document.getElementById('verificationActions').innerHTML = actionsHTML;
   document.getElementById('receiptVerificationModal').style.display = 'flex';
+}
+
+// ===== إصلاح: نافذة رفض فعلية بدل prompt() المعطّل داخل تطبيق أندرويد الحقيقي =====
+function showRejectReceiptForm() {
+  showModal(`
+    <div style="padding:0;max-width:420px;width:100%;">
+      <div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-times-circle"></i> رفض الإيصال</h3>
+      </div>
+      <div style="background:white;padding:20px;">
+        <textarea id="rejectReasonText" class="form-control" rows="3" placeholder="اكتب سبب الرفض (مثال: الصورة غير واضحة، المبلغ غير مطابق...)" autofocus></textarea>
+        <div style="display:flex;gap:10px;margin-top:15px;">
+          <button onclick="verifyReceipt('rejected')" style="flex:2;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-times"></i> تأكيد الرفض</button>
+          <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">تراجع</button>
+        </div>
+      </div>
+    </div>
+  `);
 }
 
 async function verifyReceipt(status) {
@@ -4726,10 +5155,11 @@ async function verifyReceipt(status) {
     if (order) { order.status = 'completed'; order.paymentStatus = 'paid'; }
     showAlert('تم قبول الإيصال وتحديث الفاتورة إلى مدفوعة', 'success');
   } else {
-    const reason = prompt('يرجى إدخال سبب رفض الإيصال:');
-    if (!reason) return;
+    const reason = document.getElementById('rejectReasonText')?.value?.trim();
+    if (!reason) { showAlert('اكتب سبب الرفض أولاً', 'error'); return; }
     rejectReason = reason;
     invoice.receiptStatus = 'rejected'; invoice.receiptRejectionReason = reason; invoice.status = 'pending_payment';
+    closeModal(); // إغلاق نافذة سبب الرفض
     showAlert('تم رفض الإيصال', 'success');
   }
   closeReceiptVerification();
@@ -4784,7 +5214,7 @@ async function loadAdminData() {
     // اجلب الطلبات أولاً واعرضها فوراً
     const { data: ordersData, error: oErr } = await sb
       .from('orders')
-      .select('id,user_id,name,phone,service,date,time,status,governorate,notes,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,notes,photo,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at')
       .order('created_at', { ascending: false });
     if (oErr) throw oErr;
 
@@ -4957,6 +5387,7 @@ async function showOrderDetails(orderId) {
             <div><span style="color:#6b7280;">الحالة:</span> <strong>${getStatusText(order.status)}</strong></div>
             ${order.notes ? `<div style="grid-column:1/-1;"><span style="color:#6b7280;">ملاحظات:</span> ${order.notes}</div>` : ''}
           </div>
+          ${order.photo ? `<div style="margin-top:12px;"><span style="color:#6b7280;font-size:0.85rem;display:block;margin-bottom:6px;"><i class="fas fa-camera"></i> صورة العطل:</span><img src="${order.photo}" onclick="window.open(this.src)" style="max-width:100%;max-height:220px;border-radius:10px;cursor:pointer;border:1px solid #e2e8f0;"></div>` : ''}
         </div>
 
         ${order.tech_name ? `
@@ -5139,6 +5570,7 @@ function showTechDashboard() {
   }
 
   loadTechOrders();
+  updateAvailabilityButtonUI(currentTechnician.is_available !== false);
 
   // Polling كل 30 ثانية للطلبات الجديدة
   if (window._techPollInterval) clearInterval(window._techPollInterval);
@@ -5156,7 +5588,7 @@ function showTechDashboard() {
 async function loadTechOrders() {
   try {
     let query = sb.from('orders')
-      .select('id,user_id,name,phone,service,date,time,status,governorate,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,photo,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
       .order('created_at', { ascending: false });
 
     const perms = currentTechnician?.permissions || {};
@@ -5181,7 +5613,12 @@ async function loadTechOrders() {
     const { data: orders, error } = await query;
     if (error) throw error;
 
-    allOrders = (orders || []).map(o => ({ ...o, userId: o.user_id, createdAt: o.created_at }));
+    let list = (orders || []).map(o => ({ ...o, userId: o.user_id, createdAt: o.created_at }));
+    // إذا كان الفني "غير متاح"، يخفى عنه الطلبات الجديدة غير المُسندة، ويبقى يرى طلباته الخاصة فقط
+    if (currentTechnician?.is_available === false) {
+      list = list.filter(o => String(o.accepted_by_tech || o.tech_id || '') === String(currentTechnician.id));
+    }
+    allOrders = list;
     renderTechOrders();
     updateTechStats();
 
@@ -5262,6 +5699,7 @@ function renderTechOrders() {
         <div><i class="fas fa-clock" style="color:#8b5cf6;"></i> ${o.time||'—'}</div>
         ${o.notes?`<div style="grid-column:1/-1;"><i class="fas fa-comment" style="color:#94a3b8;"></i> ${o.notes}</div>`:''}
       </div>
+      ${o.photo?`<img src="${o.photo}" onclick="window.open(this.src)" style="max-width:120px;max-height:90px;border-radius:8px;cursor:pointer;margin-bottom:10px;border:1px solid #e2e8f0;">`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${o.status==='pending'&&!isOther?`<button onclick="techAcceptOrder('${o.id}')" style="flex:2;min-width:110px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-hand-paper"></i> قبول</button>`:''}
         ${o.status==='in-progress'&&isMine&&perms.updateStatus?`
@@ -5301,6 +5739,144 @@ function updateTechStats() {
   document.getElementById('techPendingStat').textContent   = allOrders.filter(o => o.status === 'pending').length;
   document.getElementById('techInProgressStat').textContent = allOrders.filter(o => o.status === 'in-progress').length;
   document.getElementById('techCompletedStat').textContent  = allOrders.filter(o => o.status === 'completed' && new Date(o.updatedAt||o.updated_at).toDateString() === today).length;
+  const totalEl = document.getElementById('techTotalCompletedStat');
+  if (totalEl) totalEl.textContent = allOrders.filter(o => o.status === 'completed').length;
+}
+
+// ===== لوحة تحقق إيصالات خاصة بالفني (فواتيره هو فقط) =====
+async function showTechReceiptsPanel() {
+  if (!currentTechnician?.id) return;
+  showModal(`<div style="padding:60px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:var(--primary);"></i></div>`);
+  try {
+    const { data, error } = await sb.from('invoices')
+      .select('id,invoice_number,customer_id,customer_name,total,status,receipt_status,receipt_image,tech_id,created_at')
+      .eq('tech_id', currentTechnician.id)
+      .not('receipt_image', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+
+    // مزامنة نسخة موحدة تستخدمها showReceiptVerification/verifyReceipt
+    const normalized = normalizeInvoices(data || []);
+    normalized.forEach(n => {
+      const idx = allInvoices.findIndex(i => i.id === n.id);
+      if (idx !== -1) allInvoices[idx] = { ...allInvoices[idx], ...n };
+      else allInvoices.push(n);
+    });
+
+    const list = normalized;
+    const statusLabel = { pending_verification:'بانتظار التحقق', verified:'تم القبول', rejected:'مرفوض' };
+    const statusColor = { pending_verification:'#f59e0b', verified:'#10b981', rejected:'#ef4444' };
+
+    showModal(`
+      <div style="padding:0;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;">
+        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;">
+          <h3 style="margin:0;"><i class="fas fa-receipt"></i> إيصالات الدفع لطلباتي</h3>
+          <p style="margin:6px 0 0;opacity:0.85;font-size:0.85rem;">${list.filter(i=>(i.receiptStatus||i.receipt_status)==='pending_verification').length} بانتظار التحقق</p>
+        </div>
+        <div style="background:white;padding:20px;">
+          ${list.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--gray);"><i class="fas fa-receipt" style="font-size:3rem;opacity:0.3;display:block;margin-bottom:15px;"></i>لا توجد إيصالات مرفوعة بعد</div>' :
+            list.map(inv => {
+              const st = inv.receiptStatus || inv.receipt_status || 'pending_verification';
+              return `
+              <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;" onclick="closeModal();showReceiptVerification('${inv.id}');document.getElementById('receiptVerificationModal').dataset.fromTech='1';">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                  <div>
+                    <div style="font-weight:700;color:var(--dark);">${inv.invoiceNumber}</div>
+                    <div style="font-size:0.8rem;color:var(--gray);">${inv.customerName} · ${parseFloat(inv.total||0).toFixed(0)} ل.س</div>
+                  </div>
+                  <span style="background:${statusColor[st]};color:white;padding:4px 12px;border-radius:50px;font-size:0.75rem;font-weight:700;">${statusLabel[st]}</span>
+                </div>
+              </div>`;
+            }).join('')
+          }
+          <button onclick="closeModal()" style="margin-top:10px;width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+        </div>
+      </div>
+    `);
+  } catch (e) {
+    showAlert('تعذر جلب الإيصالات: ' + e.message, 'error', 6000);
+  }
+}
+
+// ===== توفر الفني: يتحكم متى يستقبل طلبات جديدة =====
+function updateAvailabilityButtonUI(isAvailable) {
+  const btn = document.getElementById('techAvailabilityBtn');
+  if (!btn) return;
+  btn.style.background = isAvailable ? '#10b981' : '#6b7280';
+  btn.innerHTML = isAvailable
+    ? '<i class="fas fa-circle" style="font-size:0.6rem;"></i> متاح'
+    : '<i class="fas fa-circle" style="font-size:0.6rem;"></i> غير متاح';
+}
+
+async function toggleTechAvailability() {
+  if (!currentTechnician?.id) return;
+  const newState = !(currentTechnician.is_available !== false);
+  try {
+    const { error } = await sb.from('technicians').update({ is_available: newState }).eq('id', currentTechnician.id);
+    if (error) throw error;
+    currentTechnician.is_available = newState;
+    localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
+    updateAvailabilityButtonUI(newState);
+    showAlert(newState ? '✅ أنت الآن متاح لاستقبال طلبات جديدة' : '⏸️ أنت الآن غير متاح - لن تصلك طلبات جديدة حتى تُفعّل التوفر مجدداً', newState ? 'success' : 'warning', 4000);
+    loadTechOrders();
+  } catch (e) {
+    showAlert('تعذر تحديث حالة التوفر: ' + e.message, 'error');
+  }
+}
+
+// ===== لوحة أرباحي: ملخص يومي/أسبوعي/شهري لفواتير الفني =====
+async function showTechEarnings() {
+  if (!currentTechnician?.id) return;
+  showModal(`<div style="padding:60px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:var(--primary);"></i></div>`);
+  try {
+    const { data, error } = await sb.from('invoices').select('total,status,created_at').eq('tech_id', currentTechnician.id);
+    if (error) throw error;
+    const invoices = data || [];
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfDay); startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const sum = (list) => list.reduce((s, i) => s + parseFloat(i.total || 0), 0);
+    const daily   = sum(invoices.filter(i => new Date(i.created_at) >= startOfDay));
+    const weekly  = sum(invoices.filter(i => new Date(i.created_at) >= startOfWeek));
+    const monthly = sum(invoices.filter(i => new Date(i.created_at) >= startOfMonth));
+    const allTime = sum(invoices);
+    const paidCount = invoices.filter(i => i.status === 'paid').length;
+
+    showModal(`
+      <div style="padding:0;max-width:420px;width:100%;">
+        <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+          <h3 style="margin:0;"><i class="fas fa-wallet"></i> أرباحي</h3>
+        </div>
+        <div style="background:white;padding:20px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px;">
+            <div style="background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#10b981;">${daily.toFixed(0)}</div>
+              <div style="font-size:0.78rem;color:var(--gray);">اليوم</div>
+            </div>
+            <div style="background:#eff6ff;border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#3b82f6;">${weekly.toFixed(0)}</div>
+              <div style="font-size:0.78rem;color:var(--gray);">هذا الأسبوع</div>
+            </div>
+            <div style="background:#fffbeb;border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#d97706;">${monthly.toFixed(0)}</div>
+              <div style="font-size:0.78rem;color:var(--gray);">هذا الشهر</div>
+            </div>
+            <div style="background:#faf5ff;border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#8b5cf6;">${allTime.toFixed(0)}</div>
+              <div style="font-size:0.78rem;color:var(--gray);">الإجمالي</div>
+            </div>
+          </div>
+          <p style="text-align:center;color:var(--gray);font-size:0.85rem;margin-bottom:15px;">${paidCount} فاتورة مدفوعة من أصل ${invoices.length}</p>
+          <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+        </div>
+      </div>
+    `);
+  } catch (e) {
+    showAlert('تعذر جلب بيانات الأرباح: ' + e.message, 'error', 6000);
+  }
 }
 
 function refreshTechOrders() {
@@ -5507,13 +6083,26 @@ function renderProfileHistory() {
         <div style="font-weight:700;color:var(--dark);">${o.service || 'خدمة'}</div>
         <div style="color:var(--gray);font-size:0.82rem;margin-top:2px;">${o.createdAt ? new Date(o.createdAt).toLocaleDateString('ar-SA') : ''}${o.date ? ' - ' + o.date : ''}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="background:${color}1a;color:${color};padding:5px 12px;border-radius:50px;font-size:0.78rem;font-weight:700;">${getStatusText(o.status)}</span>
+        <button onclick="reorderService('${(o.service||'').replace(/'/g,"")}','${o.governorate||''}')" style="background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;padding:5px 12px;border-radius:50px;font-size:0.78rem;cursor:pointer;font-family:inherit;"><i class="fas fa-redo"></i> اطلب نفس الخدمة</button>
         ${o.status === 'completed' && (o.tech_id || o.tech_name) ? `<button onclick="showRateTechForm('${o.id}','${o.tech_id||''}','${(o.tech_name||'الفني').replace(/'/g,"")}')" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;padding:5px 12px;border-radius:50px;font-size:0.78rem;cursor:pointer;font-family:inherit;"><i class="fas fa-star"></i> قيّم الفني</button>` : ''}
         ${o.status === 'completed' ? `<button onclick="showComplaintForm('${o.id}','${(o.service||'').replace(/'/g,"")}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:5px 12px;border-radius:50px;font-size:0.78rem;cursor:pointer;font-family:inherit;"><i class="fas fa-exclamation-circle"></i> شكوى</button>` : ''}
       </div>
     </div>`;
   }).join('');
+}
+
+// ===== اطلب نفس الخدمة مرة أخرى: تعبئة نموذج الحجز تلقائياً والانتقال إليه =====
+function reorderService(service, governorate) {
+  navLinkClick('booking');
+  setTimeout(() => {
+    const svcSelect = document.getElementById('bookingService');
+    const govSelect = document.getElementById('bookingGovernorate');
+    if (svcSelect && service) svcSelect.value = service;
+    if (govSelect && governorate) govSelect.value = governorate;
+    showAlert('✅ تم تعبئة الطلب - راجع البيانات واضغط تأكيد الحجز', 'success', 4000);
+  }, 300);
 }
 
 function refreshUserData() {
