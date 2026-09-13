@@ -22,19 +22,11 @@
     --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
   }
   body.dark-mode {
-    --dark: #f1f5f9;
-    --light: #0f172a;
-    --gray: #94a3b8;
     background: #0b1220 !important;
-    color: #f1f5f9 !important;
   }
-  body.dark-mode .service-card, body.dark-mode .booking-form, body.dark-mode .stat-card,
-  body.dark-mode .order-item, body.dark-mode .history-item, body.dark-mode .form-control,
-  body.dark-mode .invoice-review-modal > div, body.dark-mode section {
-    background: #161f32 !important; color: #f1f5f9 !important; border-color: #2a3652 !important;
-  }
-  body.dark-mode input, body.dark-mode select, body.dark-mode textarea { background:#0f172a !important; color:#f1f5f9 !important; border-color:#2a3652 !important; }
   body.dark-mode .nav { background: rgba(11,18,32,0.95) !important; }
+  body.dark-mode .nav-link { color: #f1f5f9 !important; }
+  body.dark-mode #homePage { background: #0b1220 !important; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Tajawal', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #ffffff; color: var(--dark); direction: rtl; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   .welcome-page.hidden { display: none !important; }
@@ -5898,8 +5890,7 @@ function renderTechOrders() {
         ${o.status==='pending'&&!isOther?`<button onclick="techAcceptOrder('${o.id}')" style="flex:2;min-width:110px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-hand-paper"></i> قبول</button>`:''}
         ${o.status==='in-progress'&&isMine&&perms.updateStatus?`
           ${!o.on_the_way_at ? `<button onclick="techOnTheWay('${o.id}')" style="flex:1;min-width:100px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-car"></i> في الطريق</button>` : `<div style="flex:1;min-width:100px;text-align:center;padding:10px;background:#eff6ff;border-radius:50px;color:#0284c7;font-size:0.8rem;font-weight:700;"><i class="fas fa-car"></i> في الطريق ✓</div>`}
-          <button onclick="techUpdateStatus('${o.id}','completed')" style="flex:2;min-width:100px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-check-circle"></i> إنهاء</button>
-          <button onclick="techCreateInvoice('${o.id}','${o.user_id||o.userId||''}','${(o.name||'').replace(/'/g,'')}','${o.phone||''}','${(o.service||'').replace(/'/g,'')}')" style="flex:1;min-width:80px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-file-invoice-dollar"></i> فاتورة</button>
+          <button onclick="techFinishAndInvoice('${o.id}','${o.user_id||o.userId||''}','${(o.name||'').replace(/'/g,'')}','${o.phone||''}','${(o.service||'').replace(/'/g,'')}')" style="flex:2;min-width:100px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-check-circle"></i> إنهاء وإنشاء فاتورة</button>
         `:''}
         ${o.status==='completed'?`<div style="flex:2;text-align:center;padding:10px;background:#f0fdf4;border-radius:50px;color:#10b981;font-weight:700;font-size:0.88rem;"><i class="fas fa-check-double"></i> مكتمل</div>`:''}
         ${isOther?`<div style="flex:2;text-align:center;padding:10px;background:#fef3c7;border-radius:50px;color:#92400e;font-size:0.83rem;"><i class="fas fa-lock"></i> محجوز من فني آخر</div>`:''}
@@ -5913,11 +5904,11 @@ function renderTechOrders() {
 // ===== شريط تتبع مصغّر واحترافي داخل بطاقة طلب الفني نفسه =====
 function renderTechMiniTracker(o) {
   const steps = [
-    { key: 'accepted',  label: 'تم القبول',    icon: 'fa-hand-paper', done: true },
-    { key: 'assigned',  label: 'تعيين فني',     icon: 'fa-hard-hat',   done: true },
-    { key: 'onway',     label: 'في الطريق',     icon: 'fa-car',        done: !!o.on_the_way_at },
-    { key: 'finished',  label: 'إنهاء الخدمة',  icon: 'fa-check-circle', done: o.status === 'completed' || o.status === 'awaiting_payment' },
-    { key: 'invoiced',  label: 'إرسال فاتورة',  icon: 'fa-file-invoice-dollar', done: !!(o.invoice_id || o.invoiceId) }
+    { key: 'accepted',  label: 'تم قبول الطلب',   icon: 'fa-hand-paper', done: true },
+    { key: 'assigned',  label: 'تم تعيين فني',     icon: 'fa-hard-hat',   done: true },
+    { key: 'onway',     label: 'في الطريق',        icon: 'fa-car',        done: !!o.on_the_way_at },
+    { key: 'finished',  label: 'تم الانتهاء',      icon: 'fa-check-circle', done: o.status === 'completed' || o.status === 'awaiting_payment' },
+    { key: 'invoiced',  label: 'تم إرسال الفاتورة', icon: 'fa-file-invoice-dollar', done: !!(o.invoice_id || o.invoiceId) }
   ];
   return `<div style="display:flex;justify-content:space-between;align-items:flex-start;background:#f8fafc;border-radius:12px;padding:12px 8px;margin-bottom:10px;">
     ${steps.map((s, i) => `
@@ -6531,7 +6522,7 @@ async function techAcceptOrder(orderId) {
       loadTechOrders();
       return;
     }
-    await sb.from('orders').update({
+    const { error: updateErr } = await sb.from('orders').update({
       accepted_by_tech: currentTechnician.id,
       tech_id: currentTechnician.id,
       tech_name: currentTechnician.name || '',
@@ -6540,6 +6531,7 @@ async function techAcceptOrder(orderId) {
       status: 'in-progress',
       updated_at: new Date().toISOString()
     }).eq('id', orderId);
+    if (updateErr) throw updateErr;
 
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) {
@@ -6590,6 +6582,33 @@ async function techOnTheWay(orderId) {
 }
 
 // ----- الفني: إنشاء فاتورة (يعيد استخدام showInvoiceForReview الموجودة أصلاً) -----
+// ===== إنهاء الطلب والانتقال مباشرة لإنشاء الفاتورة - تجربة موحدة بدل زرين منفصلين =====
+async function techFinishAndInvoice(orderId, userId, name, phone, service) {
+  try {
+    const { error } = await sb.from('orders').update({
+      status: 'completed', updated_at: new Date().toISOString()
+    }).eq('id', orderId);
+    if (error) throw error;
+    const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
+    if (idx !== -1) allOrders[idx].status = 'completed';
+
+    // إشعار حقيقي (Push) للعميل بإنهاء الخدمة
+    const order = allOrders[idx];
+    if (order?.user_id) {
+      sb.from('notifications').insert([{
+        user_id: order.user_id,
+        message: '🎉 تم إنهاء الخدمة (' + (order.service||'') + ') بنجاح',
+        type: 'order_update', is_read: false
+      }]).catch(()=>{});
+    }
+
+    // الانتقال مباشرة لإنشاء الفاتورة
+    techCreateInvoice(orderId, userId, name, phone, service);
+  } catch (e) {
+    showAlert('تعذر إنهاء الطلب: ' + e.message, 'error', 6000);
+  }
+}
+
 function techCreateInvoice(orderId, userId, name, phone, service) {
   showModal(`
     <div style="padding:0;max-width:460px;width:100%;">
