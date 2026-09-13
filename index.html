@@ -505,27 +505,24 @@
       <div id="adminNavMenuBtn" style="display:none;padding:8px 15px;">
         <a href="#" class="nav-link" onclick="showAdminDashboard();closeMenu()" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;border-radius:var(--radius);justify-content:center;margin:0;"><i class="fas fa-shield-alt"></i> لوحة الإدارة</a>
       </div>
-      <div id="techMenuBtn" style="display:none;padding:8px 15px;">
-        <a href="#" class="nav-link" onclick="showTechDashboard();closeMenu()" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border-radius:var(--radius);justify-content:center;margin:0;"><i class="fas fa-hard-hat"></i> لوحة الفني</a>
-      </div>
       <a href="#" class="nav-link" id="notifNavBtn" onclick="showUserNotificationsPanel()" style="display:none;justify-content:center;position:relative;">
         <i class="fas fa-bell"></i> الإشعارات
         <span id="notifBadge" style="display:none;position:absolute;top:8px;right:8px;background:#ef4444;color:white;border-radius:50%;width:16px;height:16px;font-size:0.65rem;font-weight:800;display:none;align-items:center;justify-content:center;"></span>
       </a>
       <a href="#" class="nav-link logout-btn" id="navLogoutBtn" onclick="confirmLogout()" style="display:none;justify-content:center;"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a>
       <div class="mobile-social">
-        <a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" target="_blank" class="social-icon"><i class="fab fa-facebook-f"></i></a>
-        <a href="https://x.com/EubaydMajd" target="_blank" class="social-icon"><i class="fab fa-twitter"></i></a>
-        <a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" target="_blank" class="social-icon"><i class="fab fa-instagram"></i></a>
-        <a href="https://wa.me/+905357624482" target="_blank" class="social-icon"><i class="fab fa-whatsapp"></i></a>
+        <a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" data-social="facebook" target="_blank" class="social-icon"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://x.com/EubaydMajd" data-social="twitter" target="_blank" class="social-icon"><i class="fab fa-twitter"></i></a>
+        <a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" data-social="instagram" target="_blank" class="social-icon"><i class="fab fa-instagram"></i></a>
+        <a href="https://wa.me/+905357624482" data-social="whatsapp" target="_blank" class="social-icon"><i class="fab fa-whatsapp"></i></a>
       </div>
     </div>
     <div class="user-controls">
       <div class="social-header">
-        <a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" target="_blank" class="social-icon"><i class="fab fa-facebook-f"></i></a>
-        <a href="https://x.com/EubaydMajd" target="_blank" class="social-icon"><i class="fab fa-twitter"></i></a>
-        <a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" target="_blank" class="social-icon"><i class="fab fa-instagram"></i></a>
-        <a href="https://wa.me/+905357624482" target="_blank" class="social-icon"><i class="fab fa-whatsapp"></i></a>
+        <a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" data-social="facebook" target="_blank" class="social-icon"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://x.com/EubaydMajd" data-social="twitter" target="_blank" class="social-icon"><i class="fab fa-twitter"></i></a>
+        <a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" data-social="instagram" target="_blank" class="social-icon"><i class="fab fa-instagram"></i></a>
+        <a href="https://wa.me/+905357624482" data-social="whatsapp" target="_blank" class="social-icon"><i class="fab fa-whatsapp"></i></a>
       </div>
       <div class="user-avatar" id="userAvatar" onclick="navLinkClick('profile')" style="display: none;"><i class="fas fa-user"></i></div>
     </div>
@@ -650,6 +647,7 @@
               <div onclick="sendDailyReminders();localStorage.removeItem('obied_last_reminder');closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-bell" style="color:#f59e0b;width:18px;"></i> الفواتير غير المدفوعة</div>
               <div onclick="showNotificationCenter();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-paper-plane" style="color:#3b82f6;width:18px;"></i> إرسال إشعارات الدفع</div>
               <div onclick="showBroadcastNotification();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-bullhorn" style="color:#f59e0b;width:18px;"></i> إشعار عام للمستخدمين</div>
+              <div onclick="showSocialLinksManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-share-alt" style="color:#2563eb;width:18px;"></i> روابط التواصل الاجتماعي</div>
               <div onclick="showStats();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-bar" style="color:#8b5cf6;width:18px;"></i> الإحصائيات</div>
               <div onclick="showReceiptVerificationSection();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-receipt" style="color:#f59e0b;width:18px;"></i> التحقق من الإيصالات</div>
               <div onclick="showSliderManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-images" style="color:#3b82f6;width:18px;"></i> إدارة السلايدر</div>
@@ -866,7 +864,7 @@
 
   <footer class="main-footer">
     <div class="footer-content">
-      <div class="footer-section"><h3>عبيد للصيانة</h3><p>نقدم خدمات صيانة الكهرباء والماء والطاقة الشمسية بأعلى معايير الجودة والاحترافية.</p><div class="social-links"><a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" target="_blank"><i class="fab fa-facebook-f"></i></a><a href="https://x.com/EubaydMajd" target="_blank"><i class="fab fa-twitter"></i></a><a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" target="_blank"><i class="fab fa-instagram"></i></a><a href="https://wa.me/+905357624482" target="_blank"><i class="fab fa-whatsapp"></i></a></div></div>
+      <div class="footer-section"><h3>عبيد للصيانة</h3><p>نقدم خدمات صيانة الكهرباء والماء والطاقة الشمسية بأعلى معايير الجودة والاحترافية.</p><div class="social-links"><a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" data-social="facebook" target="_blank"><i class="fab fa-facebook-f"></i></a><a href="https://x.com/EubaydMajd" data-social="twitter" target="_blank"><i class="fab fa-twitter"></i></a><a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" data-social="instagram" target="_blank"><i class="fab fa-instagram"></i></a><a href="https://wa.me/+905357624482" data-social="whatsapp" target="_blank"><i class="fab fa-whatsapp"></i></a></div></div>
       <div class="footer-section"><h3>اتصل بنا</h3><p><i class="fas fa-phone"></i> +905357624482</p><p><i class="fas fa-envelope"></i> bydlamal@gmail.com</p><p><i class="fas fa-map-marker-alt"></i> جميع مناطق المدينة</p></div>
       <div class="footer-section"><h3>مواعيد العمل</h3><p><i class="fas fa-clock"></i> 24 ساعة طوال الأسبوع</p><p><i class="fas fa-calendar"></i> خدمة طوارئ على مدار الساعة</p><p><i class="fas fa-user-tie"></i> فنيون معتمدون</p></div>
     </div>
@@ -1144,8 +1142,7 @@ function updateUIForLoggedInUser() {
   s('notifNavBtn', 'flex');
   if (!currentAdmin) { s('adminNavBtn', 'none'); s('adminNavMenuBtn', 'none'); }
   else { s('adminNavMenuBtn', 'block'); }
-  if (currentTechnician) { s('techNavBtn', 'flex'); s('techMenuBtn', 'block'); }
-  else { s('techMenuBtn', 'none'); }
+  if (currentTechnician) { s('techNavBtn', 'flex'); }
   const pab = document.getElementById('profileAdminBtn');
   const ptb = document.getElementById('profileTechBtn');
   if (pab) pab.style.display = currentAdmin ? 'inline-block' : 'none';
@@ -1165,7 +1162,6 @@ function updateUIForLoggedOutUser() {
   s('notifNavBtn', 'none');
   s('userAvatar', 'none');
   if (!currentAdmin) s('adminNavBtn', 'none');
-  s('techMenuBtn', 'none');
   s('adminNavMenuBtn', 'none');
 }
 
@@ -2245,7 +2241,12 @@ async function saveTechEdit(techId) {
 }
 
 async function toggleTechStatus(techId, newStatus, name) {
+  const { data: techRow } = await sb.from('technicians').select('user_ref_id').eq('id', techId).maybeSingle();
   await sb.from('technicians').update({ is_active: newStatus, updated_at: new Date().toISOString() }).eq('id', techId);
+  // إصلاح: عند إيقاف الفني، إرجاع صلاحيته لمستخدم عادي - وإلا يبقى محتفظاً بلوحة الفني
+  if (techRow?.user_ref_id) {
+    await sb.from('users').update({ role: newStatus ? 'technician' : 'user' }).eq('id', techRow.user_ref_id);
+  }
   showAlert(`${newStatus?'✅ تم تفعيل':'⏸ تم إيقاف'} الفني ${name}`, 'success', 2000);
   closeModal();
   showTechManagement();
@@ -2253,7 +2254,12 @@ async function toggleTechStatus(techId, newStatus, name) {
 
 async function deleteTechnician(techId, name) {
   if (!confirm(`هل أنت متأكد من حذف الفني "${name}"؟`)) return;
+  const { data: techRow } = await sb.from('technicians').select('user_ref_id').eq('id', techId).maybeSingle();
   await sb.from('technicians').delete().eq('id', techId);
+  // إصلاح: عند حذف الفني نهائياً، إرجاع صلاحية حسابه لمستخدم عادي
+  if (techRow?.user_ref_id) {
+    await sb.from('users').update({ role: 'user' }).eq('id', techRow.user_ref_id);
+  }
   showAlert(`تم حذف الفني ${name}`, 'success', 2000);
   closeModal();
   showTechManagement();
@@ -3094,6 +3100,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // استعادة الجلسة أولاً ثم تحميل الإعدادات
   applyStoredDarkMode();
   restoreSession();
+  loadSocialLinks();
   loadSettings().then(() => initSlider()).catch(() => initSlider());
 });
 
@@ -3127,6 +3134,9 @@ function restoreSession() {
         // الإجباري للوحته في كل مرة يفتح فيها التطبيق
         _showUserHome(u);
         if (typeof syncPushToken === 'function') syncPushToken();
+        // إعادة تحقق صامتة: لو تم إيقاف/حذف صلاحية الفني من لوحة الإدارة،
+        // تُسحب صلاحيته فورًا هنا بدل بقائها فعّالة من الجلسة المحفوظة القديمة
+        revalidateRoleInBackground(u);
         return;
       }
     }
@@ -3158,8 +3168,23 @@ async function revalidateRoleInBackground(u) {
   try {
     const freshRole = await resolveUserRole(u);
     const cachedRole = u.role || 'user';
-    if (freshRole && freshRole !== cachedRole && (freshRole === 'technician' || freshRole === 'admin')) {
+    if (!freshRole || freshRole === cachedRole) return;
+
+    if (freshRole === 'technician' || freshRole === 'admin') {
+      // ترقية: صار فنياً أو أدمن منذ آخر جلسة
       await applyRoleAndRoute(u, freshRole);
+    } else if (cachedRole === 'technician' || cachedRole === 'admin') {
+      // سحب صلاحية: تم إيقاف/حذف الفني أو الأدمن من لوحة الإدارة - اسحب
+      // الصلاحية فورًا هنا بدل بقائها فعّالة من الجلسة المحفوظة القديمة
+      currentTechnician = null;
+      currentAdmin = null;
+      localStorage.removeItem('obied_tech');
+      localStorage.removeItem('obied_admin');
+      u.role = freshRole;
+      currentUser = u;
+      localStorage.setItem('obied_current_user', JSON.stringify(u));
+      updateUIForLoggedInUser();
+      showAlert('ℹ️ تم تحديث صلاحيات حسابك', 'info', 4000);
     }
   } catch(e) {}
 }
@@ -3171,8 +3196,6 @@ function _showTechPanel() {
   if (mc) mc.style.display = 'block';
   var tb = document.getElementById('techNavBtn');
   if (tb) tb.style.display = 'flex';
-  var tmb = document.getElementById('techMenuBtn');
-  if (tmb) tmb.style.display = 'flex';
   var ptb = document.getElementById('profileTechBtn');
   if (ptb) ptb.style.display = 'inline-block';
   ['homePage','loginPage','profilePage','adminLoginPage','adminDashboard'].forEach(function(id) {
@@ -3547,6 +3570,69 @@ function loadData() {
       currentAdmin = JSON.parse(ad);
       document.getElementById('resetSettingsBtn').style.display = 'block';
     } catch(e) {}
+  }
+}
+
+// ===== روابط التواصل الاجتماعي - قابلة للتعديل من لوحة الإدارة =====
+let socialLinks = {
+  facebook:  'https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL',
+  twitter:   'https://x.com/EubaydMajd',
+  instagram: 'https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl',
+  whatsapp:  'https://wa.me/+905357624482'
+};
+
+function applySocialLinks() {
+  document.querySelectorAll('[data-social]').forEach(el => {
+    const key = el.getAttribute('data-social');
+    if (socialLinks[key]) el.href = socialLinks[key];
+  });
+}
+
+async function loadSocialLinks() {
+  try {
+    const { data } = await sb.from('settings').select('value').eq('key','social_links').maybeSingle();
+    if (data?.value) socialLinks = { ...socialLinks, ...JSON.parse(data.value) };
+  } catch (e) {}
+  applySocialLinks();
+}
+
+function showSocialLinksManagement() {
+  if (!currentAdmin) return;
+  showModal(`
+    <div style="padding:0;max-width:450px;width:100%;">
+      <div style="background:linear-gradient(135deg,#2563eb,#1e40af);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-share-alt"></i> روابط التواصل الاجتماعي</h3>
+      </div>
+      <div style="background:white;padding:20px;">
+        <div class="form-group"><label><i class="fab fa-facebook" style="color:#1877f2;"></i> فيسبوك</label><input type="url" id="socialFacebook" class="form-control" value="${socialLinks.facebook}"></div>
+        <div class="form-group"><label><i class="fab fa-twitter" style="color:#1da1f2;"></i> تويتر / X</label><input type="url" id="socialTwitter" class="form-control" value="${socialLinks.twitter}"></div>
+        <div class="form-group"><label><i class="fab fa-instagram" style="color:#e1306c;"></i> انستغرام</label><input type="url" id="socialInstagram" class="form-control" value="${socialLinks.instagram}"></div>
+        <div class="form-group"><label><i class="fab fa-whatsapp" style="color:#25d366;"></i> واتساب (رابط wa.me)</label><input type="url" id="socialWhatsapp" class="form-control" value="${socialLinks.whatsapp}"></div>
+        <button onclick="saveSocialLinks()" style="width:100%;background:linear-gradient(135deg,#2563eb,#1e40af);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;margin-bottom:10px;"><i class="fas fa-save"></i> حفظ وتطبيق</button>
+        <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+      </div>
+    </div>
+  `);
+}
+
+async function saveSocialLinks() {
+  const updated = {
+    facebook:  document.getElementById('socialFacebook')?.value?.trim()  || socialLinks.facebook,
+    twitter:   document.getElementById('socialTwitter')?.value?.trim()   || socialLinks.twitter,
+    instagram: document.getElementById('socialInstagram')?.value?.trim() || socialLinks.instagram,
+    whatsapp:  document.getElementById('socialWhatsapp')?.value?.trim()  || socialLinks.whatsapp
+  };
+  try {
+    const { error } = await sb.from('settings').upsert({
+      key: 'social_links', value: JSON.stringify(updated), updated_at: new Date().toISOString()
+    }, { onConflict: 'key' });
+    if (error) throw error;
+    socialLinks = updated;
+    applySocialLinks();
+    showAlert('✅ تم حفظ روابط التواصل وتطبيقها', 'success', 3000);
+    closeModal();
+  } catch (e) {
+    showAlert('تعذر الحفظ: ' + e.message, 'error', 6000);
   }
 }
 
@@ -5848,16 +5934,32 @@ function renderTechMiniTracker(o) {
 
 async function techUpdateStatus(orderId, newStatus) {
   try {
-    await sb.from('orders').update({
+    const { error } = await sb.from('orders').update({
       status: newStatus,
       updated_at: new Date().toISOString()
     }).eq('id', orderId);
+    if (error) throw error;
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) allOrders[idx].status = newStatus;
     renderTechOrders();
     updateTechStats();
+
+    // إشعار حقيقي (Push) للعميل بأي تغيير في حالة طلبه
+    const order = allOrders[idx];
+    if (order?.user_id) {
+      const statusMsgs = {
+        completed: '🎉 تم إنهاء الخدمة (' + (order.service||'') + ') بنجاح',
+        cancelled: '❌ تم إلغاء طلبك (' + (order.service||'') + ')'
+      };
+      sb.from('notifications').insert([{
+        user_id: order.user_id,
+        message: statusMsgs[newStatus] || ('تحديث حالة طلبك: ' + getStatusText(newStatus)),
+        type: 'order_update', is_read: false
+      }]).catch(()=>{});
+    }
+
     showAlert(`✅ تم تحديث حالة الطلب`, 'success', 2000);
-  } catch(e) { showAlert('خطأ في التحديث', 'error'); }
+  } catch(e) { showAlert('خطأ في التحديث: ' + e.message, 'error'); }
 }
 
 function techCallCustomer(phone) {
@@ -6448,8 +6550,19 @@ async function techAcceptOrder(orderId) {
     }
     renderTechOrders();
     updateTechStats();
+
+    // إشعار حقيقي (Push) للعميل بقبول طلبه
+    const acceptedOrder = allOrders[idx];
+    if (acceptedOrder?.user_id) {
+      sb.from('notifications').insert([{
+        user_id: acceptedOrder.user_id,
+        message: '✅ تم قبول طلبك (' + (acceptedOrder.service||'') + ') وسيتوجه إليك الفني ' + (currentTechnician.name||'') + ' قريباً',
+        type: 'order_update', is_read: false
+      }]).catch(()=>{});
+    }
+
     showAlert('✅ تم قبول الطلب بنجاح', 'success');
-  } catch (e) { showAlert('خطأ في قبول الطلب', 'error'); }
+  } catch (e) { showAlert('خطأ في قبول الطلب: ' + e.message, 'error'); }
 }
 
 // ===== الفني في الطريق: مرحلة تتبع إضافية دون تغيير حالة الطلب الأساسية =====
