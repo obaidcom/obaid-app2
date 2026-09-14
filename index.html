@@ -6568,13 +6568,11 @@ function saveSettingsFromPanel() {
 async function techAcceptOrder(orderId) {
   if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني لقبول الطلبات', 'error'); return; }
   try {
-    const { data: check } = await sb.from('orders').select('accepted_by_tech,status').eq('id', orderId).maybeSingle();
-    if (check && check.accepted_by_tech) {
-      showAlert('تم قبول هذا الطلب من فني آخر بالفعل', 'warning');
-      loadTechOrders();
-      return;
-    }
-    const { error: updateErr } = await sb.from('orders').update({
+    // ===== إصلاح حالة السباق: تحديث ذرّي واحد يشترط أن الطلب لا يزال
+    // بلا فني ضمن نفس عملية UPDATE (WHERE id=X AND accepted_by_tech IS NULL)
+    // بدل فحص منفصل ثم تحديث منفصل - يمنع فنيّين من قبول نفس الطلب معًا
+    // فعليًا على مستوى قاعدة البيانات، وليس فقط منطق التطبيق =====
+    const { data: updatedRows, error: updateErr } = await sb.from('orders').update({
       accepted_by_tech: currentTechnician.id,
       tech_id: currentTechnician.id,
       tech_name: currentTechnician.name || '',
@@ -6582,8 +6580,16 @@ async function techAcceptOrder(orderId) {
       tech_accepted_at: new Date().toISOString(),
       status: 'in-progress',
       updated_at: new Date().toISOString()
-    }).eq('id', orderId);
+    }).eq('id', orderId).is('accepted_by_tech', null).select();
+
     if (updateErr) throw updateErr;
+
+    if (!updatedRows || updatedRows.length === 0) {
+      // التحديث لم يؤثر على أي صف = فني آخر سبقك بجزء من الثانية
+      showAlert('تم قبول هذا الطلب من فني آخر بالفعل', 'warning');
+      loadTechOrders();
+      return;
+    }
 
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) {
