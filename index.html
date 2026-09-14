@@ -701,7 +701,7 @@
           <span id="techDashTitle">لوحة الفني</span>
         </div>
         <div class="admin-controls">
-          <button class="admin-btn" onclick="showTechEarnings()" style="background:linear-gradient(135deg,#10b981,#059669);"><i class="fas fa-wallet"></i> أرباحي</button>
+          <button class="admin-btn" onclick="showTechEarnings()" style="background:linear-gradient(135deg,#10b981,#059669);"><i class="fas fa-chart-bar"></i> إحصائياتي</button>
           <button class="admin-btn" id="techAvailabilityBtn" onclick="toggleTechAvailability()" style="background:#10b981;"><i class="fas fa-circle" style="font-size:0.6rem;"></i> متاح</button>
           <button class="admin-btn" onclick="showTechReceiptsPanel()" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i class="fas fa-receipt"></i> إيصالات الدفع</button>
           <button class="admin-btn" onclick="showTechBarcodeManagement()" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);"><i class="fas fa-qrcode"></i> باركودي</button>
@@ -1535,9 +1535,40 @@ function setupEventListeners() {
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التحقق...'; }
     try {
-      const { data: userData } = await sb.from('users')
-        .select('id,name,email,phone,profile_image')
-        .eq('email', email).eq('pass_word', password).maybeSingle();
+      let userData = null;
+
+      // ===== محاولة 1: تسجيل دخول حقيقي عبر Supabase Auth (يمنح هوية موثّقة auth.uid تعمل معها RLS) =====
+      const { data: authData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
+      if (authData?.user) {
+        const { data: linkedUser } = await sb.from('users')
+          .select('id,name,email,phone,profile_image,role').eq('auth_uid', authData.user.id).maybeSingle();
+        userData = linkedUser;
+        if (!userData) {
+          // حساب Auth موجود لكن غير مربوط بصف قديم بعد - اربطه الآن عبر البريد
+          const { data: byEmail } = await sb.from('users')
+            .select('id,name,email,phone,profile_image,role').eq('email', email).maybeSingle();
+          if (byEmail) {
+            await sb.from('users').update({ auth_uid: authData.user.id }).eq('id', byEmail.id);
+            userData = byEmail;
+          }
+        }
+      }
+
+      // ===== محاولة 2: مستخدم قديم قبل الترحيل - نفس التحقق الأصلي بالضبط =====
+      if (!userData) {
+        const { data: legacyUser } = await sb.from('users')
+          .select('id,name,email,phone,profile_image,role')
+          .eq('email', email).eq('pass_word', password).maybeSingle();
+        if (legacyUser) {
+          userData = legacyUser;
+          // ترحيل تلقائي صامت: إنشاء حساب Auth حقيقي له الآن بدون أي إزعاج
+          const { data: signUpData } = await sb.auth.signUp({ email, password }).catch(() => ({ data: null }));
+          if (signUpData?.user) {
+            await sb.from('users').update({ auth_uid: signUpData.user.id }).eq('id', legacyUser.id).catch(() => {});
+          }
+        }
+      }
+
       if (!userData) { showAlert('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error'); return; }
 
       const role = await resolveUserRole(userData);
@@ -1565,8 +1596,13 @@ function setupEventListeners() {
       const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
       if (existing) { showAlert('هذا البريد مستخدم بالفعل', 'error'); return; }
 
-      // نحاول إنشاء الحساب مع تحديد role='user' افتراضياً؛ إذا لم يكن العمود موجوداً بعد في القاعدة نعيد المحاولة بدونه
-      let { data, error } = await sb.from('users').insert([{ name, email, phone, pass_word: password, role: 'user' }]).select().single();
+      // إنشاء حساب Auth حقيقي أولاً (هوية موثّقة تعمل معها RLS من أول يوم).
+      // لا نمنع التسجيل إذا فشلت هذه الخطوة لأي سبب (مثل إعدادات مشروع Supabase) -
+      // سيُرحَّل الحساب تلقائيًا وبصمت عند أول تسجيل دخول ناجح لاحقاً
+      const { data: signUpData } = await sb.auth.signUp({ email, password }).catch(() => ({ data: null }));
+
+      // نحاول إنشاء الصف مع تحديد role='user' افتراضياً وربطه بحساب Auth؛ إذا لم يكن العمود موجوداً بعد في القاعدة نعيد المحاولة بدونه
+      let { data, error } = await sb.from('users').insert([{ name, email, phone, pass_word: password, role: 'user', auth_uid: signUpData?.user?.id || null }]).select().single();
       if (error) {
         const retry = await sb.from('users').insert([{ name, email, phone, pass_word: password }]).select().single();
         data = retry.data; error = retry.error;
@@ -4732,8 +4768,11 @@ async function updateOrderStatus(orderId, newStatus) {
 
   // تحديث الحالة في Supabase
   try {
-    await sb.from('orders').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', order.id);
-  } catch(err) { console.error('status update:', err); showAlert('خطأ في تحديث الحالة', 'error'); return; }
+    const updatePayload = { status: newStatus, updated_at: new Date().toISOString() };
+    if (newStatus === 'completed') updatePayload.completed_at = new Date().toISOString();
+    const { error: statusErr } = await sb.from('orders').update(updatePayload).eq('id', order.id);
+    if (statusErr) throw statusErr;
+  } catch(err) { console.error('status update:', err); showAlert('خطأ في تحديث الحالة: ' + err.message, 'error'); return; }
 
   // إشعار للفني المعين إذا تغيرت الحالة لـ in-progress
   if (newStatus === 'in-progress' && order.tech_id) {
@@ -5200,7 +5239,7 @@ async function viewUserInvoice(invoiceId) {
 }
 
 function getInvoiceColor(status) { return { 'pending_payment': '#f59e0b', 'partially_paid': '#3b82f6', 'paid': '#10b981', 'overdue': '#ef4444', 'pending_verification': '#f59e0b' }[status] || '#6b7280'; }
-function getInvoiceStatusText(status) { return { 'pending_payment': 'بانتظار الدفع', 'partially_paid': 'مدفوع جزئياً', 'paid': 'مدفوع بالكامل', 'overdue': 'متأخرة', 'pending_verification': 'بانتظار التحقق' }[status] || status; }
+function getInvoiceStatusText(status) { return status === 'paid' ? 'مدفوعة' : 'غير مدفوعة'; }
 function getPaymentMethodText(method) { return { 'barcode': 'الدفع عبر الباركود', 'sham_kash': 'الشام كاش', 'cash': 'نقداً', 'bank_transfer': 'تحويل بنكي' }[method] || method; }
 function getReceiptStatusText(status) { return { 'pending_verification': 'بانتظار التحقق', 'verified': 'تم التحقق', 'rejected': 'مرفوض' }[status] || 'غير معروف'; }
 function getStatusText(status) {
@@ -6050,51 +6089,64 @@ async function toggleTechAvailability() {
 }
 
 // ===== لوحة أرباحي: ملخص يومي/أسبوعي/شهري لفواتير الفني =====
+// ===== إحصائياتي: أرقام واضحة فقط - بدون أي احتساب مبالغ مبهم =====
 async function showTechEarnings() {
   if (!currentTechnician?.id) return;
   showModal(`<div style="padding:60px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:var(--primary);"></i></div>`);
   try {
-    const { data, error } = await sb.from('invoices').select('total,status,created_at').eq('tech_id', currentTechnician.id);
-    if (error) throw error;
-    const invoices = data || [];
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(startOfDay); startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [{ data: orders, error: oErr }, { data: invoices, error: iErr }] = await Promise.all([
+      sb.from('orders').select('status').eq('tech_id', currentTechnician.id),
+      sb.from('invoices').select('status').eq('tech_id', currentTechnician.id)
+    ]);
+    if (oErr) throw oErr;
+    if (iErr) throw iErr;
 
-    const sum = (list) => list.reduce((s, i) => s + parseFloat(i.total || 0), 0);
-    const daily   = sum(invoices.filter(i => new Date(i.created_at) >= startOfDay));
-    const weekly  = sum(invoices.filter(i => new Date(i.created_at) >= startOfWeek));
-    const monthly = sum(invoices.filter(i => new Date(i.created_at) >= startOfMonth));
-    const allTime = sum(invoices);
-    const paidCount = invoices.filter(i => i.status === 'paid').length;
+    const ordersList   = orders || [];
+    const invoicesList = invoices || [];
+    const totalOrders      = ordersList.length;
+    const completedOrders  = ordersList.filter(o => o.status === 'completed').length;
+    const inProgressOrders = ordersList.filter(o => o.status === 'in-progress').length;
+    const totalInvoices    = invoicesList.length;
+    const paidInvoices     = invoicesList.filter(i => i.status === 'paid').length;
+    const unpaidInvoices   = totalInvoices - paidInvoices;
 
     showModal(`
       <div style="padding:0;max-width:420px;width:100%;">
         <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
-          <h3 style="margin:0;"><i class="fas fa-wallet"></i> أرباحي</h3>
+          <h3 style="margin:0;"><i class="fas fa-chart-bar"></i> إحصائياتي</h3>
         </div>
         <div style="background:white;padding:20px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px;">
-            <div style="background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;">
-              <div style="font-size:1.4rem;font-weight:800;color:#10b981;">${daily.toFixed(0)}</div>
-              <div style="font-size:0.78rem;color:var(--gray);">اليوم</div>
+          <h4 style="font-size:0.85rem;color:var(--gray);margin-bottom:10px;">الطلبات</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+            <div style="background:#eff6ff;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:800;color:#3b82f6;">${totalOrders}</div>
+              <div style="font-size:0.72rem;color:var(--gray);">إجمالي</div>
             </div>
-            <div style="background:#eff6ff;border-radius:12px;padding:16px;text-align:center;">
-              <div style="font-size:1.4rem;font-weight:800;color:#3b82f6;">${weekly.toFixed(0)}</div>
-              <div style="font-size:0.78rem;color:var(--gray);">هذا الأسبوع</div>
+            <div style="background:#f0fdf4;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:800;color:#10b981;">${completedOrders}</div>
+              <div style="font-size:0.72rem;color:var(--gray);">مكتملة</div>
             </div>
-            <div style="background:#fffbeb;border-radius:12px;padding:16px;text-align:center;">
-              <div style="font-size:1.4rem;font-weight:800;color:#d97706;">${monthly.toFixed(0)}</div>
-              <div style="font-size:0.78rem;color:var(--gray);">هذا الشهر</div>
-            </div>
-            <div style="background:#faf5ff;border-radius:12px;padding:16px;text-align:center;">
-              <div style="font-size:1.4rem;font-weight:800;color:#8b5cf6;">${allTime.toFixed(0)}</div>
-              <div style="font-size:0.78rem;color:var(--gray);">الإجمالي</div>
+            <div style="background:#fffbeb;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:800;color:#d97706;">${inProgressOrders}</div>
+              <div style="font-size:0.72rem;color:var(--gray);">قيد المعالجة</div>
             </div>
           </div>
-          <p style="text-align:center;color:var(--gray);font-size:0.85rem;margin-bottom:15px;">${paidCount} فاتورة مدفوعة من أصل ${invoices.length}</p>
-          <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+          <h4 style="font-size:0.85rem;color:var(--gray);margin-bottom:10px;">الفواتير</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div style="background:#faf5ff;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:800;color:#8b5cf6;">${totalInvoices}</div>
+              <div style="font-size:0.72rem;color:var(--gray);">إجمالي</div>
+            </div>
+            <div style="background:#f0fdf4;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:800;color:#10b981;">${paidInvoices}</div>
+              <div style="font-size:0.72rem;color:var(--gray);">مدفوعة</div>
+            </div>
+            <div style="background:#fef2f2;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:800;color:#ef4444;">${unpaidInvoices}</div>
+              <div style="font-size:0.72rem;color:var(--gray);">غير مدفوعة</div>
+            </div>
+          </div>
+          <button onclick="closeModal()" style="width:100%;margin-top:20px;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
         </div>
       </div>
     `);
@@ -6586,7 +6638,7 @@ async function techOnTheWay(orderId) {
 async function techFinishAndInvoice(orderId, userId, name, phone, service) {
   try {
     const { error } = await sb.from('orders').update({
-      status: 'completed', updated_at: new Date().toISOString()
+      status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString()
     }).eq('id', orderId);
     if (error) throw error;
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
