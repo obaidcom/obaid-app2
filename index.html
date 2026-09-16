@@ -579,6 +579,7 @@
               <input type="password" id="loginPassword" class="form-control" placeholder="********" required style="padding-left:45px;">
               <button type="button" onclick="togglePasswordVisibility('loginPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;padding:5px;"><i class="fas fa-eye"></i></button>
             </div>
+            <div style="text-align:left;margin-top:6px;"><a href="#" onclick="showForgotPasswordForm();return false;" style="font-size:0.82rem;color:var(--primary);">نسيت كلمة المرور؟</a></div>
           </div>
           <button type="submit" class="btn-primary"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
           <div id="adminLoginHint" style="display:none;margin-top:12px;">
@@ -591,7 +592,8 @@
           <div class="form-group"><label><i class="fas fa-user"></i> الاسم الكامل</label><input type="text" id="registerName" class="form-control" placeholder="أحمد محمد" required></div>
           <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label><input type="email" id="registerEmail" class="form-control" placeholder="example@email.com" required></div>
           <div class="form-group"><label><i class="fas fa-phone"></i> رقم الهاتف</label><input type="tel" id="registerPhone" class="form-control" placeholder="05xxxxxxxx" required></div>
-          <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور</label><input type="password" id="registerPassword" class="form-control" placeholder="********" required></div>
+          <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور</label><input type="password" id="registerPassword" class="form-control" placeholder="6 أحرف على الأقل" required minlength="6"></div>
+          <div class="form-group"><label><i class="fas fa-lock"></i> تأكيد كلمة المرور</label><input type="password" id="registerPasswordConfirm" class="form-control" placeholder="أعد كتابة كلمة المرور" required minlength="6"></div>
           <button type="submit" class="btn-primary"><i class="fas fa-user-plus"></i> إنشاء حساب</button>
         </form>
         <div style="text-align: center; margin-top: 30px;"><button class="btn-primary" onclick="showHome()" style="background: transparent; color: var(--primary); border: 2px solid var(--primary);"><i class="fas fa-arrow-right"></i> العودة للرئيسية</button></div>
@@ -744,6 +746,9 @@
         </button>
         <button id="profileTechBtn" onclick="showTechDashboard()" style="display:none;background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);padding:8px 18px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:700;backdrop-filter:blur(10px);">
           <i class="fas fa-hard-hat"></i> لوحة الفني
+        </button>
+        <button onclick="showChangePasswordForm()" style="background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);padding:8px 18px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:700;backdrop-filter:blur(10px);">
+          <i class="fas fa-key"></i> تغيير كلمة المرور
         </button>
       </div>
       <div class="profile-info">
@@ -912,6 +917,91 @@ function togglePasswordVisibility(inputId, btn) {
   input.type = isHidden ? 'text' : 'password';
   const icon = btn.querySelector('i');
   if (icon) icon.className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+}
+
+// ===== نسيت كلمة المرور - عبر Supabase Auth الحقيقي =====
+// ملاحظة تقنية مهمة: الرابط داخل بريد إعادة التعيين يجب أن يوجّه المستخدم
+// لصفحة ويب حقيقية (وليس داخل التطبيق مباشرة) تكمل عملية تعيين كلمة المرور
+// الجديدة، لأن هذا سلوك Supabase القياسي. راجع ملف reset-password.html
+// المرفق مع المشروع، واستضفه على أي رابط، ثم استبدل الرابط أدناه بعنوانه
+// الحقيقي، وأضفه أيضاً إلى Supabase Dashboard > Authentication > URL
+// Configuration > Redirect URLs (إلزامي، وإلا سيرفض Supabase الرابط أمنياً)
+const PASSWORD_RESET_REDIRECT_URL = 'https://ضع-رابط-صفحة-reset-password-هنا.com/reset-password.html';
+
+function showForgotPasswordForm() {
+  showModal(`
+    <div style="padding:0;max-width:420px;width:100%;">
+      <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-key"></i> نسيت كلمة المرور؟</h3>
+        <p style="margin:6px 0 0;opacity:0.85;font-size:0.85rem;">أدخل بريدك وسنرسل رابط إعادة التعيين</p>
+      </div>
+      <div style="background:white;padding:20px;">
+        <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label><input type="email" id="forgotPasswordEmail" class="form-control" placeholder="example@email.com"></div>
+        <button id="sendResetBtn" onclick="sendPasswordReset()" style="width:100%;background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;margin-bottom:10px;">
+          <i class="fas fa-paper-plane"></i> إرسال رابط إعادة التعيين
+        </button>
+        <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">رجوع</button>
+      </div>
+    </div>
+  `);
+}
+
+async function sendPasswordReset() {
+  const email = document.getElementById('forgotPasswordEmail')?.value?.trim();
+  const btn = document.getElementById('sendResetBtn');
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) { showAlert('أدخل بريدًا إلكترونيًا صحيحًا', 'error'); return; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: PASSWORD_RESET_REDIRECT_URL });
+    if (error) throw error;
+    showAlert('✅ إذا كان بريدك مسجلاً، ستصلك رسالة لإعادة تعيين كلمة المرور خلال دقائق', 'success', 6000);
+    closeModal();
+  } catch (e) {
+    showAlert('تعذر الإرسال: ' + e.message, 'error', 6000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رابط إعادة التعيين'; }
+  }
+}
+
+// ===== تغيير كلمة المرور (للمستخدم المسجّل دخوله بالفعل) =====
+function showChangePasswordForm() {
+  if (!currentUser) return;
+  showModal(`
+    <div style="padding:0;max-width:420px;width:100%;">
+      <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-key"></i> تغيير كلمة المرور</h3>
+      </div>
+      <div style="background:white;padding:20px;">
+        <div class="form-group"><label>كلمة المرور الجديدة</label><input type="password" id="newPasswordInput" class="form-control" placeholder="6 أحرف على الأقل" minlength="6"></div>
+        <div class="form-group"><label>تأكيد كلمة المرور الجديدة</label><input type="password" id="newPasswordConfirmInput" class="form-control" placeholder="أعد كتابتها" minlength="6"></div>
+        <button id="changePasswordBtn" onclick="submitChangePassword()" style="width:100%;background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;margin-bottom:10px;">
+          <i class="fas fa-save"></i> حفظ كلمة المرور الجديدة
+        </button>
+        <button onclick="closeModal()" style="width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitChangePassword() {
+  const pw  = document.getElementById('newPasswordInput')?.value?.trim();
+  const pw2 = document.getElementById('newPasswordConfirmInput')?.value?.trim();
+  const btn = document.getElementById('changePasswordBtn');
+  if (!pw || pw.length < 6) { showAlert('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error'); return; }
+  if (pw !== pw2) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...'; }
+  try {
+    // عبر Supabase Auth الحقيقي - يتطلب أن يكون للمستخدم جلسة Auth فعّالة
+    // حاليًا (تحصل تلقائيًا بعد أول تسجيل دخول ناجح بعد الترحيل)
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (error) throw error;
+    showAlert('✅ تم تغيير كلمة المرور بنجاح', 'success', 4000);
+    closeModal();
+  } catch (e) {
+    showAlert('تعذر تغيير كلمة المرور: ' + e.message + ' (سجّل خروج ودخول مرة واحدة أولاً إذا لم يسبق لك الدخول بعد هذا التحديث)', 'error', 8000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ كلمة المرور الجديدة'; }
+  }
 }
 // ===== الوضع الليلي =====
 function toggleDarkMode() {
@@ -1175,7 +1265,8 @@ function confirmLogout() {
   `);
 }
 
-function doLogoutUser() {
+async function doLogoutUser() {
+  try { await sb.auth.signOut(); } catch(e) {}
   currentUser = null;
   currentTechnician = null;
   localStorage.removeItem('obied_current_user');
@@ -1587,10 +1678,12 @@ function setupEventListeners() {
     const email    = document.getElementById('registerEmail')?.value?.trim();
     const phone    = document.getElementById('registerPhone')?.value?.trim();
     const password = document.getElementById('registerPassword')?.value?.trim();
+    const passwordConfirm = document.getElementById('registerPasswordConfirm')?.value?.trim();
     const btn = e.target.querySelector('button[type=submit]');
     if (!name || !email || !password) { showAlert('يرجى تعبئة جميع الحقول', 'error'); return; }
     if (!/^\S+@\S+\.\S+$/.test(email)) { showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error'); return; }
-    if (password.length < 4) { showAlert('كلمة المرور قصيرة جداً (4 أحرف على الأقل)', 'error'); return; }
+    if (password.length < 6) { showAlert('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error'); return; }
+    if (password !== passwordConfirm) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ إنشاء الحساب...'; }
     try {
       const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
@@ -3335,7 +3428,7 @@ async function loadUserData(userId) {
   try {
     const [oRes, iRes] = await Promise.all([
       sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
     if (iRes.error) throw iRes.error;
@@ -3577,6 +3670,7 @@ function normalizeInvoices(arr) {
     receiptStatus:       inv.receipt_status   || inv.receiptStatus   || 'none',
     receiptImage:        inv.receipt_image    || inv.receiptImage    || null,
     invoiceBarcodeImage: inv.barcode_image    || inv.invoiceBarcodeImage || null,
+    paymentBarcodeImage: inv.payment_barcode_image || inv.paymentBarcodeImage || null,
     sentAt:              inv.sent_at          || inv.sentAt          || null,
     customerName:        inv.customer_name    || inv.customerName    || '',
     customerPhone:       inv.customer_phone   || inv.customerPhone   || '',
@@ -4520,13 +4614,19 @@ async function payInvoice(invoiceId) {
   if (invoice.status === 'pending_verification') { showAlert('هذه الفاتورة قيد المراجعة بالفعل', 'warning'); return; }
   if (invoice.status === 'paid') { showAlert('هذه الفاتورة مدفوعة بالفعل', 'warning'); return; }
 
-  // ===== باركود خاص بالفني المسؤول عن الفاتورة إن وُجد، وإلا باركود الشركة =====
-  let barcodeImage = currentBarcodeImage || generateLocalQRCode(`SHAMKASH:OBIED:${invoice.invoiceNumber}:${invoice.total}`, 300);
-  if (invoice.techId || invoice.tech_id) {
-    try {
-      const { data: techRow } = await sb.from('technicians').select('barcode_image').eq('id', invoice.techId || invoice.tech_id).maybeSingle();
-      if (techRow?.barcode_image) barcodeImage = techRow.barcode_image;
-    } catch (e) {}
+  // ===== الباركود المُجمَّد المحفوظ مع الفاتورة نفسها وقت إنشائها (يضمن
+  // ثبات باركود الفواتير القديمة حتى لو غيّر الفني باركوده لاحقًا) =====
+  let barcodeImage = invoice.paymentBarcodeImage || invoice.payment_barcode_image || null;
+
+  // خطة احتياطية فقط للفواتير القديمة السابقة لهذا التحديث التي لا تملك نسخة محفوظة
+  if (!barcodeImage) {
+    barcodeImage = currentBarcodeImage || generateLocalQRCode(`SHAMKASH:OBIED:${invoice.invoiceNumber}:${invoice.total}`, 300);
+    if (invoice.techId || invoice.tech_id) {
+      try {
+        const { data: techRow } = await sb.from('technicians').select('barcode_image').eq('id', invoice.techId || invoice.tech_id).maybeSingle();
+        if (techRow?.barcode_image) barcodeImage = techRow.barcode_image;
+      } catch (e) {}
+    }
   }
 
   showModal(`
@@ -4709,7 +4809,6 @@ async function saveInvoice(invoiceData) {
       status:         invoiceData.status        || 'pending_payment',
       payment_method: invoiceData.paymentMethod || '',
       notes:          invoiceData.notes         || '',
-      // barcode_image: لا يُحفظ في Supabase لتوفير الموارد
       receipt_image:  invoiceData.receiptImage  || null,
       receipt_status: invoiceData.receiptStatus || 'none',
       sent_at:        invoiceData.sentAt        || null,
@@ -4717,6 +4816,31 @@ async function saveInvoice(invoiceData) {
 
     // تحديث إذا كانت موجودة، إدراج إذا جديدة
     const existsInDB = invoiceData.id && allInvoices.some(i => i.id === invoiceData.id);
+
+    // ===== الباركود المُجمَّد: يُحسم مرة واحدة فقط عند إنشاء الفاتورة =====
+    // (باركود الفني أولاً، وإلا باركود الشركة) ويُحفظ كنسخة ثابتة معها -
+    // حتى لو غيّر الفني باركوده لاحقًا، تبقى الفاتورة القديمة محتفظة بما
+    // كان مستخدماً فعلياً وقت إنشائها
+    if (!existsInDB) {
+      let resolvedBarcode = null;
+      if (row.tech_id) {
+        try {
+          const { data: techRow } = await sb.from('technicians').select('barcode_image').eq('id', row.tech_id).maybeSingle();
+          if (techRow?.barcode_image) resolvedBarcode = techRow.barcode_image;
+        } catch (e) {}
+      }
+      if (!resolvedBarcode) {
+        try {
+          const { data: settingsRow } = await sb.from('settings').select('value').eq('key', 'barcode').maybeSingle();
+          if (settingsRow?.value) {
+            const parsed = JSON.parse(settingsRow.value);
+            resolvedBarcode = parsed?.image || null;
+          }
+        } catch (e) {}
+      }
+      row.payment_barcode_image = resolvedBarcode;
+    }
+
     let saved;
     if (existsInDB) {
       const { data, error } = await sb.from('invoices')
@@ -5208,7 +5332,7 @@ async function viewUserInvoice(invoiceId) {
   }
   if (!invoice) {
     try {
-      const { data } = await sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at').eq('id', invoiceId).single();
+      const { data } = await sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,barcode_image,notes,sent_at,created_at').eq('id', invoiceId).single();
       if (data) { invoice = normalizeInvoices([data])[0]; allInvoices.unshift(invoice); }
     } catch(e) {}
   }
@@ -5451,7 +5575,7 @@ async function loadAdminData() {
     // اجلب المستخدمين والفواتير في الخلفية بعد ما تظهر الطلبات
     const [uRes, iRes] = await Promise.all([
       sb.from('users').select('id,name,email,phone,created_at').order('created_at', { ascending: true }).limit(500),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
     ]);
 
     allUsers    = (uRes.data || []).map(u => ({ ...u, profileImage: u.profile_image }));
@@ -6236,7 +6360,8 @@ function exitTechDashboard() {
   else _showWelcome();
 }
 
-function logoutTech() {
+async function logoutTech() {
+  try { await sb.auth.signOut(); } catch(e) {}
   if (window._techPollInterval) { clearInterval(window._techPollInterval); window._techPollInterval = null; }
   currentTechnician = null;
   currentUser = null;
