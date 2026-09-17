@@ -115,3 +115,5 @@ jobs:
         with:
           name: obied-app-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+# Rebuild after Auth registration/login hardening.
