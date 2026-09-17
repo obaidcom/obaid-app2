@@ -5,26 +5,12 @@ on:
   push:
     branches: [ main ]
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Apply one-time tracker/auth patch
-        if: github.event.head_commit.message != 'fix: apply tracker/auth code corrections'
-        run: |
-          python3 scripts/one_time_tracker_fix.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git rm .github/workflows/one-time-tracker-auth-fix.yml scripts/one_time_tracker_fix.py
-          git commit -m "fix: apply tracker/auth code corrections"
-          git push
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
