@@ -580,8 +580,9 @@
               <button type="button" onclick="togglePasswordVisibility('loginPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;padding:5px;"><i class="fas fa-eye"></i></button>
             </div>
           </div>
-          <div style="text-align:left;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
             <button type="button" onclick="showForgotPassword()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-family:inherit;font-size:0.9rem;text-decoration:underline;padding:0;"><i class="fas fa-key"></i> نسيت كلمة المرور؟</button>
+            <button type="button" onclick="showLegacyMigrationModal()" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-family:inherit;font-size:0.9rem;text-decoration:underline;padding:0;"><i class="fas fa-history"></i> ترحيل حساب قديم</button>
           </div>
           <button type="submit" class="btn-primary"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
           <div id="adminLoginHint" style="display:none;margin-top:12px;">
@@ -903,18 +904,10 @@
 // ===== نظام الفنيين =====
 let currentTechnician = null;
 
-// قائمة الفنيين مع محافظاتهم
-const TECHNICIANS_LIST = [
-  { id: 'tech001', name: 'أحمد الفني',  code: 'tech001', governorate: 'دمشق',     phone: '0911000001' },
-  { id: 'tech002', name: 'محمد الفني',  code: 'tech002', governorate: 'حلب',      phone: '0911000002' },
-  { id: 'tech003', name: 'علي الفني',   code: 'tech003', governorate: 'حمص',      phone: '0911000003' },
-  { id: 'tech004', name: 'خالد الفني',  code: 'tech004', governorate: 'حماة',     phone: '0911000004' },
-  { id: 'tech005', name: 'يوسف الفني',  code: 'tech005', governorate: 'اللاذقية', phone: '0911000005' },
-];
-
-const TECH_CONFIG = {
-  masterCode: "tech2024" // رمز دخول عام
-};
+// ===== ملاحظة أمنية (مهمة) =====
+// أُزيلت نهائياً: قائمة الفنيين الثابتة داخل الكود، ورمز الدخول العام القديم.
+// دخول الفني الآن عبر Supabase Auth فقط، ودوره يُقرأ من users.role،
+// وسجلّه في جدول technicians يُنشأ/يُسترجع بدالة آمنة تعتمد على auth.uid().
 
 let siteSettings = {
   colors: { primary: '#2563eb', secondary: '#3b82f6', accent: '#f59e0b', dark: '#1f2937', light: '#f9fafb' },
@@ -1475,6 +1468,8 @@ async function handleBooking(e) {
               user_id: techRow.user_ref_id,
               message: '🔔 طلب جديد: ' + booking.service + ' في ' + booking.governorate,
               type: 'new_order',
+              related_id: savedOrderId || null,
+              order_id: savedOrderId || null,
               is_read: false
             }]).catch(()=>{});
           }
@@ -1497,6 +1492,31 @@ async function handleBooking(e) {
   }
 }
 
+// ===== المصدر الوحيد لهوية المستخدم ودوره: دالة آمنة على السيرفر (auth.uid) =====
+// لا يمكن تمرير user_id أو role من العميل إطلاقاً، ولا يُقرأ أي دور من localStorage.
+async function loadMyProfile(linkIfMissing = false) {
+  try {
+    let { data, error } = await sb.rpc('my_profile');
+    if (error) throw error;
+    if (data && data.needs_link && linkIfMissing) {
+      const { error: linkErr } = await sb.rpc('link_my_user_row', { p_name: null, p_phone: null });
+      if (linkErr) {
+        console.error('link_my_user_row:', linkErr);
+        // نُظهر السبب الحقيقي (مثلاً: حساب قديم يلزمه إثبات كلمة المرور القديمة)
+        window._lastProfileLinkError = linkErr.message || '';
+        return null;
+      }
+      const retry = await sb.rpc('my_profile');
+      if (retry.error) throw retry.error;
+      data = retry.data;
+    }
+    return data || null;
+  } catch (e) {
+    console.error('loadMyProfile:', e);
+    return null;
+  }
+}
+
 // ===== نظام الأدوار الموحّد (role: user | technician | admin) =====
 // يحاول جلب دور المستخدم من عمود role في جدول users بأمان تام:
 // إذا كان العمود غير موجود بعد في القاعدة، يتم تجاهل الخطأ والعودة إلى القيمة الافتراضية 'user'
@@ -1512,32 +1532,29 @@ async function resolveUserRole(userRow) {
 async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
   currentAdmin = null;
   currentTechnician = null;
+  // كل الحالة في الذاكرة فقط — localStorage ليس مصدر مصادقة إطلاقاً
   currentUser = { id: userRow.id, name: userRow.name, email: userRow.email, phone: userRow.phone, profileImage: userRow.profile_image, role };
-  localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+  localStorage.removeItem('obied_current_user');
   localStorage.removeItem('obied_admin');
   localStorage.removeItem('obied_tech');
 
   if (role === 'admin') {
     currentAdmin = { id: userRow.id, email: userRow.email, name: userRow.name, role: 'admin', loginTime: new Date().toISOString() };
-    localStorage.setItem('obied_admin', JSON.stringify(currentAdmin));
   } else if (role === 'technician') {
     try {
-      let { data: techData } = await sb.from('technicians').select('*').eq('is_active', true).eq('user_ref_id', userRow.id).maybeSingle();
-      if (!techData) {
-        // إنشاء/استرجاع سجل الفني عبر RPC آمن يعتمد على auth.uid()
-        const { data: ensuredTech, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
-          p_name: userRow.name || 'فني',
-          p_phone: userRow.phone || ''
-        });
-        if (!ensureErr && ensuredTech) techData = ensuredTech;
-      }
-      if (techData) {
+      // سجل الفني يُنشأ/يُسترجع من السيرفر بدالة آمنة (auth.uid) — لا قراءة مباشرة للجدول
+      const { data: ensuredTech, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
+        p_name: userRow.name || 'فني',
+        p_phone: userRow.phone || ''
+      });
+      if (!ensureErr && ensuredTech) {
         currentTechnician = {
-          ...techData,
-          permissions: techData.permissions || { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false },
+          ...ensuredTech,
+          permissions: ensuredTech.permissions || { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false },
           loginTime: new Date().toISOString()
         };
-        localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
+      } else if (ensureErr) {
+        console.error('ensure_my_technician_row:', ensureErr);
       }
     } catch(te) {}
   }
@@ -1575,51 +1592,26 @@ function setupEventListeners() {
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التحقق...'; }
     try {
-      let userData = null;
-
-      // ===== محاولة 1: تسجيل دخول حقيقي عبر Supabase Auth (يمنح هوية موثّقة auth.uid تعمل معها RLS) =====
-      const { data: authData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
-      if (authData?.user) {
-        const { data: linkedUser } = await sb.from('users')
-          .select('id,name,email,phone,profile_image,role').eq('auth_uid', authData.user.id).maybeSingle();
-        userData = linkedUser;
-        if (!userData) {
-          // حساب Auth موجود لكن غير مربوط بصف قديم بعد - اربطه الآن عبر البريد
-          const { data: byEmail } = await sb.from('users')
-            .select('id,name,email,phone,profile_image,role').eq('email', email).maybeSingle();
-          if (byEmail) {
-            await sb.from('users').update({ auth_uid: authData.user.id }).eq('id', byEmail.id);
-            userData = byEmail;
-          }
-        }
+      // ===== تسجيل الدخول: Supabase Auth فقط (لا كلمات مرور نصية، لا localStorage) =====
+      const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password });
+      if (authErr || !authData?.user) {
+        showAlert('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error');
+        return;
       }
 
-      // ===== محاولة 2: مستخدم قديم قبل الترحيل (pass_word نصي في قاعدة البيانات) =====
-      // هذا الـ fallback مؤقت للتوافق فقط - يجب أن يختفي تدريجياً مع ترحيل جميع المستخدمين
-      if (!userData) {
-        try {
-          const { data: legacyUser } = await sb.from('users')
-            .select('id,name,email,phone,profile_image,role')
-            .eq('email', email).eq('pass_word', password).maybeSingle();
-          if (legacyUser) {
-            userData = legacyUser;
-            // ترحيل تلقائي صامت: إنشاء حساب Auth حقيقي للمستخدم القديم
-            // (email confirmation مطلوب إيقافه في Supabase Dashboard)
-            const { data: signUpData, error: signUpErr } = await sb.auth.signUp({ email, password }).catch(() => ({ data: null, error: null }));
-            if (signUpData?.user) {
-              await sb.from('users').update({ auth_uid: signUpData.user.id }).eq('id', legacyUser.id).catch(() => {});
-              // محاولة تسجيل الدخول مباشرة بعد الإنشاء
-              const { data: reAuthData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
-              if (reAuthData?.user) {
-                // تحديث auth_uid إذا لزم
-                await sb.from('users').update({ auth_uid: reAuthData.user.id }).eq('id', legacyUser.id).catch(() => {});
-              }
-            }
-          }
-        } catch(legacyErr) { /* تجاهل أخطاء الترحيل القديم */ }
+      // ===== جلب ملف المستخدم من السيرفر: auth.uid() ← users ← role =====
+      // linkIfMissing=true: يربط صفاً قديماً بنفس البريد بحساب Auth الجديد
+      // عبر دالة آمنة على السيرفر — لا مفاتيح خدمة في الواجهة إطلاقاً.
+      const profile = await loadMyProfile(true);
+      if (!profile || !profile.user) {
+        const why = window._lastProfileLinkError || '';
+        window._lastProfileLinkError = '';
+        showAlert(why
+          ? ('⚠️ ' + why)
+          : 'تعذر العثور على ملف حسابك. إن كان لديك حساب قديم فاستخدم "ترحيل حساب قديم".', 'error', 8000);
+        return;
       }
-
-      if (!userData) { showAlert('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error'); return; }
+      const userData = profile.user;
 
       const role = await resolveUserRole(userData);
       await applyRoleAndRoute(userData, role);
@@ -1673,20 +1665,25 @@ function setupEventListeners() {
           throw new Error(authErr.message);
         }
 
-        // 2) إنشاء سجل users مع auth_uid - ممنوع تخزين كلمة المرور
-        // role يُحدَّد دائماً كـ 'user' ولا يُمرَّر من نموذج التسجيل
-        let { data, error } = await sb.from('users')
+        // 2) إنشاء سجل users مع auth_uid — ممنوع تخزين كلمة المرور إطلاقاً
+        // role يُحدَّد دائماً كـ 'user' من السيرفر (trigger يرفض أي دور آخر)
+        const { data: inserted, error: insErr } = await sb.from('users')
           .insert([{ name, email, phone: phone || '', role: 'user', auth_uid: authUid }])
-          .select().single();
+          .select('id,name,email,phone,role,auth_uid').single();
 
-        if (error) {
-          // fallback: بدون role إذا لم يكن العمود موجوداً بعد
-          const retry = await sb.from('users')
-            .insert([{ name, email, phone: phone || '', auth_uid: authUid }])
-            .select().single();
-          data = retry.data; error = retry.error;
+        if (insErr) {
+          // قد يكون الصف أُنشئ مسبقاً بنفس البريد (مستخدم قديم) → الربط الآمن
+          if (insErr.code === '23505' || insErr.code === '23514') {
+            const { error: linkErr } = await sb.rpc('link_my_user_row', { p_name: name, p_phone: phone || '' });
+            if (linkErr) throw linkErr;
+            const profile = await loadMyProfile(false);
+            if (!profile?.user) throw new Error('تعذر ربط الحساب — تواصل مع الإدارة');
+            await applyRoleAndRoute(profile.user, profile.user.role || 'user', { isNewAccount: true });
+            return;
+          }
+          throw insErr;
         }
-        if (error) throw error;
+        const data = inserted;
 
         await applyRoleAndRoute(data, 'user', { isNewAccount: true });
       } catch(err) {
@@ -1709,24 +1706,13 @@ function setupEventListeners() {
       // 1) تسجيل الدخول عبر Supabase Auth أولاً
       const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password });
       if (authData?.user) {
-        // 2) تحقق أن دور المستخدم هو 'admin' في جدول users
-        let userRow = null;
-        const { data: byAuthUid } = await sb.from('users')
-          .select('id,name,email,phone,role,auth_uid').eq('auth_uid', authData.user.id).maybeSingle();
-        userRow = byAuthUid;
-        if (!userRow) {
-          const { data: byEmail } = await sb.from('users')
-            .select('id,name,email,phone,role').eq('email', email).maybeSingle();
-          if (byEmail) {
-            await sb.from('users').update({ auth_uid: authData.user.id }).eq('id', byEmail.id).catch(()=>{});
-            userRow = byEmail;
-          }
-        }
+        // 2) الدور يُقرأ من السيرفر عبر auth.uid() — لا يوجد أي بريد أدمن مكتوب في الكود
+        const profile = await loadMyProfile(false);
+        const userRow = profile?.user || null;
         if (userRow && userRow.role === 'admin') {
+          // الحالة في الذاكرة فقط — لا يُخزَّن أي إثبات مصادقة في localStorage
           currentAdmin = { id: userRow.id, email: userRow.email, name: userRow.name, role: 'admin', loginTime: new Date().toISOString() };
           currentUser  = { id: userRow.id, name: userRow.name, email: userRow.email, phone: userRow.phone, role: 'admin' };
-          localStorage.setItem('obied_admin', JSON.stringify(currentAdmin));
-          localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
           if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
           showAdminDashboard();
           showAlert('مرحباً ' + (userRow.name || email) + ' 👋', 'success', 3000);
@@ -1742,20 +1728,8 @@ function setupEventListeners() {
         }
       }
 
-      // 2) Fallback: تحقق من جدول admins القديم (للتوافق مع الإعداد الحالي)
-      try {
-        const { data: adminData } = await sb.from('admins')
-          .select('*').eq('email', email).eq('password', password).eq('is_active', true).maybeSingle();
-        if (adminData) {
-          currentAdmin = { ...adminData, loginTime: new Date().toISOString() };
-          localStorage.setItem('obied_admin', JSON.stringify(currentAdmin));
-          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
-          showAdminDashboard();
-          showAlert('مرحباً ' + (adminData.name || email) + ' 👋', 'success', 3000);
-          if (typeof loadAdminData === 'function') loadAdminData();
-          return;
-        }
-      } catch(fallbackErr) {}
+      // ملاحظة أمنية: أُزيل التحقق من جدول admins القديم (كان بكلمة مرور نصية).
+      // لوحة التحكم تعمل فقط بحساب Supabase Auth يحمل users.role = 'admin'.
 
     } catch(err) { console.error('admin login error:', err); }
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
@@ -1766,6 +1740,92 @@ function setupEventListeners() {
 // ================== نهاية الدوال الأساسية الناقصة ==================
 
 // ===== نسيت كلمة المرور =====
+// ===== ترحيل الحسابات القديمة (قبل Supabase Auth) إلى حساب Auth آمن =====
+// المسار: المستخدم يعطي بريده القديم + كلمة مروره القديمة + كلمة مرور جديدة،
+// فتُنشأ/تُفتح جلسة Auth، ثم تتحقق Edge Function من كلمة المرور القديمة وتربط
+// الصف القديم بـ auth_uid وتمسح pass_word — دون أي اعتماد دائم على الكلمة القديمة.
+function showLegacyMigrationModal() {
+  showModal(`
+    <div style="padding:0;max-width:460px;width:100%;">
+      <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
+        <h3 style="margin:0;"><i class="fas fa-history"></i> ترحيل حساب قديم</h3>
+        <p style="margin:6px 0 0;opacity:0.9;font-size:0.85rem;">لأصحاب الحسابات التي أُنشئت قبل تحديث النظام</p>
+      </div>
+      <div style="background:white;padding:22px;">
+        <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:12px;padding:12px;margin-bottom:16px;font-size:0.83rem;color:#5b21b6;">
+          <i class="fas fa-info-circle"></i>
+          سنربط حسابك القديم بحساب آمن جديد. كلمة المرور القديمة تُتحقق مرة واحدة فقط ولا تُخزَّن أبداً.
+        </div>
+        <div class="form-group"><label>البريد الإلكتروني القديم</label><input type="email" id="legacyEmail" class="form-control" placeholder="example@email.com"></div>
+        <div class="form-group"><label>كلمة المرور القديمة</label><input type="password" id="legacyOldPassword" class="form-control" placeholder="********"></div>
+        <div class="form-group"><label>كلمة المرور الجديدة</label><input type="password" id="legacyNewPassword" class="form-control" placeholder="8 أحرف على الأقل" minlength="8"></div>
+        <div class="form-group"><label>تأكيد كلمة المرور الجديدة</label><input type="password" id="legacyNewPasswordConfirm" class="form-control" placeholder="أعد إدخالها"></div>
+        <small id="legacyMsg" style="display:block;margin-bottom:12px;font-size:0.82rem;color:var(--gray);"></small>
+        <button type="button" id="legacySubmitBtn" onclick="submitLegacyMigration()" class="btn-primary" style="width:100%;"><i class="fas fa-link"></i> ترحيل الحساب</button>
+        <button type="button" onclick="closeModal()" class="btn-primary" style="width:100%;margin-top:10px;background:transparent;color:var(--gray);border:2px solid #e2e8f0;"><i class="fas fa-times"></i> إلغاء</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitLegacyMigration() {
+  const email   = document.getElementById('legacyEmail')?.value?.trim().toLowerCase();
+  const oldPwd  = document.getElementById('legacyOldPassword')?.value || '';
+  const newPwd  = document.getElementById('legacyNewPassword')?.value || '';
+  const newPwd2 = document.getElementById('legacyNewPasswordConfirm')?.value || '';
+  const msgEl   = document.getElementById('legacyMsg');
+  const btn     = document.getElementById('legacySubmitBtn');
+  const setMsg  = (t, color) => { if (msgEl) { msgEl.textContent = t; msgEl.style.color = color || 'var(--gray)'; } };
+
+  if (!email || !oldPwd || !newPwd || !newPwd2) { setMsg('يرجى ملء جميع الحقول', '#ef4444'); return; }
+  if (newPwd.length < 8) { setMsg('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل', '#ef4444'); return; }
+  if (newPwd !== newPwd2) { setMsg('كلمتا المرور الجديدتان غير متطابقتين', '#ef4444'); return; }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الترحيل...'; }
+  try {
+    // 1) فتح/إنشاء جلسة Auth بالكلمة الجديدة (الكلمة الجديدة مملوكة لـ Auth فقط)
+    let { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password: newPwd });
+    if (authErr || !authData?.user) {
+      const { data: upData, error: upErr } = await sb.auth.signUp({ email, password: newPwd });
+      if (upErr) throw new Error(upErr.code === 'user_already_exists' ? 'يوجد حساب بهذا البريد بكلمة مرور مختلفة — سجّل الدخول به ثم أعد المحاولة' : upErr.message);
+      if (!upData?.session) { setMsg('تم إنشاء الحساب — أكّد بريدك الإلكتروني من الرسالة ثم أعد المحاولة', '#f59e0b'); return; }
+      authData = upData;
+    }
+
+    // 2) تحقق من الكلمة القديمة وربط الصف القديم على السيرفر (داخل الدالة السحابية فقط)
+    const { data: res, error: fnErr } = await sb.functions.invoke('migrate-legacy-users', {
+      body: { email, old_password: oldPwd }
+    });
+    if (fnErr) {
+      let code = 'server_error';
+      try { const body = await fnErr.context?.json?.(); if (body?.error) code = body.error; } catch(e) {}
+      const map = {
+        invalid_credentials: 'كلمة المرور القديمة غير صحيحة',
+        already_migrated: 'هذا الحساب مُرحَّل بالفعل — سجّل الدخول مباشرة',
+        email_mismatch: 'البريد لا يطابق جلسة الدخول الحالية',
+        too_many_attempts: 'محاولات كثيرة — حاول بعد 15 دقيقة',
+        unauthorized: 'انتهت الجلسة — أعد المحاولة'
+      };
+      throw new Error(map[code] || 'تعذر الترحيل (' + code + ')');
+    }
+    if (!res?.ok) throw new Error('تعذر الترحيل — تحقق من كلمة المرور القديمة');
+
+    // 3) اكتمل الربط: نُحمّل الملف من السيرفر وندخل التطبيق
+    const profile = await loadMyProfile(false);
+    closeModal();
+    if (profile?.user) {
+      await applyRoleAndRoute(profile.user, profile.user.role || 'user');
+      showAlert('✅ تم ترحيل حسابك بنجاح — لم يعُد النظام يعتمد على كلمة المرور القديمة', 'success', 6000);
+    } else {
+      showAlert('✅ تم ترحيل حسابك — سجّل الدخول بكلمة المرور الجديدة', 'success', 6000);
+    }
+  } catch (e) {
+    setMsg(e.message || 'خطأ غير متوقع', '#ef4444');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-link"></i> ترحيل الحساب'; }
+  }
+}
+
 function showForgotPassword() {
   showModal(`
     <div style="padding:0;max-width:400px;width:100%;">
@@ -1798,7 +1858,8 @@ async function sendPasswordResetEmail() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
   try {
     // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
-    const redirectTo = window.location.origin + window.location.pathname + '?reset=1';
+    // صفحة إعادة التعيين الحقيقية (تستقبل رابط Supabase وتُنفّذ updateUser)
+    const redirectTo = new URL('reset-password.html', window.location.href).href;
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     closeModal();
@@ -2069,6 +2130,7 @@ async function replyToComplaint(complaintId, btn) {
       user_id:  comp.user_id,
       message:  'تم الرد على شكواك "' + (comp.subject||'') + '": ' + reply,
       type:     'complaint_reply',
+      related_id: comp.id || null,
       is_read:  false
     }]);
     notifOk = !notifErr;
@@ -2092,8 +2154,16 @@ async function updateComplaintStatus(complaintId, status) {
 }
 
 async function showAdminManagement() {
-  const { data: admins } = await sb.from('admins').select('*').order('created_at', { ascending: true });
+  // المشرفون = أصحاب users.role = 'admin' (لا يوجد جدول admins بكلمات مرور نصية)
+  const { data: admins } = await sb.from('users')
+    .select('id,name,email,role,is_active')
+    .eq('role', 'admin').order('id', { ascending: true });
   const list = admins || [];
+  let invites = [];
+  try {
+    const { data: inv } = await sb.from('admin_invites').select('id,email,name').order('id', { ascending: false });
+    invites = inv || [];
+  } catch(e) {}
 
   showModal(`
     <div style="padding:0;max-width:650px;width:100%;max-height:85vh;overflow-y:auto;">
@@ -2128,12 +2198,13 @@ async function showAdminManagement() {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
               <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">الاسم *</label><input type="text" id="newAdminName" class="form-control" placeholder="اسم المشرف"></div>
               <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">البريد *</label><input type="email" id="newAdminEmail" class="form-control" placeholder="email@example.com"></div>
-              <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">كلمة المرور *</label><input type="password" id="newAdminPassword" class="form-control" placeholder="كلمة مرور قوية"></div>
               <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">الدور</label>
                 <select id="newAdminRole" class="form-control">
                   <option value="admin">مشرف</option>
-                  <option value="super_admin">مشرف رئيسي</option>
                 </select>
+                <div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">
+                  <i class="fas fa-shield-alt"></i> بدون كلمة مرور: المشرف يُنشئ حسابه بنفس البريد من Supabase Auth
+                </div>
               </div>
             </div>
             <button onclick="addNewAdmin()" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:11px 25px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.95rem;font-weight:700;width:100%;">
@@ -2153,8 +2224,8 @@ async function showAdminManagement() {
                 <div style="font-weight:700;color:var(--dark);">${a.name}</div>
                 <div style="font-size:0.82rem;color:var(--gray);">${a.email}</div>
               </div>
-              <span style="background:${a.role==='super_admin'?'#fef2f2':'#eff6ff'};color:${a.role==='super_admin'?'#ef4444':'#3b82f6'};padding:3px 10px;border-radius:50px;font-size:0.78rem;flex-shrink:0;">${a.role==='super_admin'?'رئيسي':'مشرف'}</span>
-              <button onclick="deleteAdmin(${a.id},'${a.name}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:50px;cursor:pointer;font-size:0.8rem;flex-shrink:0;">
+              <span style="background:#eff6ff;color:#3b82f6;padding:3px 10px;border-radius:50px;font-size:0.78rem;flex-shrink:0;">مشرف</span>
+              <button onclick="deleteAdmin('${(a.email||'').replace(/'/g,'')}','${(a.name||'').replace(/'/g,'')}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:50px;cursor:pointer;font-size:0.8rem;flex-shrink:0;">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -2169,26 +2240,24 @@ async function showAdminManagement() {
 }
 
 async function addNewAdmin() {
-  const name     = document.getElementById('newAdminName')?.value?.trim();
-  const email    = document.getElementById('newAdminEmail')?.value?.trim().toLowerCase();
-  const password = document.getElementById('newAdminPassword')?.value;
-  const role     = document.getElementById('newAdminRole')?.value || 'admin';
-  if (!name || !email || !password) { showAlert('أدخل جميع البيانات المطلوبة', 'error'); return; }
-  const { data, error } = await sb.from('admins').insert([{ name, email, password, role, is_active: true }]).select().single();
-  if (error) {
-    if (error.code === '23505') showAlert('البريد مستخدم بالفعل', 'error');
-    else showAlert('خطأ: ' + error.message, 'error');
-    return;
-  }
-  showAlert(`✅ تم إضافة المشرف ${name}`, 'success', 3000);
+  const name  = document.getElementById('newAdminName')?.value?.trim();
+  const email = document.getElementById('newAdminEmail')?.value?.trim().toLowerCase();
+  const role  = document.getElementById('newAdminRole')?.value || 'admin';
+  if (!name || !email) { showAlert('أدخل الاسم والبريد الإلكتروني', 'error'); return; }
+  if (role !== 'admin') { showAlert('الدور المدعوم هو مشرف فقط', 'error'); return; }
+  // لا تُكتب أي كلمة مرور في قاعدة البيانات: دعوة رسمية بالبريد فقط
+  const { error } = await sb.rpc('admin_create_admin_invite', { p_email: email, p_name: name });
+  if (error) { showAlert('خطأ: ' + error.message, 'error'); return; }
+  showAlert(`✅ تم تسجيل دعوة المشرف ${name}. عليه إنشاء حساب بنفس البريد من شاشة التسجيل ثم تسجيل الدخول ليصبح مشرفاً.`, 'success', 8000);
   closeModal();
   showAdminManagement();
 }
 
-async function deleteAdmin(adminId, name) {
-  if (!confirm(`حذف المشرف "${name}"؟`)) return;
-  await sb.from('admins').delete().eq('id', adminId);
-  showAlert(`تم حذف ${name}`, 'success', 2000);
+async function deleteAdmin(email, name) {
+  if (!confirm(`سحب صلاحية الإشراف من "${name}"؟`)) return;
+  const { error } = await sb.rpc('admin_set_user_role', { p_user_email: email, p_role: 'user' });
+  if (error) { showAlert('تعذر سحب الصلاحية: ' + error.message, 'error'); return; }
+  showAlert(`تم سحب صلاحية الإشراف من ${name}`, 'success', 2500);
   closeModal();
   showAdminManagement();
 }
@@ -2349,21 +2418,25 @@ async function assignUserAsTech(userId, userName, userPhone, existingTechId) {
   // ===== إصلاح: تحديث دور المستخدم في جدول users إلى "technician" =====
   // بدون هذا التحديث، تسجيل الدخول لن يُظهر لوحة الفني أبداً مهما كان
   // سجل جدول technicians صحيحاً، لأن الدخول يعتمد على عمود role فقط
-  const { error: roleErr } = await sb.from('users').update({ role: 'technician' }).eq('id', parseInt(userId, 10));
-  if (roleErr) {
-    showAlert('⚠️ تم إنشاء سجل الفني، لكن تعذر تحديث صلاحية الحساب: ' + roleErr.message, 'warning', 7000);
+  // الدور يُحدَّث من السيرفر فقط (admin_set_user_role يتحقق أن الطالب مشرف فعلاً)
+  const adminEmailForTech = (allUsers.find(u => String(u.id) === String(userId))?.email) || null;
+  if (adminEmailForTech) {
+    const { error: roleErr } = await sb.rpc('admin_set_user_role', { p_user_email: adminEmailForTech, p_role: 'technician' });
+    if (roleErr) showAlert('⚠️ تم إنشاء سجل الفني، لكن تعذر تحديث صلاحية الحساب: ' + roleErr.message, 'warning', 7000);
+  } else {
+    showAlert('⚠️ لم يُعثر على بريد المستخدم لتحديث دوره تلقائياً — استخدم إدارة المستخدمين', 'warning', 7000);
   }
 
   // إشعار للمستخدم برمزه
   await sb.from('notifications').insert([{
     user_id:   parseInt(userId, 10),
-    message:   `تم تعيينك كفني! رمز دخولك: ${techData.code} - ادخل من رابط الفني`,
+    message:   'تم تعيينك كفني! سجّل الدخول ببريدك وكلمة مرورك ثم افتح لوحة الفني من القائمة.',
     type:      'tech_assigned',
+    related_id: finalId || null,
     is_read:   false
   }]).catch(() => {});
 
-  showAlert(`✅ تم تعيين ${userName} كفني
-رمز الدخول: ${techData.code}`, 'success', 7000);
+  showAlert(`✅ تم تعيين ${userName} كفني — الدخول ببريده وكلمة مروره ثم لوحة الفني`, 'success', 7000);
   closeModal();
 }
 
@@ -2548,7 +2621,10 @@ async function toggleTechStatus(techId, newStatus, name) {
   await sb.from('technicians').update({ is_active: newStatus, updated_at: new Date().toISOString() }).eq('id', techId);
   // إصلاح: عند إيقاف الفني، إرجاع صلاحيته لمستخدم عادي - وإلا يبقى محتفظاً بلوحة الفني
   if (techRow?.user_ref_id) {
-    await sb.from('users').update({ role: newStatus ? 'technician' : 'user' }).eq('id', techRow.user_ref_id);
+    const techUserEmail = (allUsers.find(u => String(u.id) === String(techRow.user_ref_id))?.email) || null;
+    if (techUserEmail) {
+      await sb.rpc('admin_set_user_role', { p_user_email: techUserEmail, p_role: newStatus ? 'technician' : 'user' });
+    }
   }
   showAlert(`${newStatus?'✅ تم تفعيل':'⏸ تم إيقاف'} الفني ${name}`, 'success', 2000);
   closeModal();
@@ -2561,7 +2637,10 @@ async function deleteTechnician(techId, name) {
   await sb.from('technicians').delete().eq('id', techId);
   // إصلاح: عند حذف الفني نهائياً، إرجاع صلاحية حسابه لمستخدم عادي
   if (techRow?.user_ref_id) {
-    await sb.from('users').update({ role: 'user' }).eq('id', techRow.user_ref_id);
+    const techUserEmail2 = (allUsers.find(u => String(u.id) === String(techRow.user_ref_id))?.email) || null;
+    if (techUserEmail2) {
+      await sb.rpc('admin_set_user_role', { p_user_email: techUserEmail2, p_role: 'user' });
+    }
   }
   showAlert(`تم حذف الفني ${name}`, 'success', 2000);
   closeModal();
@@ -2740,7 +2819,9 @@ async function applyDiscountCode() {
   const code = codeInput?.value?.trim().toUpperCase();
   if (!code) { showAlert('اكتب كود الخصم أولاً', 'error'); return; }
   try {
-    const { data, error } = await sb.from('discount_codes').select('*').eq('code', code).eq('is_active', true).maybeSingle();
+    // القراءة العامة محصورة بحقول التحقق فقط (code/percent/expires_at) عبر عرض آمن
+    const { data, error } = await sb.from('discount_codes_public')
+      .select('code,percent,expires_at').eq('code', code).maybeSingle();
     if (error) throw error;
     if (!data) { showAlert('كود الخصم غير صالح أو منتهي', 'error'); return; }
     if (data.expires_at && new Date(data.expires_at) < new Date()) { showAlert('كود الخصم منتهي الصلاحية', 'error'); return; }
@@ -2855,6 +2936,7 @@ async function sendMaintenanceReminders() {
         user_id: r.userId,
         message: `🔔 مرّ وقت طويل منذ آخر صيانة "${r.service}" لديك - هل تحتاج فحصاً دورياً؟`,
         type: 'maintenance_reminder',
+        related_id: r.invoiceId || r.orderId || null,
         is_read: false
       }]);
       if (!notifErr) sent++;
@@ -3224,6 +3306,7 @@ async function sendBulkNotifications() {
       await sb.from('notifications').insert([{
         user_id:    parseInt(customerId, 10),
         invoice_id: parseInt(invoiceId, 10),
+        related_id: parseInt(invoiceId, 10),
         message:    message,
         type:       'payment_reminder',
         is_read:    false,
@@ -3389,16 +3472,11 @@ document.addEventListener('DOMContentLoaded', function() {
   loadBarcode();
   document.getElementById('resetSettingsBtn').style.display = 'none';
 
-  // رابط الفني
+  // رابط الفني: زر الدخول ظاهر دائماً، والتحقق الحقيقي من الهوية والدور
+  // يتم عبر Supabase Auth + RLS (لا يوجد أي "فتح" مخزّن في localStorage)
   const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('tech') === '1') {
-    localStorage.setItem('obied_tech_unlocked', '1');
-  }
-  if (localStorage.getItem('obied_tech_unlocked') || localStorage.getItem('obied_tech')) {
-    const tb = document.getElementById('techNavBtn');
-    if (tb) tb.style.display = 'flex';
-    try { const st = localStorage.getItem('obied_tech'); if (st) currentTechnician = JSON.parse(st); } catch(e) {}
-  }
+  const techNavBtnEl = document.getElementById('techNavBtn');
+  if (techNavBtnEl) techNavBtnEl.style.display = 'flex';
 
   // تفعيل مستمع تغييرات Auth (مرة واحدة عند بدء التطبيق)
   setupAuthStateListener();
@@ -3428,63 +3506,21 @@ async function restoreSession() {
     const { data: { session } } = await sb.auth.getSession();
 
     if (session?.user) {
-      // جلسة Auth حقيقية موجودة - اجلب بيانات المستخدم من قاعدة البيانات
-      const { data: userRow } = await sb.from('users')
-        .select('id,name,email,phone,profile_image,role,auth_uid')
-        .eq('auth_uid', session.user.id).maybeSingle();
-
-      if (userRow) {
-        const role = await resolveUserRole(userRow);
-        await applyRoleAndRoute(userRow, role);
+      // جلسة Supabase Auth حقيقية → الملف يُجلب من دالة السيرفر الآمنة (auth.uid)
+      const profile = await loadMyProfile(true);
+      if (profile?.user) {
+        await applyRoleAndRoute(profile.user, profile.user.role || 'user');
         return;
       }
-
-      // Auth موجود لكن لا يوجد سجل users مرتبط - حاول الربط عبر البريد
-      const { data: byEmail } = await sb.from('users')
-        .select('id,name,email,phone,profile_image,role')
-        .eq('email', session.user.email).maybeSingle();
-
-      if (byEmail) {
-        // ربط تلقائي صامت
-        await sb.from('users').update({ auth_uid: session.user.id }).eq('id', byEmail.id).catch(()=>{});
-        const role = await resolveUserRole(byEmail);
-        await applyRoleAndRoute(byEmail, role);
-        return;
-      }
-
-      // Auth موجود لكن لا يوجد سجل users على الإطلاق - اعرض الترحيب
       _showWelcome();
       return;
     }
 
-    // 2) لا توجد جلسة Auth - تحقق من localStorage كـ fallback مؤقت للمستخدمين القدامى
-    // الذين لم يسجلوا دخول بعد بالنظام الجديد (يُزال هذا الـ fallback تدريجياً)
-    const rawUser = localStorage.getItem('obied_current_user');
-    if (rawUser) {
-      const u = JSON.parse(rawUser);
-      if (u && u.id) {
-        // تحقق صامت من أن السجل لا يزال موجوداً في قاعدة البيانات
-        const { data: freshUser } = await sb.from('users')
-          .select('id,name,email,phone,profile_image,role')
-          .eq('id', u.id).maybeSingle();
-        if (freshUser) {
-          currentUser = { id: freshUser.id, name: freshUser.name, email: freshUser.email,
-                         phone: freshUser.phone, profileImage: freshUser.profile_image, role: freshUser.role };
-          localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
-          // محاولة رفع الجلسة: إذا كان لديه pass_word في قاعدة البيانات، ننبّهه بأن يسجّل دخول مرة أخرى
-          _showUserHome(currentUser);
-          updateUIForLoggedInUser();
-          // تنبيه غير مزعج: "نسيت كيفية إعادة التوثيق"
-          if (typeof syncPushToken === 'function') syncPushToken();
-          // إعادة تحقق صامتة
-          revalidateRoleInBackground(currentUser);
-          return;
-        }
-      }
-      localStorage.removeItem('obied_current_user');
-      localStorage.removeItem('obied_admin');
-      localStorage.removeItem('obied_tech');
-    }
+    // 2) لا توجد جلسة Auth حقيقية → لا يُعتد بأي شيء محلي.
+    // localStorage ليس مصدر مصادقة: نمسح أي بقايا قديمة فقط.
+    localStorage.removeItem('obied_current_user');
+    localStorage.removeItem('obied_admin');
+    localStorage.removeItem('obied_tech');
 
     _showWelcome();
   } catch(e) {
@@ -3532,8 +3568,7 @@ async function revalidateRoleInBackground(u) {
       localStorage.removeItem('obied_tech');
       localStorage.removeItem('obied_admin');
       u.role = freshRole;
-      currentUser = u;
-      localStorage.setItem('obied_current_user', JSON.stringify(u));
+      currentUser = u;   // الحالة في الذاكرة فقط — لا يُكتب أي إثبات مصادقة محلياً
       updateUIForLoggedInUser();
       showAlert('ℹ️ تم تحديث صلاحيات حسابك', 'info', 4000);
     }
@@ -4865,23 +4900,13 @@ async function payInvoice(invoiceId) {
   // 4) QR مولّد محلياً (آخر احتياط)
   let barcodeImage = invoice.payment_barcode_image || invoice.invoiceBarcodeImage || null;
 
-  if (!barcodeImage && (invoice.techId || invoice.tech_id)) {
-    try {
-      const { data: techRow } = await sb.from('technicians')
-        .select('barcode_image').eq('id', invoice.techId || invoice.tech_id).maybeSingle();
-      if (techRow?.barcode_image) barcodeImage = techRow.barcode_image;
-    } catch (e) {}
-  }
+  // الباركود المجمّد في الفاتورة أولاً، ثم دالة السيرفر الآمنة
+  // (باركود الفني ← باركود الشركة). لا يقرأ العميل باركود أي فني آخر إطلاقاً.
   if (!barcodeImage) {
     try {
-      const { data: barcodeSettings } = await sb.from('settings')
-        .select('value').eq('key', 'barcode').maybeSingle();
-      if (barcodeSettings?.value) {
-        const parsed = typeof barcodeSettings.value === 'string'
-          ? JSON.parse(barcodeSettings.value) : barcodeSettings.value;
-        barcodeImage = parsed?.image || null;
-      }
-    } catch(e) {}
+      const { data: bc } = await sb.rpc('get_invoice_payment_barcode', { p_invoice_id: parseInt(invoice.id, 10) });
+      if (bc) barcodeImage = bc;
+    } catch(e) { console.error('get_invoice_payment_barcode:', e); }
   }
   if (!barcodeImage) {
     barcodeImage = currentBarcodeImage ||
@@ -5025,24 +5050,34 @@ function handleReceiptDrop(event) {
   }
 }
 
-function completePayment(invoiceId) {
+async function completePayment(invoiceId) {
   if (!currentReceiptForPayment || currentReceiptForPayment.invoiceId !== invoiceId) { showAlert('يرجى رفع إيصال الدفع أولاً', 'error'); return; }
   const invoice = allInvoices.find(inv => inv.id == invoiceId);
   if (!invoice) return;
   const receiptImg = currentReceiptForPayment.image;
   currentReceiptForPayment = null;
-  // تحديث محلي فوري
-  const inv = allInvoices.find(i => String(i.id) === String(invoiceId));
-  if (inv) { inv.status='pending_verification'; inv.receiptImage=receiptImg; inv.receipt_image=receiptImg; inv.receiptStatus='pending_verification'; }
-  const ord = allOrders.find(o => String(o.invoice_id||o.invoiceId) === String(invoiceId));
-  if (ord) ord.status = 'pending_verification';
-  closeModal();
-  showAlert('✅ تم إرسال الإيصال! سيتم التحقق منه قريباً', 'success', 5000);
-  updateProfilePage();
-  // Supabase في الخلفية
-  sb.from('invoices').update({ status:'pending_verification', receipt_image:receiptImg, receipt_status:'pending_verification', payment_method:'barcode', updated_at:new Date().toISOString() }).eq('id', invoiceId).then(()=>{});
-  sb.from('orders').update({ status:'pending_verification', updated_at:new Date().toISOString() }).eq('invoice_id', invoiceId).then(()=>{});
-  if (currentAdmin) updateReceiptStats();
+  try {
+    // دالة آمنة على السيرفر: تتحقق أن الفاتورة لك، تضبط الإيصال،
+    // تنقل الطلب إلى "جاري التحقق"، وتُشعر الإدارة والفني (مع related_id).
+    const { error } = await sb.rpc('mark_invoice_payment_received', {
+      p_invoice_id: parseInt(invoiceId, 10),
+      p_receipt_image: receiptImg
+    });
+    if (error) throw error;
+
+    const inv = allInvoices.find(i => String(i.id) === String(invoiceId));
+    if (inv) { inv.status='pending_verification'; inv.receiptImage=receiptImg; inv.receipt_image=receiptImg; inv.receiptStatus='pending_verification'; }
+    const ord = allOrders.find(o => String(o.invoice_id||o.invoiceId) === String(invoiceId));
+    if (ord) ord.status = 'pending_verification';
+
+    closeModal();
+    showAlert('✅ تم إرسال الإيصال! سيتم التحقق منه قريباً', 'success', 5000);
+    updateProfilePage();
+    if (currentAdmin) updateReceiptStats();
+  } catch (e) {
+    showAlert('تعذر إرسال الإيصال: ' + (e.message || ''), 'error', 6000);
+    updateProfilePage();
+  }
 }
 
 // ===== نظام الفواتير =====
@@ -5086,14 +5121,25 @@ async function saveInvoice(invoiceData) {
       if (error) throw error;
       saved = data;
     } else {
-      // تأكد أن invoice_number فريد
-      const { data: existInv } = await sb.from('invoices')
-        .select('id').eq('invoice_number', row.invoice_number).maybeSingle();
-      if (existInv) row.invoice_number = row.invoice_number + '-' + Date.now().toString().slice(-4);
-
-      const { data, error } = await sb.from('invoices').insert([row]).select().single();
-      if (error) throw error;
-      saved = data;
+      // ===== أمن: لا يُنشئ العميل فاتورة بكتابة مباشرة (كان يمكن تلاعب بالمبالغ/الحالة) =====
+      // الإنشاء يتم ذرّياً على السيرفر مع تجميد الباركود وربط الفني وإشعار العميل.
+      const orderId = invoiceData.orderId || invoiceData.order_id || window.currentInvoiceOrder?.id || null;
+      if (!orderId) throw new Error('إنشاء الفاتورة متاح فقط عبر دالة السيرفر المرتبطة بطلب');
+      const { data: created, error: cErr } = await sb.rpc('create_invoice_for_order', {
+        p_order_id:         parseInt(orderId, 10),
+        p_base_price:       parseFloat(invoiceData.basePrice || 0),
+        p_tax:              parseFloat(invoiceData.tax || 0),
+        p_total:            parseFloat(invoiceData.total || 0),
+        p_notes:            invoiceData.notes || null,
+        p_service:          invoiceData.service || null,
+        p_customer_name:    invoiceData.customerName || null,
+        p_customer_phone:   invoiceData.customerPhone || null,
+        p_customer_email:   invoiceData.customerEmail || null,
+        p_fallback_barcode: invoiceData._paymentBarcodeImage || null
+      });
+      if (cErr) throw cErr;
+      if (!created?.invoice) throw new Error('تعذر إنشاء الفاتورة على السيرفر');
+      saved = created.invoice;
     }
 
     // توحيد الأسماء للاستخدام في الكود
@@ -5150,7 +5196,7 @@ async function updateOrderStatus(orderId, newStatus) {
           sb.from('notifications').insert([{
             user_id: techRow.user_ref_id,
             message: '✅ تم تأكيد الطلب: ' + order.service,
-            type: 'order_confirmed', is_read: false
+            type: 'order_confirmed', related_id: order.id, order_id: order.id, is_read: false
           }]).catch(()=>{});
         }
       }).catch(()=>{});
@@ -5167,6 +5213,8 @@ async function updateOrderStatus(orderId, newStatus) {
         user_id: custId,
         message: 'تحديث حالة طلبك (' + (order.service||'') + '): ' + getStatusText(newStatus),
         type: 'order_status',
+        related_id: order.id,
+        order_id: order.id,
         is_read: false
       }]).catch(()=>{});
     }
@@ -5260,26 +5308,14 @@ async function showInvoiceForReview(invoiceData, order, user) {
 
   // ===== منطق الباركود: الفني أولاً ثم الشركة كبديل =====
   // الأولوية: 1) باركود الفني المسؤول  2) باركود الشركة  3) QR مولّد محلياً
-  let barcodeImage = null;
-  const techId = invoiceData.techId || invoiceData.tech_id || order?.tech_id || order?.accepted_by_tech || null;
-  if (techId) {
+  let barcodeImage = invoiceData._paymentBarcodeImage || invoiceData.payment_barcode_image || null;
+  const barcodeOrderId = order?.id || invoiceData.orderId || invoiceData.order_id || null;
+  if (!barcodeImage && barcodeOrderId) {
     try {
-      const { data: techRow } = await sb.from('technicians')
-        .select('barcode_image').eq('id', techId).maybeSingle();
-      if (techRow?.barcode_image) barcodeImage = techRow.barcode_image;
-    } catch(e) {}
-  }
-  // fallback: باركود الشركة من جدول settings
-  if (!barcodeImage) {
-    try {
-      const { data: barcodeSettings } = await sb.from('settings')
-        .select('value').eq('key', 'barcode').maybeSingle();
-      if (barcodeSettings?.value) {
-        const parsed = typeof barcodeSettings.value === 'string'
-          ? JSON.parse(barcodeSettings.value) : barcodeSettings.value;
-        barcodeImage = parsed?.image || null;
-      }
-    } catch(e) {}
+      // دالة السيرفر الآمنة: باركود الفني المسؤول عن الطلب ثم باركود الشركة
+      const { data: bc } = await sb.rpc('get_order_payment_barcode', { p_order_id: parseInt(barcodeOrderId, 10) });
+      if (bc) barcodeImage = bc;
+    } catch(e) { console.error('get_order_payment_barcode:', e); }
   }
   // fallback: currentBarcodeImage من localStorage أو QR مولّد
   if (!barcodeImage) {
@@ -5407,23 +5443,43 @@ async function sendInvoiceToClientWithPayment() {
     _paymentBarcodeImage: window.currentInvoiceData._paymentBarcodeImage || null,
   };
 
-  // 1. حفظ الفاتورة في Supabase
-  const saved = await saveInvoice(updatedInvoice);
+  const orderId = window.currentInvoiceOrder?.id;
+
+  // 1) الفاتورة تُنشأ على السيرفر عبر دالة آمنة:
+  //    تربط invoices.tech_id + تجمّد الباركود + تُشعر العميل، ولا تسمح بفاتورتين لنفس الطلب
+  let saved = window.currentInvoiceData?.id || null;
+  if (!saved) {
+    const { data: created, error: invErr } = await sb.rpc('create_invoice_for_order', {
+      p_order_id:         parseInt(orderId, 10),
+      p_base_price:       basePrice,
+      p_tax:              tax,
+      p_total:            total,
+      p_notes:            updatedInvoice.notes || null,
+      p_service:          updatedInvoice.service || null,
+      p_customer_name:    updatedInvoice.customerName || null,
+      p_customer_phone:   updatedInvoice.customerPhone || null,
+      p_customer_email:   updatedInvoice.customerEmail || null,
+      p_fallback_barcode: updatedInvoice._paymentBarcodeImage || null
+    });
+    if (invErr) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال الفاتورة'; }
+      showAlert('تعذر إنشاء الفاتورة: ' + invErr.message, 'error', 7000);
+      return;
+    }
+    const invRow = created?.invoice || null;
+    if (invRow) {
+      saved = normalizeInvoices([invRow])[0];
+      const ii = allInvoices.findIndex(i => String(i.id) === String(saved.id));
+      if (ii !== -1) allInvoices[ii] = saved; else allInvoices.unshift(saved);
+    }
+  }
   if (!saved) {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال الفاتورة'; }
+    showAlert('تعذر إنشاء الفاتورة', 'error');
     return;
   }
 
-  // 2. تحديث الطلب
-  const orderId = window.currentInvoiceOrder.id;
-  await sb.from('orders').update({
-    status:         'awaiting_payment',
-    invoice_id:     saved.id,
-    invoice_number: saved.invoice_number || saved.invoiceNumber || '',
-    invoice_amount: saved.total || 0,
-    payment_method: 'barcode',
-    updated_at:     new Date().toISOString()
-  }).eq('id', orderId);
+  // 2) حالة الطلب حدّثها السيرفر أيضاً — تحديث محلي فقط هنا (لا كتابة مباشرة)
 
   // 3. تحديث محلي
   const oi = allOrders.findIndex(o => o.id == orderId);
@@ -5644,7 +5700,9 @@ function getStatusText(status) {
     'completed':             'تم الانتهاء من الطلب',
     'cancelled':             'تم إلغاء الطلب',
     'awaiting_payment':      'بانتظار الدفع',
-    'pending_verification':  'جاري التحقق من الدفع'
+    'pending_verification':  'جاري التحقق من الدفع',
+    'paid':                  'تم الدفع',
+    'overdue':               'متأخرة الدفع'
   }[status] || 'غير معروف';
 }
 // خطوات دورة حياة الطلب المستخدمة في تتبع الطلب لدى العميل
@@ -5765,6 +5823,18 @@ async function verifyReceipt(status) {
   if (!currentReceiptForVerification) return;
   const invoice = currentReceiptForVerification;
   let rejectReason = '';
+  // التحقق يتم على السيرفر (الأدمن أو الفني المسؤول فقط) — لا تعديل مباشر للمبالغ أو الحالة
+  try {
+    const { error: vErr } = await sb.rpc('verify_invoice_receipt', {
+      p_invoice_id: parseInt(invoice.id, 10),
+      p_approve: status === 'verified',
+      p_rejection_reason: status === 'verified' ? null : (document.getElementById('rejectReasonText')?.value?.trim() || null)
+    });
+    if (vErr) throw vErr;
+  } catch (e) {
+    showAlert('تعذر تنفيذ التحقق: ' + (e.message || ''), 'error', 6000);
+    return;
+  }
   if (status === 'verified') {
     invoice.receiptStatus = 'verified'; invoice.status = 'paid';
     invoice.receiptVerifiedAt = new Date().toISOString();
@@ -5784,26 +5854,10 @@ async function verifyReceipt(status) {
   updateReceiptStats();
   renderOrdersList();
 
-  // Supabase في الخلفية
-  const verifyStatus = status === 'verified' ? 'verified' : 'rejected';
-  await sb.from('invoices').update({ receipt_status: verifyStatus, status: status==='verified'?'paid':'pending_payment', updated_at: new Date().toISOString() }).eq('id', invoice.id);
+  // حالة الطلب محلياً: السيرفر حدّثها (paid/completed أو awaiting_payment)
   const relOrd = allOrders.find(o => String(o.invoiceId||o.invoice_id) === String(invoice.id));
-  if (relOrd) sb.from('orders').update({ status: status==='verified'?'completed':'awaiting_payment', updated_at: new Date().toISOString() }).eq('id', relOrd.id).then(()=>{});
-
-  // إشعار العميل بنتيجة التحقق من الدفع
-  const customerId = invoice.customerId || invoice.customer_id;
-  if (customerId) {
-    const msg = status === 'verified'
-      ? `✅ تم تأكيد استلام دفعتك للفاتورة ${invoice.invoiceNumber||invoice.invoice_number||''} بمبلغ ${parseFloat(invoice.total||0).toFixed(0)} ل.س - شكراً لك!`
-      : `❌ تم رفض إيصال الدفع للفاتورة ${invoice.invoiceNumber||invoice.invoice_number||''}${rejectReason?(' - السبب: '+rejectReason):''} - يرجى المحاولة مجدداً`;
-    sb.from('notifications').insert([{
-      user_id:    customerId,
-      invoice_id: parseInt(invoice.id, 10),
-      message:    msg,
-      type:       status === 'verified' ? 'payment_confirmed' : 'payment_rejected',
-      is_read:    false
-    }]).then(()=>{});
-  }
+  if (relOrd) relOrd.status = status === 'verified' ? 'completed' : 'awaiting_payment';
+  // إشعار العميل يُرسله السيرفر تلقائياً مع related_id (payment_confirmed / payment_rejected)
 }
 
 function closeReceiptVerification() { document.getElementById('receiptVerificationModal').style.display = 'none'; currentReceiptForVerification = null; }
@@ -6073,30 +6127,24 @@ async function showTechDashboard() {
     return;
   }
 
-  const { data: userRow } = await sb.from('users')
-    .select('id,name,email,phone,role')
-    .eq('auth_uid', session.user.id)
-    .maybeSingle();
+  // 1) ملف المستخدم من السيرفر (auth.uid) — لا localStorage ولا قراءة مباشرة
+  const profile = await loadMyProfile(false);
+  const userRow = profile?.user || null;
   if (!userRow || userRow.role !== 'technician') {
     currentTechnician = null;
-    localStorage.removeItem('obied_tech');
     showAlert('هذا الحساب ليس حساب فني', 'error');
     showHome();
     return;
   }
 
-  let { data: techRow } = await sb.from('technicians')
-    .select('*').eq('user_ref_id', userRow.id).eq('is_active', true).maybeSingle();
-  if (!techRow) {
-    const { data: ensuredTech, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
-      p_name: userRow.name || 'فني',
-      p_phone: userRow.phone || ''
-    });
-    if (ensureErr) {
-      showAlert('تعذر تجهيز ملف الفني: ' + ensureErr.message, 'error', 6000);
-      return;
-    }
-    techRow = ensuredTech;
+  // 2) سجل الفني يُنشأ/يُسترجع بدالة آمنة مرتبطة بـauth.uid فقط
+  const { data: techRow, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
+    p_name: userRow.name || 'فني',
+    p_phone: userRow.phone || ''
+  });
+  if (ensureErr) {
+    showAlert('تعذر تجهيز ملف الفني: ' + ensureErr.message, 'error', 6000);
+    return;
   }
   if (!techRow) {
     showAlert('لم يتم العثور على ملف الفني', 'error');
@@ -6109,8 +6157,9 @@ async function showTechDashboard() {
     permissions: { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false, ...(techRow.permissions || {}) },
     loginTime: new Date().toISOString()
   };
-  localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
-  localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
+  // الحالة في الذاكرة فقط — لا يُخزَّن سجل الفني أو الجلسة في localStorage
+  localStorage.removeItem('obied_current_user');
+  localStorage.removeItem('obied_tech');
 
   // إخفاء كل الصفحات وإظهار لوحة الفني
   const pages = ['homePage','loginPage','profilePage','adminLoginPage','adminDashboard'];
@@ -6283,7 +6332,10 @@ function renderTechOrders() {
       ${o.photo?`<img src="${o.photo}" onclick="window.open(this.src)" style="max-width:120px;max-height:90px;border-radius:8px;cursor:pointer;margin-bottom:10px;border:1px solid #e2e8f0;">`:''}
       ${isMine && o.status !== 'pending' ? renderTechMiniTracker(o) : ''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${o.status==='pending'&&!isOther?`<button onclick="techAcceptOrder('${o.id}')" style="flex:2;min-width:110px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-hand-paper"></i> قبول</button>`:''}
+        ${o.status==='pending'&&!isOther?(currentTechnician?.is_available===false
+            ? `<div style="flex:2;text-align:center;padding:10px;background:#f1f5f9;border-radius:50px;color:#64748b;font-size:0.83rem;font-weight:700;"><i class="fas fa-pause-circle"></i> غير متاح — فعّل التوفر للقبول</div>`
+            : `<button onclick="techAcceptOrder('${o.id}')" style="flex:2;min-width:110px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-hand-paper"></i> قبول</button>`):''}
+        ${(o.status==='assigned'&&isMine)?`<button onclick="techStartOrder('${o.id}')" style="flex:2;min-width:120px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-play"></i> بدء المعالجة</button>`:''}
         ${o.status==='in-progress'&&isMine&&perms.updateStatus?`
           ${!o.on_the_way_at ? `<button onclick="techOnTheWay('${o.id}')" style="flex:1;min-width:100px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-car"></i> في الطريق</button>` : `<div style="flex:1;min-width:100px;text-align:center;padding:10px;background:#eff6ff;border-radius:50px;color:#0284c7;font-size:0.8rem;font-weight:700;"><i class="fas fa-car"></i> في الطريق ✓</div>`}
           <button onclick="techFinishAndInvoice('${o.id}','${o.user_id||o.userId||''}','${(o.name||'').replace(/'/g,'')}','${o.phone||''}','${(o.service||'').replace(/'/g,'')}')" style="flex:2;min-width:100px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-check-circle"></i> إنهاء وإنشاء فاتورة</button>
@@ -6299,13 +6351,14 @@ function renderTechOrders() {
 
 // ===== شريط تتبع مصغّر واحترافي داخل بطاقة طلب الفني نفسه =====
 function renderTechMiniTracker(o) {
-  const steps = [
-    { key: 'accepted',  label: 'تم قبول الطلب',   icon: 'fa-hand-paper', done: true },
-    { key: 'assigned',  label: 'تم تعيين فني',     icon: 'fa-hard-hat',   done: true },
-    { key: 'onway',     label: 'في الطريق',        icon: 'fa-car',        done: !!o.on_the_way_at },
-    { key: 'finished',  label: 'تم الانتهاء',      icon: 'fa-check-circle', done: o.status === 'completed' || o.status === 'awaiting_payment' },
-    { key: 'invoiced',  label: 'تم إرسال الفاتورة', icon: 'fa-file-invoice-dollar', done: !!(o.invoice_id || o.invoiceId) }
-  ];
+  // نفس مراحل متتبّع العميل بالضبط (ORDER_FLOW_STEPS) + مؤشر "في الطريق"
+  const order = ORDER_FLOW_STEPS.map(st => st.key);
+  let idx = order.indexOf(o.status);
+  if (['awaiting_payment','pending_verification','paid'].includes(o.status)) idx = order.length - 1;
+  const steps = ORDER_FLOW_STEPS.map(st => ({
+    key: st.key, label: st.label, icon: st.icon, done: order.indexOf(st.key) <= idx
+  }));
+  steps.splice(3, 0, { key: 'onway', label: 'في الطريق', icon: 'fa-car', done: !!o.on_the_way_at });
   return `<div style="display:flex;justify-content:space-between;align-items:flex-start;background:#f8fafc;border-radius:12px;padding:12px 8px;margin-bottom:10px;">
     ${steps.map((s, i) => `
       <div style="flex:1;text-align:center;position:relative;">
@@ -6321,30 +6374,22 @@ function renderTechMiniTracker(o) {
 
 async function techUpdateStatus(orderId, newStatus) {
   try {
-    const { error } = await sb.from('orders').update({
-      status: newStatus,
-      updated_at: new Date().toISOString()
-    }).eq('id', orderId);
-    if (error) throw error;
+    // كل انتقال يتم عبر دالة آمنة على السيرفر (تتحقق من الملكية والتسلسل)
+    const rpcName = newStatus === 'in-progress' ? 'tech_start_order'
+                  : newStatus === 'completed'   ? 'tech_complete_order'
+                  : null;
+    if (rpcName) {
+      const { error: rpcErr } = await sb.rpc(rpcName, { p_order_id: parseInt(orderId, 10) });
+      if (rpcErr) throw rpcErr;
+    } else {
+      showAlert('انتقال الحالة غير مدعوم من لوحة الفني: ' + newStatus, 'error');
+      return;
+    }
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) allOrders[idx].status = newStatus;
     renderTechOrders();
     updateTechStats();
-
-    // إشعار حقيقي (Push) للعميل بأي تغيير في حالة طلبه
-    const order = allOrders[idx];
-    if (order?.user_id) {
-      const statusMsgs = {
-        completed: '🎉 تم إنهاء الخدمة (' + (order.service||'') + ') بنجاح',
-        cancelled: '❌ تم إلغاء طلبك (' + (order.service||'') + ')'
-      };
-      sb.from('notifications').insert([{
-        user_id: order.user_id,
-        message: statusMsgs[newStatus] || ('تحديث حالة طلبك: ' + getStatusText(newStatus)),
-        type: 'order_update', is_read: false
-      }]).catch(()=>{});
-    }
-
+    // الإشعارات وإرسال Push تتولّد داخل دالة السيرفر نفسها مع related_id
     showAlert(`✅ تم تحديث حالة الطلب`, 'success', 2000);
   } catch(e) { showAlert('خطأ في التحديث: ' + e.message, 'error'); }
 }
@@ -6433,10 +6478,10 @@ async function toggleTechAvailability() {
   if (!currentTechnician?.id) return;
   const newState = !(currentTechnician.is_available !== false);
   try {
-    const { error } = await sb.from('technicians').update({ is_available: newState }).eq('id', currentTechnician.id);
+    // دالة آمنة تُعدّل سجل الفني الحالي فقط (auth.uid) — لا يمكن تعديل فني آخر
+    const { error } = await sb.rpc('tech_set_availability', { p_is_available: newState });
     if (error) throw error;
     currentTechnician.is_available = newState;
-    localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
     updateAvailabilityButtonUI(newState);
     showAlert(newState ? '✅ أنت الآن متاح لاستقبال طلبات جديدة' : '⏸️ أنت الآن غير متاح - لن تصلك طلبات جديدة حتى تُفعّل التوفر مجدداً', newState ? 'success' : 'warning', 4000);
     loadTechOrders();
@@ -6560,14 +6605,10 @@ async function uploadTechBarcode(input) {
   reader.onload = async function (e) {
     try {
       const compressed = await compressImage(e.target.result, 'barcodes');
-      // الشرط الأمني: eq('id', currentTechnician.id) يمنع الفني من تعديل باركود فني آخر
-      // RLS في قاعدة البيانات تطبّق نفس الشرط من الجانب الخلفي
-      const { error } = await sb.from('technicians')
-        .update({ barcode_image: compressed })
-        .eq('id', currentTechnician.id);
+      // دالة آمنة: تُحدّث باركود الفني الحالي فقط (auth.uid) — لا يمكن لمس باركود فني آخر
+      const { error } = await sb.rpc('tech_set_barcode', { p_barcode_image: compressed });
       if (error) throw error;
       currentTechnician.barcode_image = compressed;
-      localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
       showAlert('✅ تم حفظ باركودك الخاص - سيظهر للعملاء عند دفع فواتيرك فقط', 'success', 4000);
       closeModal();
       showTechBarcodeManagement();
@@ -6582,14 +6623,10 @@ async function removeTechBarcode() {
   if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني أولاً', 'error'); return; }
   if (!confirm('حذف باركودك الخاص؟ سيُستخدم باركود الشركة الافتراضي بدلاً منه.')) return;
   try {
-    // eq('id', currentTechnician.id) يمنع الفني من حذف باركود فني آخر
-    // RLS تطبّق نفس الشرط من الجانب الخلفي كطبقة أمان إضافية
-    const { error } = await sb.from('technicians')
-      .update({ barcode_image: null })
-      .eq('id', currentTechnician.id);
+    // دالة آمنة على السيرفر: باركود الفني الحالي فقط (auth.uid)
+    const { error } = await sb.rpc('tech_set_barcode', { p_barcode_image: null });
     if (error) throw error;
     currentTechnician.barcode_image = null;
-    localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
     showAlert('تم حذف باركودك الخاص', 'success');
     closeModal();
     showTechBarcodeManagement();
@@ -6691,8 +6728,10 @@ function renderProfileTracking() {
     return;
   }
 
-  const statusOrder = ['pending','accepted','in-progress','completed'];
-  const rawIdx = statusOrder.indexOf(active.status);
+  // التسلسل الإلزامي: استلام ← قبول ← تعيين فني ← جاري المعالجة ← تم الانتهاء
+  const statusOrder = ['pending','accepted','assigned','in-progress','completed'];
+  let rawIdx = statusOrder.indexOf(active.status);
+  if (['awaiting_payment','pending_verification','paid'].includes(active.status)) rawIdx = statusOrder.length - 1;
   const currentIdx = rawIdx === -1 ? 0 : rawIdx;
   const hasTech = !!(active.tech_name || active.tech_id || active.accepted_by_tech);
 
@@ -6707,9 +6746,10 @@ function renderProfileTracking() {
     <div class="tracking-steps">
       ${ORDER_FLOW_STEPS.map(st => {
         let done, active_;
-        if (st.key === 'assigned') { done = false; active_ = hasTech; }
-        else {
-          const i = statusOrder.indexOf(st.key);
+        const i = statusOrder.indexOf(st.key);
+        if (st.key === 'assigned' && hasTech && currentIdx < statusOrder.indexOf('assigned')) {
+          done = true; active_ = false;   // الفني مسند للطلب بالفعل (بيانات قديمة)
+        } else {
           done = i !== -1 && i < currentIdx;
           active_ = st.key === active.status;
         }
@@ -6793,8 +6833,7 @@ function handleProfileImageUpload(event) {
       const compressed = await compressImage(e.target.result, 'profiles');
       const { error } = await sb.from('users').update({ profile_image: compressed }).eq('id', currentUser.id);
       if (error) throw error;
-      currentUser.profileImage = compressed;
-      localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+      currentUser.profileImage = compressed;   // في الذاكرة فقط (الصورة محفوظة في users.profile_image)
       const img = document.getElementById('profileImage');
       const icon = document.getElementById('profileIcon');
       if (img)  { img.src = compressed; img.style.display = 'block'; }
@@ -6948,71 +6987,57 @@ function saveSettingsFromPanel() {
 async function techAcceptOrder(orderId) {
   if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني لقبول الطلبات', 'error'); return; }
   try {
-    // ===== إصلاح حالة السباق: تحديث ذرّي واحد يشترط أن الطلب لا يزال
-    // بلا فني ضمن نفس عملية UPDATE (WHERE id=X AND accepted_by_tech IS NULL)
-    // بدل فحص منفصل ثم تحديث منفصل - يمنع فنيّين من قبول نفس الطلب معًا
-    // فعليًا على مستوى قاعدة البيانات، وليس فقط منطق التطبيق =====
-    const { data: updatedRows, error: updateErr } = await sb.from('orders').update({
-      accepted_by_tech: currentTechnician.id,
-      tech_id: currentTechnician.id,
-      tech_name: currentTechnician.name || '',
-      tech_phone: currentTechnician.phone || '',
-      tech_accepted_at: new Date().toISOString(),
-      status: 'in-progress',
-      updated_at: new Date().toISOString()
-    }).eq('id', orderId).is('accepted_by_tech', null).select();
-
-    if (updateErr) throw updateErr;
-
-    if (!updatedRows || updatedRows.length === 0) {
-      // التحديث لم يؤثر على أي صف = فني آخر سبقك بجزء من الثانية
-      showAlert('تم قبول هذا الطلب من فني آخر بالفعل', 'warning');
+    // ===== القبول ذرّي على السيرفر (قفل صف + فحص محافظة/توفر) =====
+    // يمنع أي سباق أو استيلاء حتى لو تلاعب العميل بالواجهة
+    const { data: claimed, error: claimErr } = await sb.rpc('tech_accept_order', { p_order_id: parseInt(orderId, 10) });
+    if (claimErr) {
+      showAlert('تعذر قبول الطلب: ' + claimErr.message, 'error', 6000);
       loadTechOrders();
       return;
     }
-
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) {
-      allOrders[idx].status = 'in-progress';
+      allOrders[idx].status = 'assigned';
       allOrders[idx].accepted_by_tech = currentTechnician.id;
       allOrders[idx].tech_id = currentTechnician.id;
       allOrders[idx].tech_name = currentTechnician.name || '';
     }
     renderTechOrders();
     updateTechStats();
-
-    // إشعار حقيقي (Push) للعميل بقبول طلبه
-    const acceptedOrder = allOrders[idx];
-    if (acceptedOrder?.user_id) {
-      sb.from('notifications').insert([{
-        user_id: acceptedOrder.user_id,
-        message: '✅ تم قبول طلبك (' + (acceptedOrder.service||'') + ') وسيتوجه إليك الفني ' + (currentTechnician.name||'') + ' قريباً',
-        type: 'order_update', is_read: false
-      }]).catch(()=>{});
-    }
-
     showAlert('✅ تم قبول الطلب بنجاح', 'success');
+    return;
   } catch (e) { showAlert('خطأ في قبول الطلب: ' + e.message, 'error'); }
+}
+
+// ===== الفني: بدء المعالجة (assigned → in-progress) =====
+async function techStartOrder(orderId) {
+  if (!currentTechnician?.id) return;
+  try {
+    const { error } = await sb.rpc('tech_start_order', { p_order_id: parseInt(orderId, 10) });
+    if (error) throw error;
+    const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
+    if (idx !== -1) allOrders[idx].status = 'in-progress';
+    renderTechOrders();
+    updateTechStats();
+    showAlert('✅ بدأ العمل على الطلب', 'success', 2500);
+  } catch (e) {
+    showAlert('تعذر بدء المعالجة: ' + (e.message || ''), 'error', 6000);
+  }
 }
 
 // ===== الفني في الطريق: مرحلة تتبع إضافية دون تغيير حالة الطلب الأساسية =====
 async function techOnTheWay(orderId) {
   if (!currentTechnician?.id) return;
   try {
-    const { error } = await sb.from('orders').update({ on_the_way_at: new Date().toISOString() }).eq('id', orderId);
+    // الدالة الآمنة تتحقق أن الطلب لك، تسجّل on_the_way_at، وتُشعر العميل
+    const { error } = await sb.rpc('tech_on_the_way', { p_order_id: parseInt(orderId, 10) });
     if (error) throw error;
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
-    if (idx !== -1) allOrders[idx].on_the_way_at = new Date().toISOString();
-    renderTechOrders();
-    // إشعار حقيقي (Push) للعميل بأن الفني في الطريق
-    const order = allOrders[idx];
-    if (order?.user_id) {
-      sb.from('notifications').insert([{
-        user_id: order.user_id,
-        message: '🚗 الفني ' + (currentTechnician.name||'') + ' في الطريق إليك الآن لخدمة: ' + order.service,
-        type: 'order_update', is_read: false
-      }]).catch(()=>{});
+    if (idx !== -1) {
+      allOrders[idx].on_the_way_at = new Date().toISOString();
+      if (allOrders[idx].status === 'assigned') allOrders[idx].status = 'in-progress';
     }
+    renderTechOrders();
     showAlert('✅ تم إعلام العميل أنك في الطريق', 'success');
   } catch (e) {
     showAlert('تعذر التحديث: ' + e.message, 'error');
@@ -7023,24 +7048,13 @@ async function techOnTheWay(orderId) {
 // ===== إنهاء الطلب والانتقال مباشرة لإنشاء الفاتورة - تجربة موحدة بدل زرين منفصلين =====
 async function techFinishAndInvoice(orderId, userId, name, phone, service) {
   try {
-    const { error } = await sb.from('orders').update({
-      status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString()
-    }).eq('id', orderId);
+    // 1) الحالة "تم الانتهاء" عبر دالة آمنة (تتحقق أن الطلب لك + تُشعر العميل)
+    const { error } = await sb.rpc('tech_complete_order', { p_order_id: parseInt(orderId, 10) });
     if (error) throw error;
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) allOrders[idx].status = 'completed';
 
-    // إشعار حقيقي (Push) للعميل بإنهاء الخدمة
-    const order = allOrders[idx];
-    if (order?.user_id) {
-      sb.from('notifications').insert([{
-        user_id: order.user_id,
-        message: '🎉 تم إنهاء الخدمة (' + (order.service||'') + ') بنجاح',
-        type: 'order_update', is_read: false
-      }]).catch(()=>{});
-    }
-
-    // الانتقال مباشرة لإنشاء الفاتورة
+    // 2) لا تصدر الفاتورة إلا بعد الانتهاء (الترتيب الإلزامي يفرضه السيرفر أيضاً)
     techCreateInvoice(orderId, userId, name, phone, service);
   } catch (e) {
     showAlert('تعذر إنهاء الطلب: ' + e.message, 'error', 6000);
