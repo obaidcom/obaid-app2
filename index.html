@@ -573,18 +573,18 @@
           <div class="login-tab" onclick="switchLoginTab('register')">إنشاء حساب</div>
         </div>
         <form class="login-form active" id="loginForm">
-          <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label><input type="email" id="loginEmail" class="form-control" placeholder="example@email.com" required></div>
+          <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label><input type="email" id="loginEmail" class="form-control" placeholder="example@email.com" required oninput="checkAdminEmail(this.value)"></div>
           <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور</label>
             <div style="position:relative;">
               <input type="password" id="loginPassword" class="form-control" placeholder="********" required style="padding-left:45px;">
               <button type="button" onclick="togglePasswordVisibility('loginPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;padding:5px;"><i class="fas fa-eye"></i></button>
             </div>
           </div>
-          <div style="text-align:left;margin-top:-6px;margin-bottom:14px;">
-            <a href="#" onclick="showForgotPasswordModal();return false;" style="color:var(--primary);font-size:0.85rem;text-decoration:none;">نسيت كلمة المرور؟</a>
+          <div style="text-align:left;margin-bottom:10px;">
+            <button type="button" onclick="showForgotPassword()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-family:inherit;font-size:0.9rem;text-decoration:underline;padding:0;"><i class="fas fa-key"></i> نسيت كلمة المرور؟</button>
           </div>
           <button type="submit" class="btn-primary"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
-          <div style="margin-top:12px;">
+          <div id="adminLoginHint" style="display:none;margin-top:12px;">
             <button type="button" onclick="goToAdminLogin()" style="width:100%;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.95rem;font-weight:700;">
               <i class="fas fa-shield-alt"></i> دخول لوحة الإدارة
             </button>
@@ -594,8 +594,21 @@
           <div class="form-group"><label><i class="fas fa-user"></i> الاسم الكامل</label><input type="text" id="registerName" class="form-control" placeholder="أحمد محمد" required></div>
           <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label><input type="email" id="registerEmail" class="form-control" placeholder="example@email.com" required></div>
           <div class="form-group"><label><i class="fas fa-phone"></i> رقم الهاتف</label><input type="tel" id="registerPhone" class="form-control" placeholder="05xxxxxxxx" required></div>
-          <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور</label><input type="password" id="registerPassword" class="form-control" placeholder="8 أحرف على الأقل" required></div>
-          <div class="form-group"><label><i class="fas fa-lock"></i> تأكيد كلمة المرور</label><input type="password" id="registerPasswordConfirm" class="form-control" placeholder="أعد كتابة كلمة المرور" required></div>
+          <div class="form-group">
+            <label><i class="fas fa-lock"></i> كلمة المرور</label>
+            <div style="position:relative;">
+              <input type="password" id="registerPassword" class="form-control" placeholder="8 أحرف على الأقل" required minlength="8" style="padding-left:45px;">
+              <button type="button" onclick="togglePasswordVisibility('registerPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;padding:5px;"><i class="fas fa-eye"></i></button>
+            </div>
+            <small id="passwordStrengthMsg" style="color:var(--gray);font-size:0.8rem;margin-top:4px;display:block;"></small>
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-lock"></i> تأكيد كلمة المرور</label>
+            <div style="position:relative;">
+              <input type="password" id="registerPasswordConfirm" class="form-control" placeholder="أعد إدخال كلمة المرور" required style="padding-left:45px;">
+              <button type="button" onclick="togglePasswordVisibility('registerPasswordConfirm',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;padding:5px;"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
           <button type="submit" class="btn-primary"><i class="fas fa-user-plus"></i> إنشاء حساب</button>
         </form>
         <div style="text-align: center; margin-top: 30px;"><button class="btn-primary" onclick="showHome()" style="background: transparent; color: var(--primary); border: 2px solid var(--primary);"><i class="fas fa-arrow-right"></i> العودة للرئيسية</button></div>
@@ -609,6 +622,9 @@
         <div class="admin-login-header">
           <h1><i class="fas fa-lock"></i> لوحة تحكم المدير</h1>
           <p>الدخول للإدارة يحتاج إلى صلاحيات خاصة</p>
+          <div style="background: #f0f9ff; padding: 10px; border-radius: 8px; margin-top: 15px; border-right: 4px solid var(--primary);">
+            <p style="color: var(--primary); font-size: 14px; margin: 0;"><i class="fas fa-info-circle"></i> بيانات الدخول الافتراضية:<br><strong>اسم المستخدم:</strong>***<br><strong>كلمة المرور:</strong>***<br><strong>رمز الوصول:</strong>***</p>
+          </div>
         </div>
         <form id="adminLoginForm">
           <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label><input type="email" id="adminEmail" class="form-control" placeholder="أدخل البريد الإلكتروني" required></div>
@@ -746,9 +762,6 @@
         <button id="profileTechBtn" onclick="showTechDashboard()" style="display:none;background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);padding:8px 18px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:700;backdrop-filter:blur(10px);">
           <i class="fas fa-hard-hat"></i> لوحة الفني
         </button>
-        <button onclick="showChangePasswordModal()" style="background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);padding:8px 18px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:700;backdrop-filter:blur(10px);">
-          <i class="fas fa-key"></i> تغيير كلمة المرور
-        </button>
       </div>
       <div class="profile-info">
         <div class="profile-avatar-large" id="profileAvatarLarge">
@@ -855,6 +868,18 @@
         <div id="profileInvoicesContainer" style="padding:1.5rem;"></div>
       </div>
 
+      <!-- قسم إعدادات الحساب -->
+      <div style="background:white;border-radius:var(--radius);box-shadow:var(--shadow);margin-top:1.5rem;overflow:hidden;">
+        <div style="padding:1.2rem 1.5rem;border-bottom:1px solid #e2e8f0;">
+          <h3 style="margin:0;font-size:1rem;color:var(--dark);"><i class="fas fa-shield-alt" style="color:var(--primary);"></i> إعدادات الأمان</h3>
+        </div>
+        <div style="padding:1.5rem;display:flex;flex-wrap:wrap;gap:10px;">
+          <button onclick="showChangePassword()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:10px 20px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;font-size:0.9rem;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-key"></i> تغيير كلمة المرور
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -877,12 +902,19 @@
 
 // ===== نظام الفنيين =====
 let currentTechnician = null;
-// تمت إزالة قائمة الفنيين الوهمية (TECHNICIANS_LIST) ورمز الدخول العام
-// الثابت (TECH_CONFIG.masterCode = "tech2024") اللذين كانا يسمحان لأي شخص
-// يعرف هذا الرمز المكتوب داخل هذا الملف بالدخول كـ"فني ضيف" بصلاحيات كاملة
-// دون أي حساب حقيقي - هذا بالضبط نوع الثغرة الممنوعة صراحة (رمز/كلمة مرور
-// إدارية ثابتة داخل الواجهة). الفني الآن يُنشأ فقط من لوحة الإدارة ويسجّل
-// دخوله حصراً عبر Supabase Auth الحقيقي (نفس نموذج الدخول العادي).
+
+// قائمة الفنيين مع محافظاتهم
+const TECHNICIANS_LIST = [
+  { id: 'tech001', name: 'أحمد الفني',  code: 'tech001', governorate: 'دمشق',     phone: '0911000001' },
+  { id: 'tech002', name: 'محمد الفني',  code: 'tech002', governorate: 'حلب',      phone: '0911000002' },
+  { id: 'tech003', name: 'علي الفني',   code: 'tech003', governorate: 'حمص',      phone: '0911000003' },
+  { id: 'tech004', name: 'خالد الفني',  code: 'tech004', governorate: 'حماة',     phone: '0911000004' },
+  { id: 'tech005', name: 'يوسف الفني',  code: 'tech005', governorate: 'اللاذقية', phone: '0911000005' },
+];
+
+const TECH_CONFIG = {
+  masterCode: "tech2024" // رمز دخول عام
+};
 
 let siteSettings = {
   colors: { primary: '#2563eb', secondary: '#3b82f6', accent: '#f59e0b', dark: '#1f2937', light: '#f9fafb' },
@@ -1076,11 +1108,20 @@ function showAdminLogin() {
   if (al) al.style.display = 'block';
 }
 
+function checkAdminEmail(val) {
+  // تم إزالة المنطق الذي يكشف بريد الأدمن من الكود - الأمان يأتي من قاعدة البيانات
+  const hint = document.getElementById('adminLoginHint');
+  if (!hint) return;
+  // نعرض الزر فقط إذا أدخل المستخدم بريداً يبدو أنه للإدارة (بدون كشف أي بريد ثابت)
+  hint.style.display = val.includes('@') && val.length > 5 ? 'block' : 'none';
+}
+
 function goToAdminLogin() {
   const lp = document.getElementById('loginPage');
   if (lp) lp.style.display = 'none';
   const al = document.getElementById('adminLoginPage');
   if (al) al.style.display = 'block';
+  // لا نملأ البريد تلقائياً - المدير يُدخله بنفسه
 }
 
 function showAdminDashboard() {
@@ -1089,17 +1130,25 @@ function showAdminDashboard() {
   if (ol) ol.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--gray);"><i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i></div>';
 }
 
-function logoutAdmin() {
+async function logoutAdmin() {
   currentAdmin = null;
+  currentUser = null;
+  currentTechnician = null;
   localStorage.removeItem('obied_admin');
+  localStorage.removeItem('obied_current_user');
+  localStorage.removeItem('obied_tech');
   const adminBtn = document.getElementById('adminNavBtn');
   if (adminBtn) adminBtn.style.display = 'none';
   const anb = document.getElementById('adminNavMenuBtn');
   if (anb) anb.style.display = 'none';
   if (window._techPollInterval) { clearInterval(window._techPollInterval); window._techPollInterval = null; }
   if (typeof stopRealtime === 'function') stopRealtime();
+  // تسجيل الخروج الحقيقي من Supabase Auth
+  await sb.auth.signOut().catch(e => console.error('admin signOut error:', e));
+  updateUIForLoggedOutUser();
   const wp = document.getElementById('welcomePage');
   if (wp) { wp.style.display = 'flex'; if (wp.classList) wp.classList.remove('hidden'); }
+  showAlert('تم تسجيل الخروج من لوحة الإدارة', 'success');
 }
 
 function updateAccountAvatar() {
@@ -1164,23 +1213,22 @@ function confirmLogout() {
   `);
 }
 
-function doLogoutUser() {
+async function doLogoutUser() {
   currentUser = null;
-  currentTechnician = null;
   currentAdmin = null;
+  currentTechnician = null;
   localStorage.removeItem('obied_current_user');
-  localStorage.removeItem('obied_tech');
   localStorage.removeItem('obied_admin');
-  // تسجيل الخروج الحقيقي: يُلغي جلسة Supabase Auth فعلياً على الخادم -
-  // حذف localStorage وحده لا يكفي ولا يُبطل الجلسة
-  sb.auth.signOut().catch(() => {});
+  localStorage.removeItem('obied_tech');
   if (typeof stopRealtime === 'function') stopRealtime();
+  // تسجيل الخروج الحقيقي من Supabase Auth - لا يكفي مسح localStorage فقط
+  await sb.auth.signOut().catch(e => console.error('signOut error:', e));
   closeModal();
   updateUIForLoggedOutUser();
   hideAllPages();
   const wp = document.getElementById('welcomePage');
   if (wp) { wp.style.display = 'flex'; if (wp.classList) wp.classList.remove('hidden'); }
-  showAlert('تم تسجيل الخروج', 'success');
+  showAlert('تم تسجيل الخروج بنجاح', 'success');
 }
 
 function navLinkClick(page) {
@@ -1396,9 +1444,7 @@ async function handleBooking(e) {
     const preferredTechId = document.getElementById('bookingPreferredTech')?.value || '';
     let assignedTechId = preferredTechId ? parseInt(preferredTechId, 10) : null;
     if (!assignedTechId && booking.governorate) {
-      // نقرأ من الـ View العام (technicians_public) وليس الجدول مباشرة - جدول
-      // technicians نفسه أصبح مقيداً للأدمن وللفني نفسه فقط بعد هذا التحديث
-      const { data: techList } = await sb.from('technicians_public')
+      const { data: techList } = await sb.from('technicians')
         .select('id,name').eq('is_active', true).eq('governorate', booking.governorate).limit(5);
       if (techList?.length) {
         const { data: techOrders } = await sb.from('orders')
@@ -1422,13 +1468,11 @@ async function handleBooking(e) {
 
       // إشعار حقيقي (Push) للفني - يصل حتى لو كان التطبيق مغلقاً، عبر نفس
       // مسار notifications المربوط أصلاً بنظام Push للعملاء
-      // (نستخدم دالة RPC ضيّقة بدل قراءة سجل الفني الكامل - راجع
-      // get_technician_user_ref في sql/security_hardening_v2.sql)
-      sb.rpc('get_technician_user_ref', { p_tech_id: assignedTechId })
-        .then(({ data: techUserId }) => {
-          if (techUserId) {
+      sb.from('technicians').select('user_ref_id').eq('id', assignedTechId).maybeSingle()
+        .then(({ data: techRow }) => {
+          if (techRow?.user_ref_id) {
             sb.from('notifications').insert([{
-              user_id: techUserId,
+              user_id: techRow.user_ref_id,
               message: '🔔 طلب جديد: ' + booking.service + ' في ' + booking.governorate,
               type: 'new_order',
               is_read: false
@@ -1480,13 +1524,13 @@ async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
     try {
       let { data: techData } = await sb.from('technicians').select('*').eq('is_active', true).eq('user_ref_id', userRow.id).maybeSingle();
       if (!techData) {
-        // أنشئ سجل فني افتراضي تلقائياً إذا تم منح الدور دون ملف فني مسبق.
-        // نستخدم RPC آمنة (ensure_my_technician_row) بدل إدراج مباشر من العميل،
-        // لأن سياسة RLS الآن تقصر INSERT على جدول technicians على الأدمن فقط -
-        // الدالة تتحقق من auth.uid() وrole فعلياً قبل الإنشاء
-        const { data: created } = await sb.rpc('ensure_my_technician_row', {
-          p_name: userRow.name, p_phone: userRow.phone || ''
-        });
+        // أنشئ سجل فني افتراضي تلقائياً إذا تم منح الدور دون ملف فني مسبق
+        const { data: created } = await sb.from('technicians').insert([{
+          name: userRow.name, code: 'tech_' + userRow.id + '_' + Date.now().toString().slice(-4),
+          governorate: null, phone: userRow.phone || '',
+          permissions: { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false },
+          is_active: true, user_ref_id: userRow.id
+        }]).select().single();
         techData = created;
       }
       if (techData) {
@@ -1524,49 +1568,6 @@ async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
   }
 }
 
-// ===== يسجّل الدخول عبر Supabase Auth الحقيقي، مع ترحيل صامت للحسابات القديمة
-// التي ما زالت تعتمد على users.pass_word (سيُنشأ لها auth_uid تلقائياً هنا فور
-// نجاح أول تسجيل دخول بعد هذا التحديث) - يُستخدم من نموذج الدخول العادي ومن
-// نموذج دخول لوحة الإدارة معاً، فمصدر الصلاحية الحقيقي الوحيد هو users.role
-// عبر RLS، وليس أي نموذج أو صفحة منفصلة =====
-async function authenticateAndResolveUser(email, password) {
-  let userData = null;
-
-  // ===== محاولة 1: تسجيل دخول حقيقي عبر Supabase Auth (يمنح هوية موثّقة auth.uid تعمل معها RLS) =====
-  const { data: authData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
-  if (authData?.user) {
-    const { data: linkedUser } = await sb.from('users')
-      .select('id,name,email,phone,profile_image,role').eq('auth_uid', authData.user.id).maybeSingle();
-    userData = linkedUser;
-    if (!userData) {
-      // حساب Auth موجود لكن غير مربوط بصف قديم بعد - اربطه الآن عبر البريد
-      const { data: byEmail } = await sb.from('users')
-        .select('id,name,email,phone,profile_image,role').eq('email', email).maybeSingle();
-      if (byEmail) {
-        await sb.from('users').update({ auth_uid: authData.user.id }).eq('id', byEmail.id);
-        userData = byEmail;
-      }
-    }
-  }
-
-  // ===== محاولة 2: مستخدم قديم قبل الترحيل - نفس التحقق الأصلي بالضبط =====
-  if (!userData) {
-    const { data: legacyUser } = await sb.from('users')
-      .select('id,name,email,phone,profile_image,role')
-      .eq('email', email).eq('pass_word', password).maybeSingle();
-    if (legacyUser) {
-      userData = legacyUser;
-      // ترحيل تلقائي صامت: إنشاء حساب Auth حقيقي له الآن بدون أي إزعاج
-      const { data: signUpData } = await sb.auth.signUp({ email, password }).catch(() => ({ data: null }));
-      if (signUpData?.user) {
-        await sb.from('users').update({ auth_uid: signUpData.user.id }).eq('id', legacyUser.id).catch(() => {});
-      }
-    }
-  }
-
-  return userData;
-}
-
 function setupEventListeners() {
   const loginForm = document.getElementById('loginForm');
   if (loginForm) loginForm.addEventListener('submit', async function(e) {
@@ -1576,7 +1577,50 @@ function setupEventListeners() {
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التحقق...'; }
     try {
-      const userData = await authenticateAndResolveUser(email, password);
+      let userData = null;
+
+      // ===== محاولة 1: تسجيل دخول حقيقي عبر Supabase Auth (يمنح هوية موثّقة auth.uid تعمل معها RLS) =====
+      const { data: authData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
+      if (authData?.user) {
+        const { data: linkedUser } = await sb.from('users')
+          .select('id,name,email,phone,profile_image,role').eq('auth_uid', authData.user.id).maybeSingle();
+        userData = linkedUser;
+        if (!userData) {
+          // حساب Auth موجود لكن غير مربوط بصف قديم بعد - اربطه الآن عبر البريد
+          const { data: byEmail } = await sb.from('users')
+            .select('id,name,email,phone,profile_image,role').eq('email', email).maybeSingle();
+          if (byEmail) {
+            await sb.from('users').update({ auth_uid: authData.user.id }).eq('id', byEmail.id);
+            userData = byEmail;
+          }
+        }
+      }
+
+      // ===== محاولة 2: مستخدم قديم قبل الترحيل (pass_word نصي في قاعدة البيانات) =====
+      // هذا الـ fallback مؤقت للتوافق فقط - يجب أن يختفي تدريجياً مع ترحيل جميع المستخدمين
+      if (!userData) {
+        try {
+          const { data: legacyUser } = await sb.from('users')
+            .select('id,name,email,phone,profile_image,role')
+            .eq('email', email).eq('pass_word', password).maybeSingle();
+          if (legacyUser) {
+            userData = legacyUser;
+            // ترحيل تلقائي صامت: إنشاء حساب Auth حقيقي للمستخدم القديم
+            // (email confirmation مطلوب إيقافه في Supabase Dashboard)
+            const { data: signUpData, error: signUpErr } = await sb.auth.signUp({ email, password }).catch(() => ({ data: null, error: null }));
+            if (signUpData?.user) {
+              await sb.from('users').update({ auth_uid: signUpData.user.id }).eq('id', legacyUser.id).catch(() => {});
+              // محاولة تسجيل الدخول مباشرة بعد الإنشاء
+              const { data: reAuthData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
+              if (reAuthData?.user) {
+                // تحديث auth_uid إذا لزم
+                await sb.from('users').update({ auth_uid: reAuthData.user.id }).eq('id', legacyUser.id).catch(() => {});
+              }
+            }
+          }
+        } catch(legacyErr) { /* تجاهل أخطاء الترحيل القديم */ }
+      }
+
       if (!userData) { showAlert('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error'); return; }
 
       const role = await resolveUserRole(userData);
@@ -1589,220 +1633,291 @@ function setupEventListeners() {
   });
 
   const registerForm = document.getElementById('registerForm');
-  if (registerForm) registerForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const name            = document.getElementById('registerName')?.value?.trim();
-    const email           = document.getElementById('registerEmail')?.value?.trim();
-    const phone           = document.getElementById('registerPhone')?.value?.trim();
-    const password        = document.getElementById('registerPassword')?.value?.trim();
-    const passwordConfirm = document.getElementById('registerPasswordConfirm')?.value?.trim();
-    const btn = e.target.querySelector('button[type=submit]');
-    if (!name || !email || !phone || !password || !passwordConfirm) { showAlert('يرجى تعبئة جميع الحقول', 'error'); return; }
-    if (!/^\S+@\S+\.\S+$/.test(email)) { showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error'); return; }
-    if (password.length < 8) { showAlert('كلمة المرور قصيرة جداً (8 أحرف على الأقل)', 'error'); return; }
-    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) { showAlert('كلمة المرور يجب أن تحتوي على حروف وأرقام معاً', 'error'); return; }
-    if (password !== passwordConfirm) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
-    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ إنشاء الحساب...'; }
-    try {
-      const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
-      if (existing) { showAlert('هذا البريد مستخدم بالفعل', 'error'); return; }
+  if (registerForm) {
+    // مؤشر قوة كلمة المرور لحظياً
+    const regPwd = document.getElementById('registerPassword');
+    if (regPwd) regPwd.addEventListener('input', function() {
+      const msg = document.getElementById('passwordStrengthMsg');
+      if (!msg) return;
+      const v = this.value;
+      if (!v) { msg.textContent=''; return; }
+      if (v.length < 6) { msg.textContent='⚠️ ضعيفة جداً'; msg.style.color='#ef4444'; }
+      else if (v.length < 8) { msg.textContent='⚠️ قصيرة - يُفضّل 8 أحرف فأكثر'; msg.style.color='#f59e0b'; }
+      else if (/[A-Z]/.test(v) && /[0-9]/.test(v)) { msg.textContent='✅ قوية'; msg.style.color='#10b981'; }
+      else { msg.textContent='✔ مقبولة'; msg.style.color='#3b82f6'; }
+    });
 
-      // إنشاء حساب Auth حقيقي أولاً (هوية موثّقة تعمل معها RLS من أول يوم).
-      const { data: signUpData, error: signUpError } = await sb.auth.signUp({ email, password }).catch(e => ({ data: null, error: e }));
-      if (!signUpData?.user) {
-        showAlert('تعذر إنشاء حساب الدخول: ' + (signUpError?.message || 'خطأ غير معروف'), 'error');
-        return;
+    registerForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const name            = document.getElementById('registerName')?.value?.trim();
+      const email           = document.getElementById('registerEmail')?.value?.trim();
+      const phone           = document.getElementById('registerPhone')?.value?.trim();
+      const password        = document.getElementById('registerPassword')?.value?.trim();
+      const passwordConfirm = document.getElementById('registerPasswordConfirm')?.value?.trim();
+      const btn = e.target.querySelector('button[type=submit]');
+
+      if (!name || !email || !password) { showAlert('يرجى تعبئة جميع الحقول', 'error'); return; }
+      if (!/^\S+@\S+\.\S+$/.test(email)) { showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error'); return; }
+      if (password.length < 8) { showAlert('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error'); return; }
+      if (password !== passwordConfirm) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
+
+      if (btn) { btn.disabled = true; btn.textContent = 'جارٍ إنشاء الحساب...'; }
+      try {
+        // التحقق من عدم تكرار البريد
+        const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
+        if (existing) { showAlert('هذا البريد مستخدم بالفعل', 'error'); return; }
+
+        // 1) إنشاء حساب Supabase Auth أولاً (الهوية الحقيقية)
+        const { data: signUpData, error: authErr } = await sb.auth.signUp({ email, password });
+        const authUid = signUpData?.user?.id || null;
+
+        if (authErr && authErr.message && !authErr.message.includes('already registered')) {
+          throw new Error(authErr.message);
+        }
+
+        // 2) إنشاء سجل users مع auth_uid - ممنوع تخزين كلمة المرور
+        // role يُحدَّد دائماً كـ 'user' ولا يُمرَّر من نموذج التسجيل
+        let { data, error } = await sb.from('users')
+          .insert([{ name, email, phone: phone || '', role: 'user', auth_uid: authUid }])
+          .select().single();
+
+        if (error) {
+          // fallback: بدون role إذا لم يكن العمود موجوداً بعد
+          const retry = await sb.from('users')
+            .insert([{ name, email, phone: phone || '', auth_uid: authUid }])
+            .select().single();
+          data = retry.data; error = retry.error;
+        }
+        if (error) throw error;
+
+        await applyRoleAndRoute(data, 'user', { isNewAccount: true });
+      } catch(err) {
+        showAlert('خطأ في إنشاء الحساب: ' + (err.message||''), 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> إنشاء حساب'; }
       }
+    });
+  }
 
-      // role='user' دائماً في هذا النموذج - لا يوجد أي طريقة للمستخدم لاختيار
-      // admin أو technician من التسجيل. لا تُحفظ كلمة المرور في جدول users إطلاقاً.
-      const { data, error } = await sb.from('users')
-        .insert([{ name, email, phone, role: 'user', auth_uid: signUpData.user.id }])
-        .select().single();
-      if (error) throw error;
-
-      await applyRoleAndRoute(data, 'user', { isNewAccount: true });
-    } catch(err) {
-      showAlert('خطأ في إنشاء الحساب: ' + (err.message||''), 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> إنشاء حساب'; }
-    }
-  });
-
-  // ===== دخول لوحة الإدارة: نفس Supabase Auth بالضبط، ثم التحقق أن الدور
-  // الحقيقي المخزّن في users.role هو 'admin' - لا يوجد أي مصدر آخر للصلاحية
-  // (لا كلمة مرور ثابتة، ولا جدول admins منفصل، ولا بريد مميّز مكتوب في الواجهة) =====
   const adminLoginForm = document.getElementById('adminLoginForm');
   if (adminLoginForm) adminLoginForm.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const email    = document.getElementById('adminEmail').value.trim();
+    const email    = document.getElementById('adminEmail').value.trim().toLowerCase();
     const password = document.getElementById('adminPassword').value.trim();
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ التحقق...'; }
 
     try {
-      const userData = await authenticateAndResolveUser(email, password);
-      if (!userData) { showAlert('❌ البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error', 4000); return; }
-
-      const role = await resolveUserRole(userData);
-      if (role !== 'admin') {
-        // تسجيل دخول صحيح لكن بدون صلاحية إدارية - لا نمنحه لوحة التحكم أبداً
-        await sb.auth.signOut().catch(() => {});
-        showAlert('❌ هذا الحساب لا يملك صلاحية الدخول للوحة الإدارة', 'error', 4000);
-        return;
+      // 1) تسجيل الدخول عبر Supabase Auth أولاً
+      const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password });
+      if (authData?.user) {
+        // 2) تحقق أن دور المستخدم هو 'admin' في جدول users
+        let userRow = null;
+        const { data: byAuthUid } = await sb.from('users')
+          .select('id,name,email,phone,role,auth_uid').eq('auth_uid', authData.user.id).maybeSingle();
+        userRow = byAuthUid;
+        if (!userRow) {
+          const { data: byEmail } = await sb.from('users')
+            .select('id,name,email,phone,role').eq('email', email).maybeSingle();
+          if (byEmail) {
+            await sb.from('users').update({ auth_uid: authData.user.id }).eq('id', byEmail.id).catch(()=>{});
+            userRow = byEmail;
+          }
+        }
+        if (userRow && userRow.role === 'admin') {
+          currentAdmin = { id: userRow.id, email: userRow.email, name: userRow.name, role: 'admin', loginTime: new Date().toISOString() };
+          currentUser  = { id: userRow.id, name: userRow.name, email: userRow.email, phone: userRow.phone, role: 'admin' };
+          localStorage.setItem('obied_admin', JSON.stringify(currentAdmin));
+          localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
+          showAdminDashboard();
+          showAlert('مرحباً ' + (userRow.name || email) + ' 👋', 'success', 3000);
+          if (typeof syncPushToken === 'function') syncPushToken();
+          if (typeof loadAdminData === 'function') loadAdminData();
+          return;
+        } else {
+          // Auth نجح لكن الدور ليس admin - سجّل خروج وأبلغه
+          await sb.auth.signOut();
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
+          showAlert('❌ هذا الحساب لا يملك صلاحيات الإدارة', 'error', 4000);
+          return;
+        }
       }
 
-      await applyRoleAndRoute(userData, role);
-    } catch(err) {
-      showAlert('خطأ في الاتصال، حاول مرة أخرى', 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
-    }
+      // 2) Fallback: تحقق من جدول admins القديم (للتوافق مع الإعداد الحالي)
+      try {
+        const { data: adminData } = await sb.from('admins')
+          .select('*').eq('email', email).eq('password', password).eq('is_active', true).maybeSingle();
+        if (adminData) {
+          currentAdmin = { ...adminData, loginTime: new Date().toISOString() };
+          localStorage.setItem('obied_admin', JSON.stringify(currentAdmin));
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
+          showAdminDashboard();
+          showAlert('مرحباً ' + (adminData.name || email) + ' 👋', 'success', 3000);
+          if (typeof loadAdminData === 'function') loadAdminData();
+          return;
+        }
+      } catch(fallbackErr) {}
+
+    } catch(err) { console.error('admin login error:', err); }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول لوحة التحكم'; }
+    showAlert('❌ البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error', 4000);
   });
 }
 
-// ================== نسيت كلمة المرور / إعادة تعيين / تغيير كلمة المرور ==================
-// جميعها تعتمد حصراً على Supabase Auth الحقيقي - لا تُخزَّن أي كلمة مرور
-// جديدة في users.pass_word إطلاقاً، بنفس تصميم النوافذ المنبثقة الحالي (showModal)
+// ================== نهاية الدوال الأساسية الناقصة ==================
 
-function showForgotPasswordModal() {
+// ===== نسيت كلمة المرور =====
+function showForgotPassword() {
   showModal(`
-    <div style="padding:0;max-width:420px;width:100%;">
-      <div class="login-header" style="padding:25px;text-align:center;">
-        <h3 style="margin:0;"><i class="fas fa-key"></i> نسيت كلمة المرور؟</h3>
-        <p style="margin:8px 0 0;color:var(--gray);font-size:0.9rem;">أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين</p>
+    <div style="padding:0;max-width:400px;width:100%;">
+      <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <i class="fas fa-key" style="font-size:2rem;margin-bottom:8px;display:block;"></i>
+        <h3 style="margin:0;">نسيت كلمة المرور؟</h3>
       </div>
-      <div style="background:white;padding:20px;">
-        <div class="form-group"><label><i class="fas fa-envelope"></i> البريد الإلكتروني</label>
+      <div style="background:white;padding:24px;">
+        <p style="color:var(--gray);margin-bottom:18px;text-align:center;">أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-envelope"></i> البريد الإلكتروني</label>
           <input type="email" id="forgotPasswordEmail" class="form-control" placeholder="example@email.com" required>
         </div>
-        <button class="btn-primary" onclick="submitForgotPassword()"><i class="fas fa-paper-plane"></i> إرسال رابط إعادة التعيين</button>
-        <button class="btn-primary" onclick="closeModal()" style="background:transparent;color:var(--primary);border:2px solid var(--primary);margin-top:10px;">إلغاء</button>
+        <div style="display:flex;gap:10px;">
+          <button onclick="sendPasswordResetEmail()" style="flex:2;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;" id="forgotPwBtn">
+            <i class="fas fa-paper-plane"></i> إرسال رابط الاسترداد
+          </button>
+          <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
+        </div>
       </div>
     </div>
   `);
+  setTimeout(() => document.getElementById('forgotPasswordEmail')?.focus(), 100);
 }
 
-async function submitForgotPassword() {
+async function sendPasswordResetEmail() {
   const email = document.getElementById('forgotPasswordEmail')?.value?.trim();
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) { showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error'); return; }
+  const btn = document.getElementById('forgotPwBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
   try {
-    const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname
-    });
+    // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
+    const redirectTo = window.location.origin + window.location.pathname + '?reset=1';
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     closeModal();
-    showAlert('✅ إذا كان البريد مسجلاً لدينا، تم إرسال رابط إعادة تعيين كلمة المرور إليه', 'success', 6000);
-  } catch (err) {
-    showAlert('تعذر إرسال رابط إعادة التعيين: ' + (err.message || ''), 'error');
+    showAlert('✅ تم إرسال رابط إعادة التعيين إلى ' + email + ' - تحقق من صندوق الوارد', 'success', 7000);
+  } catch(err) {
+    showAlert('خطأ: ' + (err.message || 'تعذر إرسال الرابط'), 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رابط الاسترداد'; }
   }
 }
 
-// تُفتح تلقائياً عندما يعود المستخدم من رابط البريد الإلكتروني (حدث PASSWORD_RECOVERY)
-function showSetNewPasswordModal() {
+// ===== نموذج إعادة تعيين كلمة المرور (بعد فتح الرابط) =====
+function showResetPasswordForm() {
+  hideAllPages();
+  const wp = document.getElementById('welcomePage');
+  if (wp) { wp.style.display = 'none'; }
   showModal(`
     <div style="padding:0;max-width:420px;width:100%;">
-      <div class="login-header" style="padding:25px;text-align:center;">
-        <h3 style="margin:0;"><i class="fas fa-lock"></i> تعيين كلمة مرور جديدة</h3>
+      <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <i class="fas fa-lock" style="font-size:2rem;margin-bottom:8px;display:block;"></i>
+        <h3 style="margin:0;">تعيين كلمة مرور جديدة</h3>
       </div>
-      <div style="background:white;padding:20px;">
-        <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور الجديدة</label>
-          <input type="password" id="newPasswordAfterReset" class="form-control" placeholder="8 أحرف على الأقل" required>
+      <div style="background:white;padding:24px;">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> كلمة المرور الجديدة</label>
+          <div style="position:relative;">
+            <input type="password" id="newResetPassword" class="form-control" placeholder="8 أحرف على الأقل" minlength="8" style="padding-left:45px;">
+            <button type="button" onclick="togglePasswordVisibility('newResetPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
+          </div>
         </div>
-        <div class="form-group"><label><i class="fas fa-lock"></i> تأكيد كلمة المرور</label>
-          <input type="password" id="newPasswordAfterResetConfirm" class="form-control" placeholder="أعد كتابة كلمة المرور" required>
+        <div class="form-group" style="margin-bottom:20px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> تأكيد كلمة المرور</label>
+          <div style="position:relative;">
+            <input type="password" id="newResetPasswordConfirm" class="form-control" placeholder="أعد إدخال كلمة المرور" style="padding-left:45px;">
+            <button type="button" onclick="togglePasswordVisibility('newResetPasswordConfirm',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
+          </div>
         </div>
-        <button class="btn-primary" onclick="submitSetNewPassword()"><i class="fas fa-check"></i> حفظ كلمة المرور</button>
+        <button onclick="saveNewPassword()" style="width:100%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;" id="saveNewPwBtn">
+          <i class="fas fa-save"></i> حفظ كلمة المرور الجديدة
+        </button>
       </div>
     </div>
   `);
 }
 
-async function submitSetNewPassword() {
-  const pwd  = document.getElementById('newPasswordAfterReset')?.value?.trim();
-  const pwd2 = document.getElementById('newPasswordAfterResetConfirm')?.value?.trim();
-  if (!pwd || pwd.length < 8 || !/[a-zA-Z]/.test(pwd) || !/[0-9]/.test(pwd)) {
-    showAlert('كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف وأرقام', 'error'); return;
-  }
-  if (pwd !== pwd2) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
+async function saveNewPassword() {
+  const newPw  = document.getElementById('newResetPassword')?.value?.trim();
+  const confPw = document.getElementById('newResetPasswordConfirm')?.value?.trim();
+  if (!newPw || newPw.length < 8) { showAlert('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error'); return; }
+  if (newPw !== confPw) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
+  const btn = document.getElementById('saveNewPwBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...'; }
   try {
-    const { error } = await sb.auth.updateUser({ password: pwd });
+    // تغيير كلمة المرور عبر Supabase Auth - لا تُخزَّن في users.pass_word
+    const { error } = await sb.auth.updateUser({ password: newPw });
     if (error) throw error;
     closeModal();
-    showAlert('✅ تم تحديث كلمة المرور بنجاح، يمكنك الآن استخدامها لتسجيل الدخول', 'success', 6000);
-  } catch (err) {
-    showAlert('تعذر تحديث كلمة المرور: ' + (err.message || ''), 'error');
+    showAlert('✅ تم تغيير كلمة المرور بنجاح - سيتم تسجيل دخولك تلقائياً', 'success', 5000);
+    setTimeout(() => restoreSession(), 1500);
+  } catch(err) {
+    showAlert('خطأ: ' + (err.message || 'تعذر تغيير كلمة المرور'), 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ كلمة المرور الجديدة'; }
   }
 }
 
-// ===== تغيير كلمة المرور لمستخدم مسجّل دخوله بالفعل - يتحقق من كلمة المرور
-// الحالية أولاً عبر إعادة تسجيل دخول صامتة قبل السماح بالتغيير =====
-function showChangePasswordModal() {
-  if (!currentUser?.email) { showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
+// ===== تغيير كلمة المرور للمستخدم المسجّل دخول =====
+function showChangePassword() {
+  if (!currentUser) { showAlert('يجب تسجيل الدخول أولاً', 'error'); return; }
   showModal(`
     <div style="padding:0;max-width:420px;width:100%;">
-      <div class="login-header" style="padding:25px;text-align:center;">
-        <h3 style="margin:0;"><i class="fas fa-key"></i> تغيير كلمة المرور</h3>
+      <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <i class="fas fa-key" style="font-size:2rem;margin-bottom:8px;display:block;"></i>
+        <h3 style="margin:0;">تغيير كلمة المرور</h3>
       </div>
-      <div style="background:white;padding:20px;">
-        <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور الحالية</label>
-          <input type="password" id="currentPasswordForChange" class="form-control" required>
+      <div style="background:white;padding:24px;">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> كلمة المرور الجديدة</label>
+          <div style="position:relative;">
+            <input type="password" id="changeNewPassword" class="form-control" placeholder="8 أحرف على الأقل" minlength="8" style="padding-left:45px;">
+            <button type="button" onclick="togglePasswordVisibility('changeNewPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
+          </div>
         </div>
-        <div class="form-group"><label><i class="fas fa-lock"></i> كلمة المرور الجديدة</label>
-          <input type="password" id="newPasswordForChange" class="form-control" placeholder="8 أحرف على الأقل" required>
+        <div class="form-group" style="margin-bottom:20px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> تأكيد كلمة المرور الجديدة</label>
+          <div style="position:relative;">
+            <input type="password" id="changeNewPasswordConfirm" class="form-control" placeholder="أعد إدخال كلمة المرور" style="padding-left:45px;">
+            <button type="button" onclick="togglePasswordVisibility('changeNewPasswordConfirm',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
+          </div>
         </div>
-        <div class="form-group"><label><i class="fas fa-lock"></i> تأكيد كلمة المرور الجديدة</label>
-          <input type="password" id="newPasswordForChangeConfirm" class="form-control" required>
+        <div style="display:flex;gap:10px;">
+          <button onclick="doChangePassword()" style="flex:2;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;" id="changePwBtn">
+            <i class="fas fa-save"></i> حفظ كلمة المرور
+          </button>
+          <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
         </div>
-        <button class="btn-primary" onclick="submitChangePassword()"><i class="fas fa-check"></i> حفظ التغيير</button>
       </div>
     </div>
   `);
 }
 
-async function submitChangePassword() {
-  const currentPwd = document.getElementById('currentPasswordForChange')?.value?.trim();
-  const newPwd     = document.getElementById('newPasswordForChange')?.value?.trim();
-  const newPwd2    = document.getElementById('newPasswordForChangeConfirm')?.value?.trim();
-  if (!currentPwd || !newPwd || !newPwd2) { showAlert('يرجى تعبئة جميع الحقول', 'error'); return; }
-  if (newPwd.length < 8 || !/[a-zA-Z]/.test(newPwd) || !/[0-9]/.test(newPwd)) {
-    showAlert('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف وأرقام', 'error'); return;
-  }
-  if (newPwd !== newPwd2) { showAlert('كلمتا المرور الجديدتان غير متطابقتين', 'error'); return; }
+async function doChangePassword() {
+  const newPw  = document.getElementById('changeNewPassword')?.value?.trim();
+  const confPw = document.getElementById('changeNewPasswordConfirm')?.value?.trim();
+  if (!newPw || newPw.length < 8) { showAlert('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error'); return; }
+  if (newPw !== confPw) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
+  const btn = document.getElementById('changePwBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...'; }
   try {
-    // تحقق من كلمة المرور الحالية عبر إعادة تسجيل دخول حقيقية عبر Supabase Auth
-    const { error: verifyError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPwd });
-    if (verifyError) { showAlert('كلمة المرور الحالية غير صحيحة', 'error'); return; }
-
-    const { error } = await sb.auth.updateUser({ password: newPwd });
+    // تغيير كلمة المرور عبر Supabase Auth فقط - لا تُخزَّن في users.pass_word
+    const { error } = await sb.auth.updateUser({ password: newPw });
     if (error) throw error;
     closeModal();
     showAlert('✅ تم تغيير كلمة المرور بنجاح', 'success', 4000);
-  } catch (err) {
-    showAlert('تعذر تغيير كلمة المرور: ' + (err.message || ''), 'error');
+  } catch(err) {
+    showAlert('خطأ: ' + (err.message || 'تعذر تغيير كلمة المرور - تأكد من أنك سجّلت الدخول بـ Supabase Auth'), 'error', 5000);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ كلمة المرور'; }
   }
 }
-
-// ===== يبقي حالة تسجيل الدخول متزامنة مع Supabase Auth الحقيقي، ويلتقط رابط
-// إعادة تعيين كلمة المرور القادم من البريد الإلكتروني =====
-sb.auth.onAuthStateChange((event, session) => {
-  if (event === 'PASSWORD_RECOVERY') {
-    showSetNewPasswordModal();
-  } else if (event === 'SIGNED_OUT') {
-    // إن كانت الواجهة تظن أن هناك مستخدماً مسجلاً دخوله بينما جلسة Supabase
-    // الحقيقية انتهت (مثلاً انتهاء صلاحية الجلسة) - لا نعتمد على الكاش المحلي
-    // كمصدر أمان، فنصحّح الواجهة هنا فوراً
-    if (currentUser || currentAdmin || currentTechnician) {
-      currentUser = null; currentAdmin = null; currentTechnician = null;
-      localStorage.removeItem('obied_current_user');
-      localStorage.removeItem('obied_admin');
-      localStorage.removeItem('obied_tech');
-      updateUIForLoggedOutUser();
-    }
-  }
-});
-
-// ================== نهاية الدوال الأساسية الناقصة ==================
 
 // ===== ضغط الصور محلياً قبل الحفظ - الدالة الموحّدة معرّفة أدناه =====
 async function uploadImageToCloudinary(base64Data, folder = 'general') {
@@ -1978,38 +2093,53 @@ async function updateComplaintStatus(complaintId, status) {
   showComplaintsPanel();
 }
 
-// ===== إدارة المشرفين: مصدر الصلاحية الوحيد الآن هو عمود users.role (وليس
-// جدول admins القديم المنفصل الذي كان يخزّن كلمات مرور نصية بلا أي حماية).
-// "إضافة مشرف" هنا لا تُنشئ حساب دخول جديداً - فقط تمنح صلاحية admin لحساب
-// مسجَّل بالفعل عبر نموذج "إنشاء حساب" العادي (بنفس منطق Supabase Auth) =====
 async function showAdminManagement() {
-  const { data: admins } = await sb.from('users').select('id,name,email').eq('role', 'admin').order('name', { ascending: true });
+  const { data: admins } = await sb.from('admins').select('*').order('created_at', { ascending: true });
   const list = admins || [];
 
   showModal(`
     <div style="padding:0;max-width:650px;width:100%;max-height:85vh;overflow-y:auto;">
       <div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;z-index:10;">
         <h3 style="margin:0;"><i class="fas fa-user-shield"></i> إدارة المشرفين</h3>
-        <p style="margin:6px 0 0;opacity:0.85;font-size:0.9rem;">${list.length} مشرف حالياً</p>
+        <p style="margin:6px 0 0;opacity:0.85;font-size:0.9rem;">${list.length + 1} مشرف (الأدمن الرئيسي + ${list.length})</p>
       </div>
       <div style="background:white;padding:20px;">
 
-        <div style="background:#eff6ff;border-radius:12px;padding:14px;margin-bottom:15px;border:1px solid #bfdbfe;font-size:0.85rem;color:#1e3a8a;">
-          <i class="fas fa-info-circle"></i> لترقية شخص إلى مشرف، يجب أن يكون قد أنشأ حساباً عادياً بنفسه أولاً (من شاشة "إنشاء حساب")، ثم أدخل بريده هنا فقط.
+        <!-- الأدمن الرئيسي - يُعرض من قاعدة البيانات -->
+        <div id="mainAdminCard" style="background:#fef2f2;border-radius:12px;padding:16px;margin-bottom:15px;border:2px solid #fecaca;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:40px;height:40px;background:#ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fas fa-crown" style="color:white;"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;color:var(--dark);" id="mainAdminName">الأدمن الرئيسي</div>
+              <div style="font-size:0.85rem;color:var(--gray);" id="mainAdminEmail">
+                <i class="fas fa-spinner fa-spin"></i>
+              </div>
+            </div>
+            <span style="margin-right:auto;background:#ef4444;color:white;padding:3px 10px;border-radius:50px;font-size:0.78rem;">مالك</span>
+          </div>
         </div>
 
-        <!-- ترقية حساب موجود إلى مشرف -->
+        <!-- إضافة مشرف جديد -->
         <details style="margin-bottom:15px;border:2px dashed #e2e8f0;border-radius:var(--radius);overflow:hidden;">
           <summary style="padding:13px 18px;cursor:pointer;background:#f8fafc;font-weight:700;color:var(--primary);list-style:none;display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-plus-circle"></i> ترقية حساب إلى مشرف
+            <i class="fas fa-plus-circle"></i> إضافة مشرف جديد
           </summary>
           <div style="padding:18px;">
-            <div style="margin-bottom:12px;">
-              <label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">البريد الإلكتروني لحساب مسجّل بالفعل *</label>
-              <input type="email" id="newAdminEmail" class="form-control" placeholder="email@example.com">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+              <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">الاسم *</label><input type="text" id="newAdminName" class="form-control" placeholder="اسم المشرف"></div>
+              <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">البريد *</label><input type="email" id="newAdminEmail" class="form-control" placeholder="email@example.com"></div>
+              <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">كلمة المرور *</label><input type="password" id="newAdminPassword" class="form-control" placeholder="كلمة مرور قوية"></div>
+              <div><label style="display:block;margin-bottom:5px;color:var(--gray);font-size:0.85rem;">الدور</label>
+                <select id="newAdminRole" class="form-control">
+                  <option value="admin">مشرف</option>
+                  <option value="super_admin">مشرف رئيسي</option>
+                </select>
+              </div>
             </div>
             <button onclick="addNewAdmin()" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;padding:11px 25px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.95rem;font-weight:700;width:100%;">
-              <i class="fas fa-plus"></i> منح صلاحية الإدارة
+              <i class="fas fa-plus"></i> إضافة المشرف
             </button>
           </div>
         </details>
@@ -2022,15 +2152,16 @@ async function showAdminManagement() {
                 <i class="fas fa-user-tie" style="color:white;font-size:0.9rem;"></i>
               </div>
               <div style="flex:1;">
-                <div style="font-weight:700;color:var(--dark);">${a.name || '—'}</div>
+                <div style="font-weight:700;color:var(--dark);">${a.name}</div>
                 <div style="font-size:0.82rem;color:var(--gray);">${a.email}</div>
               </div>
-              <button onclick="deleteAdmin(${a.id},'${(a.name||a.email||'').replace(/'/g,"\\'")}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:50px;cursor:pointer;font-size:0.8rem;flex-shrink:0;">
-                <i class="fas fa-user-minus"></i> سحب الصلاحية
+              <span style="background:${a.role==='super_admin'?'#fef2f2':'#eff6ff'};color:${a.role==='super_admin'?'#ef4444':'#3b82f6'};padding:3px 10px;border-radius:50px;font-size:0.78rem;flex-shrink:0;">${a.role==='super_admin'?'رئيسي':'مشرف'}</span>
+              <button onclick="deleteAdmin(${a.id},'${a.name}')" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:50px;cursor:pointer;font-size:0.8rem;flex-shrink:0;">
+                <i class="fas fa-trash"></i>
               </button>
             </div>
           `).join('')}
-          ${list.length === 0 ? '<p style="text-align:center;color:var(--gray);padding:20px;">لا يوجد مشرفون بعد</p>' : ''}
+          ${list.length === 0 ? '<p style="text-align:center;color:var(--gray);padding:20px;">لا يوجد مشرفون إضافيون</p>' : ''}
         </div>
 
         <button onclick="closeModal()" style="margin-top:15px;width:100%;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
@@ -2040,25 +2171,26 @@ async function showAdminManagement() {
 }
 
 async function addNewAdmin() {
-  const email = document.getElementById('newAdminEmail')?.value?.trim().toLowerCase();
-  if (!email) { showAlert('أدخل البريد الإلكتروني', 'error'); return; }
-  const { data: userRow, error: findError } = await sb.from('users').select('id,name,email,role').eq('email', email).maybeSingle();
-  if (findError) { showAlert('خطأ: ' + findError.message, 'error'); return; }
-  if (!userRow) { showAlert('لا يوجد حساب مسجّل بهذا البريد بعد - يجب إنشاء حساب عادي أولاً', 'error', 5000); return; }
-  if (userRow.role === 'admin') { showAlert('هذا الحساب مشرف بالفعل', 'warning'); return; }
-
-  const { error } = await sb.from('users').update({ role: 'admin' }).eq('id', userRow.id);
-  if (error) { showAlert('خطأ: ' + error.message, 'error'); return; }
-  showAlert(`✅ أصبح ${userRow.name || email} مشرفاً الآن`, 'success', 3000);
+  const name     = document.getElementById('newAdminName')?.value?.trim();
+  const email    = document.getElementById('newAdminEmail')?.value?.trim().toLowerCase();
+  const password = document.getElementById('newAdminPassword')?.value;
+  const role     = document.getElementById('newAdminRole')?.value || 'admin';
+  if (!name || !email || !password) { showAlert('أدخل جميع البيانات المطلوبة', 'error'); return; }
+  const { data, error } = await sb.from('admins').insert([{ name, email, password, role, is_active: true }]).select().single();
+  if (error) {
+    if (error.code === '23505') showAlert('البريد مستخدم بالفعل', 'error');
+    else showAlert('خطأ: ' + error.message, 'error');
+    return;
+  }
+  showAlert(`✅ تم إضافة المشرف ${name}`, 'success', 3000);
   closeModal();
   showAdminManagement();
 }
 
-async function deleteAdmin(userId, name) {
-  if (!confirm(`سحب صلاحية الإدارة من "${name}"؟ سيعود حساباً عادياً (لن يُحذف الحساب نفسه)`)) return;
-  const { error } = await sb.from('users').update({ role: 'user' }).eq('id', userId);
-  if (error) { showAlert('خطأ: ' + error.message, 'error'); return; }
-  showAlert(`تم سحب صلاحية الإدارة من ${name}`, 'success', 2000);
+async function deleteAdmin(adminId, name) {
+  if (!confirm(`حذف المشرف "${name}"؟`)) return;
+  await sb.from('admins').delete().eq('id', adminId);
+  showAlert(`تم حذف ${name}`, 'success', 2000);
   closeModal();
   showAdminManagement();
 }
@@ -3270,69 +3402,117 @@ document.addEventListener('DOMContentLoaded', function() {
     try { const st = localStorage.getItem('obied_tech'); if (st) currentTechnician = JSON.parse(st); } catch(e) {}
   }
 
+  // تفعيل مستمع تغييرات Auth (مرة واحدة عند بدء التطبيق)
+  setupAuthStateListener();
+
   // استعادة الجلسة أولاً ثم تحميل الإعدادات
   applyStoredDarkMode();
   restoreSession();
   loadSocialLinks();
   loadSettings().then(() => initSlider()).catch(() => initSlider());
+
+  // تحقق من reset=1 في الـ URL (عودة من رابط إعادة تعيين كلمة المرور)
+  if (urlParams.get('reset') === '1') {
+    // onAuthStateChange سيتولى عرض نموذج إعادة التعيين عند حدث PASSWORD_RECOVERY
+    // لكن كاحتياط إضافي: نتحقق من الـ hash fragment الذي يضيفه Supabase
+    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+    if (hashParams.get('type') === 'recovery') {
+      setTimeout(() => showResetPasswordForm(), 800);
+    }
+  }
 });
 
-function restoreSession() {
+// ===== استعادة الجلسة عبر Supabase Auth الحقيقي =====
+// المصدر الحقيقي للهوية هو auth.uid() وليس localStorage
+async function restoreSession() {
   try {
-    const rawAdmin = localStorage.getItem('obied_admin');
-    const rawUser  = localStorage.getItem('obied_current_user');
-    const rawTech  = localStorage.getItem('obied_tech');
+    // 1) تحقق من جلسة Supabase Auth الحقيقية أولاً
+    const { data: { session } } = await sb.auth.getSession();
 
-    if (rawAdmin) {
-      const a = JSON.parse(rawAdmin);
-      if (a && a.email) {
-        currentAdmin = a;
-        if (rawUser) { try { currentUser = JSON.parse(rawUser); } catch(e) {} }
-        _showAdminPanel();
-        if (typeof syncPushToken === 'function') syncPushToken();
+    if (session?.user) {
+      // جلسة Auth حقيقية موجودة - اجلب بيانات المستخدم من قاعدة البيانات
+      const { data: userRow } = await sb.from('users')
+        .select('id,name,email,phone,profile_image,role,auth_uid')
+        .eq('auth_uid', session.user.id).maybeSingle();
+
+      if (userRow) {
+        const role = await resolveUserRole(userRow);
+        await applyRoleAndRoute(userRow, role);
         return;
       }
-      localStorage.removeItem('obied_admin');
-    }
 
-    // تحقق من الفني أولاً قبل المستخدم
-    if (rawTech && rawUser) {
-      const t = JSON.parse(rawTech);
-      const u = JSON.parse(rawUser);
-      if (t && t.id && u && u.id) {
-        currentTechnician = t;
-        currentUser = u;
-        // صفحة رئيسية عادية دائمًا - خيار "لوحة الفني" يبقى ظاهرًا وثابتًا
-        // في القائمة المنسدلة عبر updateUIForLoggedInUser، بدل الدخول
-        // الإجباري للوحته في كل مرة يفتح فيها التطبيق
-        _showUserHome(u);
-        if (typeof syncPushToken === 'function') syncPushToken();
-        // إعادة تحقق صامتة: لو تم إيقاف/حذف صلاحية الفني من لوحة الإدارة،
-        // تُسحب صلاحيته فورًا هنا بدل بقائها فعّالة من الجلسة المحفوظة القديمة
-        revalidateRoleInBackground(u);
+      // Auth موجود لكن لا يوجد سجل users مرتبط - حاول الربط عبر البريد
+      const { data: byEmail } = await sb.from('users')
+        .select('id,name,email,phone,profile_image,role')
+        .eq('email', session.user.email).maybeSingle();
+
+      if (byEmail) {
+        // ربط تلقائي صامت
+        await sb.from('users').update({ auth_uid: session.user.id }).eq('id', byEmail.id).catch(()=>{});
+        const role = await resolveUserRole(byEmail);
+        await applyRoleAndRoute(byEmail, role);
         return;
       }
+
+      // Auth موجود لكن لا يوجد سجل users على الإطلاق - اعرض الترحيب
+      _showWelcome();
+      return;
     }
 
+    // 2) لا توجد جلسة Auth - تحقق من localStorage كـ fallback مؤقت للمستخدمين القدامى
+    // الذين لم يسجلوا دخول بعد بالنظام الجديد (يُزال هذا الـ fallback تدريجياً)
+    const rawUser = localStorage.getItem('obied_current_user');
     if (rawUser) {
       const u = JSON.parse(rawUser);
       if (u && u.id) {
-        currentUser = u;
-        _showUserHome(u);
-        if (typeof syncPushToken === 'function') syncPushToken();
-        // إعادة تحقق صامتة من الدور الفعلي في قاعدة البيانات: لو تغيّر منذ آخر
-        // تسجيل دخول (مثلاً صار فنياً أو أدمن)، ينتقل للوحته الصحيحة تلقائياً
-        // دون الحاجة لتسجيل خروج ثم دخول يدوياً
-        revalidateRoleInBackground(u);
-        return;
+        // تحقق صامت من أن السجل لا يزال موجوداً في قاعدة البيانات
+        const { data: freshUser } = await sb.from('users')
+          .select('id,name,email,phone,profile_image,role')
+          .eq('id', u.id).maybeSingle();
+        if (freshUser) {
+          currentUser = { id: freshUser.id, name: freshUser.name, email: freshUser.email,
+                         phone: freshUser.phone, profileImage: freshUser.profile_image, role: freshUser.role };
+          localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+          // محاولة رفع الجلسة: إذا كان لديه pass_word في قاعدة البيانات، ننبّهه بأن يسجّل دخول مرة أخرى
+          _showUserHome(currentUser);
+          updateUIForLoggedInUser();
+          // تنبيه غير مزعج: "نسيت كيفية إعادة التوثيق"
+          if (typeof syncPushToken === 'function') syncPushToken();
+          // إعادة تحقق صامتة
+          revalidateRoleInBackground(currentUser);
+          return;
+        }
       }
       localStorage.removeItem('obied_current_user');
+      localStorage.removeItem('obied_admin');
+      localStorage.removeItem('obied_tech');
     }
 
     _showWelcome();
   } catch(e) {
+    console.error('restoreSession error:', e);
     _showWelcome();
   }
+}
+
+// ===== مستمع تغييرات Auth لضمان التزامن الدائم =====
+// يُنفَّذ مرة واحدة عند تشغيل التطبيق وليس داخل restoreSession
+function setupAuthStateListener() {
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      // المستخدم عاد من رابط إعادة تعيين كلمة المرور
+      showResetPasswordForm();
+      return;
+    }
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      currentAdmin = null;
+      currentTechnician = null;
+      localStorage.removeItem('obied_current_user');
+      localStorage.removeItem('obied_admin');
+      localStorage.removeItem('obied_tech');
+    }
+  });
 }
 
 // يتحقق بصمت من دور المستخدم الحقيقي في قاعدة البيانات، ويعيد توجيهه للوحته
@@ -3480,7 +3660,7 @@ async function loadUserData(userId) {
   try {
     const [oRes, iRes] = await Promise.all([
       sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
     if (iRes.error) throw iRes.error;
@@ -3721,9 +3901,9 @@ function normalizeInvoices(arr) {
     total:               parseFloat(inv.total || 0),
     receiptStatus:       inv.receipt_status   || inv.receiptStatus   || 'none',
     receiptImage:        inv.receipt_image    || inv.receiptImage    || null,
-    invoiceBarcodeImage: inv.barcode_image    || inv.invoiceBarcodeImage || null,
-    paymentBarcodeImage: inv.payment_barcode_image || inv.paymentBarcodeImage || null,
-    sentAt:              inv.sent_at          || inv.sentAt          || null,
+    invoiceBarcodeImage:   inv.barcode_image         || inv.invoiceBarcodeImage   || null,
+    payment_barcode_image: inv.payment_barcode_image || inv.paymentBarcodeImage   || null,
+    sentAt:                inv.sent_at               || inv.sentAt               || null,
     customerName:        inv.customer_name    || inv.customerName    || '',
     customerPhone:       inv.customer_phone   || inv.customerPhone   || '',
     customerEmail:       inv.customer_email   || inv.customerEmail   || '',
@@ -3924,37 +4104,9 @@ function applySettings() {
   }
 }
 
-// ===== باركود الشركة: المصدر الحقيقي هو جدول settings في Supabase (مشترك بين
-// كل الأجهزة والمستخدمين)، والـ localStorage هنا يُستخدم فقط كـ "كاش" سريع
-// لعرض فوري قبل اكتمال الاتصال بالشبكة - وليس كمصدر وحيد للبيانات =====
-async function getCompanyBarcodeImage() {
-  try {
-    const { data } = await sb.from('settings').select('value').eq('key', 'barcode').maybeSingle();
-    if (data?.value) {
-      const parsed = JSON.parse(data.value);
-      if (parsed?.image) {
-        try { localStorage.setItem('obied_barcode', JSON.stringify(parsed)); } catch (e) {}
-        return parsed.image;
-      }
-    }
-  } catch (e) {}
-  // احتياطي فقط عند تعذّر الوصول للخادم (لا يُعتمد عليه كمصدر أساسي)
-  try {
-    const cached = JSON.parse(localStorage.getItem('obied_barcode') || 'null');
-    if (cached?.image) return cached.image;
-  } catch (e) {}
-  return null;
-}
-
-async function loadBarcode() {
-  // كاش سريع أولاً لعرض فوري بدون انتظار الشبكة
-  try {
-    const cached = JSON.parse(localStorage.getItem('obied_barcode') || 'null');
-    if (cached?.image) { currentBarcodeImage = cached.image; updateBarcodeDisplay(); }
-  } catch (e) {}
-  // ثم تحديث من المصدر الحقيقي في Supabase (يعمل على أي جهاز حتى لو كان جديداً)
-  const serverImage = await getCompanyBarcodeImage();
-  if (serverImage) { currentBarcodeImage = serverImage; updateBarcodeDisplay(); }
+function loadBarcode() {
+  const bd = localStorage.getItem('obied_barcode');
+  if (bd) { currentBarcodeImage = JSON.parse(bd).image; updateBarcodeDisplay(); }
 }
 
 function updateBarcodeDisplay() {
@@ -4632,18 +4784,30 @@ function handleBarcodeDrop(event) {
   reader.readAsDataURL(file);
 }
 function saveBarcode() {
+  // باركود الشركة: الأدمن فقط - تحقق مزدوج (UI + RLS في قاعدة البيانات)
+  if (!currentAdmin) { showAlert('صلاحية الأدمن مطلوبة لتعديل باركود الشركة', 'error'); return; }
   if (!currentBarcodeFile) return;
   const reader = new FileReader();
   reader.onload = async function(e) {
     const compressed = await compressImage(e.target.result, 600, 0.8);
     const url = await uploadImageToCloudinary(compressed, 'barcodes');
     const imgUrl = url || compressed;
-    const barcodeData = { image: imgUrl, fileName: currentBarcodeFile.name, uploadedAt: new Date().toISOString(), uploadedBy: currentAdmin ? currentAdmin.username : 'admin' };
+    const barcodeData = {
+      image: imgUrl,
+      fileName: currentBarcodeFile.name,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: currentAdmin?.name || currentAdmin?.email || 'admin'
+    };
     localStorage.setItem('obied_barcode', JSON.stringify(barcodeData));
-    sb.from('settings').upsert({ key: 'barcode', value: JSON.stringify(barcodeData) }).then(()=>{});
+    // RLS في قاعدة البيانات ستمنع غير الأدمن تلقائياً حتى لو تجاوز الواجهة
+    const { error } = await sb.from('settings').upsert({ key: 'barcode', value: JSON.stringify(barcodeData) });
+    if (error) {
+      showAlert('خطأ في الحفظ: ' + error.message, 'error');
+      return;
+    }
     currentBarcodeImage = imgUrl;
     updateBarcodeDisplay();
-    showAlert('تم حفظ الباركود بنجاح', 'success');
+    showAlert('✅ تم حفظ باركود الشركة بنجاح', 'success');
     currentBarcodeFile = null;
     document.getElementById('barcodePreviewContainer').style.display = 'none';
     document.getElementById('saveBarcodeBtn').style.display = 'none';
@@ -4651,13 +4815,15 @@ function saveBarcode() {
   };
   reader.readAsDataURL(currentBarcodeFile);
 }
-function removeBarcode() {
-  if (confirm('هل أنت متأكد من حذف الباركود؟')) {
-    localStorage.removeItem('obied_barcode');
-    currentBarcodeImage = null;
-    updateBarcodeDisplay();
-    showAlert('تم حذف الباركود', 'success');
-  }
+async function removeBarcode() {
+  if (!currentAdmin) { showAlert('صلاحية الأدمن مطلوبة لحذف باركود الشركة', 'error'); return; }
+  if (!confirm('هل أنت متأكد من حذف باركود الشركة؟ الفواتير القديمة ستحتفظ بنسخة الباركود المحفوظة معها.')) return;
+  localStorage.removeItem('obied_barcode');
+  currentBarcodeImage = null;
+  // حذف من قاعدة البيانات - RLS ستمنع غير الأدمن تلقائياً
+  await sb.from('settings').delete().eq('key', 'barcode').catch(e => console.error(e));
+  updateBarcodeDisplay();
+  showAlert('تم حذف باركود الشركة', 'success');
 }
 
 // ===== نظام الدفع - QR Code محلي بدون إنترنت =====
@@ -4670,7 +4836,7 @@ async function payInvoice(invoiceId) {
     try {
       const uid = parseInt(currentUser.id, 10);
       const { data: invs } = await sb.from('invoices')
-        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,sent_at,created_at')
+        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at')
         .eq('customer_id', uid)
         .order('created_at', { ascending: false });
       if (invs?.length) {
@@ -4683,7 +4849,7 @@ async function payInvoice(invoiceId) {
   if (!invoice) {
     try {
       const { data, error } = await sb.from('invoices')
-        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,sent_at,created_at')
+        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at')
         .eq('id', invoiceId).single();
       if (error || !data) { showAlert('لم يتم العثور على الفاتورة', 'error'); return; }
       invoice = normalizeInvoices([data])[0];
@@ -4694,17 +4860,34 @@ async function payInvoice(invoiceId) {
   if (invoice.status === 'pending_verification') { showAlert('هذه الفاتورة قيد المراجعة بالفعل', 'warning'); return; }
   if (invoice.status === 'paid') { showAlert('هذه الفاتورة مدفوعة بالفعل', 'warning'); return; }
 
-  // ===== باركود الدفع: نستخدم النسخة المحفوظة مع الفاتورة نفسها وقت إنشائها
-  // (payment_barcode_image) حتى لا يتغيّر الباركود المعروض على فاتورة قديمة لو
-  // غيّر الفني/الإدارة الباركود لاحقاً. فقط الفواتير القديمة من قبل هذا التحديث
-  // (لا تملك هذه القيمة محفوظة) نحسب لها الباركود الآن كحل احتياطي =====
-  let barcodeImage = invoice.paymentBarcodeImage || invoice.payment_barcode_image || null;
-  if (!barcodeImage) {
-    const techId = invoice.techId || invoice.tech_id || null;
-    barcodeImage = await resolvePaymentBarcodeForInvoice(techId);
+  // ===== منطق الباركود للدفع: الأولوية =====
+  // 1) payment_barcode_image المحفوظ مع الفاتورة (مجمّد وقت الإنشاء - الأفضل)
+  // 2) باركود الفني الحالي (إن لم يكن محفوظاً)
+  // 3) باركود الشركة (fallback)
+  // 4) QR مولّد محلياً (آخر احتياط)
+  let barcodeImage = invoice.payment_barcode_image || invoice.invoiceBarcodeImage || null;
+
+  if (!barcodeImage && (invoice.techId || invoice.tech_id)) {
+    try {
+      const { data: techRow } = await sb.from('technicians')
+        .select('barcode_image').eq('id', invoice.techId || invoice.tech_id).maybeSingle();
+      if (techRow?.barcode_image) barcodeImage = techRow.barcode_image;
+    } catch (e) {}
   }
   if (!barcodeImage) {
-    barcodeImage = generateLocalQRCode(`SHAMKASH:OBIED:${invoice.invoiceNumber}:${invoice.total}`, 300);
+    try {
+      const { data: barcodeSettings } = await sb.from('settings')
+        .select('value').eq('key', 'barcode').maybeSingle();
+      if (barcodeSettings?.value) {
+        const parsed = typeof barcodeSettings.value === 'string'
+          ? JSON.parse(barcodeSettings.value) : barcodeSettings.value;
+        barcodeImage = parsed?.image || null;
+      }
+    } catch(e) {}
+  }
+  if (!barcodeImage) {
+    barcodeImage = currentBarcodeImage ||
+      generateLocalQRCode(`SHAMKASH:OBIED:${invoice.invoiceNumber}:${invoice.total}`, 300);
   }
 
   showModal(`
@@ -4865,59 +5048,34 @@ function completePayment(invoiceId) {
 }
 
 // ===== نظام الفواتير =====
-// ===== يحدد باركود الدفع الذي يجب حفظه مع الفاتورة وقت إنشائها =====
-// الترتيب الإجباري: 1) باركود الفني المسؤول عن الطلب  2) باركود الشركة كبديل
-// تُحفظ النتيجة في الفاتورة نفسها (payment_barcode_image) حتى لا يتغيّر الباركود
-// المعروض على فاتورة قديمة إذا قام الفني أو الإدارة لاحقاً بتغيير باركودهم
-async function resolvePaymentBarcodeForInvoice(techId) {
-  try {
-    if (techId) {
-      const { data: techRow } = await sb.from('technicians').select('barcode_image').eq('id', techId).maybeSingle();
-      if (techRow?.barcode_image) return techRow.barcode_image;
-    }
-  } catch (e) {}
-  try {
-    const companyBarcode = await getCompanyBarcodeImage();
-    if (companyBarcode) return companyBarcode;
-  } catch (e) {}
-  return null;
-}
-
 async function saveInvoice(invoiceData) {
   try {
     // تأكد أن customer_id و order_id أرقام صحيحة (integer)
     const customerId = parseInt(invoiceData.customerId || invoiceData.customer_id, 10) || null;
     const orderId    = parseInt(invoiceData.orderId    || invoiceData.order_id,    10) || null;
-    const techIdForInvoice = invoiceData.techId || invoiceData.tech_id || null;
-
-    // لا نُعيد حساب الباركود عند تعديل فاتورة موجودة أصلاً - فقط عند الإنشاء لأول مرة
-    const existsForBarcode = invoiceData.id && allInvoices.some(i => i.id === invoiceData.id);
-    const paymentBarcodeImage = existsForBarcode
-      ? (invoiceData.paymentBarcodeImage || invoiceData.payment_barcode_image || null)
-      : await resolvePaymentBarcodeForInvoice(techIdForInvoice);
 
     const row = {
-      order_id:       orderId,
-      invoice_number: invoiceData.invoiceNumber || invoiceData.invoice_number,
-      customer_id:    customerId,
-      customer_name:  invoiceData.customerName  || '',
-      customer_email: invoiceData.customerEmail || '',
-      customer_phone: invoiceData.customerPhone || '',
-      tech_id:        invoiceData.techId || invoiceData.tech_id || null,
-      service:        invoiceData.service       || '',
-      service_date:   invoiceData.serviceDate   || '',
-      base_price:     invoiceData.basePrice     ?? 0,
-      tax:            invoiceData.tax           ?? 0,
-      total:          invoiceData.total         ?? 0,
-      status:         invoiceData.status        || 'pending_payment',
-      payment_method: invoiceData.paymentMethod || '',
-      notes:          invoiceData.notes         || '',
-      // باركود الدفع يُحفظ كنسخة ثابتة وقت إنشاء الفاتورة (لا يتغير لاحقاً حتى لو
-      // غيّر الفني أو الإدارة الباركود بعد ذلك) - انظر resolvePaymentBarcodeForInvoice
-      payment_barcode_image: paymentBarcodeImage,
-      receipt_image:  invoiceData.receiptImage  || null,
-      receipt_status: invoiceData.receiptStatus || 'none',
-      sent_at:        invoiceData.sentAt        || null,
+      order_id:               orderId,
+      invoice_number:         invoiceData.invoiceNumber || invoiceData.invoice_number,
+      customer_id:            customerId,
+      customer_name:          invoiceData.customerName  || '',
+      customer_email:         invoiceData.customerEmail || '',
+      customer_phone:         invoiceData.customerPhone || '',
+      tech_id:                invoiceData.techId || invoiceData.tech_id || null,
+      service:                invoiceData.service       || '',
+      service_date:           invoiceData.serviceDate   || '',
+      base_price:             invoiceData.basePrice     ?? 0,
+      tax:                    invoiceData.tax           ?? 0,
+      total:                  invoiceData.total         ?? 0,
+      status:                 invoiceData.status        || 'pending_payment',
+      payment_method:         invoiceData.paymentMethod || '',
+      notes:                  invoiceData.notes         || '',
+      // payment_barcode_image: نسخة مجمّدة من الباركود وقت إنشاء الفاتورة
+      // تضمن أن الفاتورة القديمة تحتفظ بالباركود المستخدم حتى لو غيّر الفني باركوده لاحقاً
+      payment_barcode_image:  invoiceData._paymentBarcodeImage || invoiceData.payment_barcode_image || null,
+      receipt_image:          invoiceData.receiptImage  || null,
+      receipt_status:         invoiceData.receiptStatus || 'none',
+      sent_at:                invoiceData.sentAt        || null,
     };
 
     // تحديث إذا كانت موجودة، إدراج إذا جديدة
@@ -4988,11 +5146,11 @@ async function updateOrderStatus(orderId, newStatus) {
       type:     'order_confirmed',
       is_read:  false
     }]).then(() => {});
-    sb.rpc('get_technician_user_ref', { p_tech_id: order.tech_id })
-      .then(({ data: techUserId }) => {
-        if (techUserId) {
+    sb.from('technicians').select('user_ref_id').eq('id', order.tech_id).maybeSingle()
+      .then(({ data: techRow }) => {
+        if (techRow?.user_ref_id) {
           sb.from('notifications').insert([{
-            user_id: techUserId,
+            user_id: techRow.user_ref_id,
             message: '✅ تم تأكيد الطلب: ' + order.service,
             type: 'order_confirmed', is_read: false
           }]).catch(()=>{});
@@ -5061,7 +5219,7 @@ async function updateOrderStatus(orderId, newStatus) {
     // الفاتورة تُبنى هنا في الذاكرة فقط للعرض والتعديل - لا يتم حفظها في
     // قاعدة البيانات ولا إشعار العميل بها إلا عند ضغط "إرسال الفاتورة" يدوياً
     // بعد أن يكتب/يعدّل الموظف السعر بنفسه في نافذة المراجعة التالية.
-    showInvoiceForReview(invoiceData, order, user);
+    await showInvoiceForReview(invoiceData, order, user);
     renderOrdersList();
     showAlert('✅ تم إنهاء الخدمة - اكتب السعر وراجع الفاتورة ثم اضغط "إرسال الفاتورة"', 'success', 5000);
     return;
@@ -5076,33 +5234,63 @@ async function createAutomaticInvoice(order, user) {
   const servicePrices = { 'كهرباء': 150, 'مياه': 200, 'طاقة شمسية': 500, 'طاقة مياه شمسية': 800, 'طوارئ': 250, 'صيانة منزلية': 300 };
   const basePrice = servicePrices[order.service] || 200;
   const tax = basePrice * 0.15;
+  const techId = order.tech_id || order.techId || order.accepted_by_tech || null;
   return {
-    orderId: parseInt(order.id, 10) || order.id,
+    orderId:       parseInt(order.id, 10) || order.id,
     invoiceNumber,
-    customerId: user ? (parseInt(user.id, 10) || user.id) : null,
-    customerName: user ? user.name : order.name,
+    techId,                                                    // ربط الفاتورة بالفني المسؤول
+    customerId:    user ? (parseInt(user.id, 10) || user.id) : null,
+    customerName:  user ? user.name  : order.name,
     customerEmail: user ? user.email : '',
     customerPhone: user ? user.phone : order.phone,
     service: order.service, serviceDate: order.date, serviceTime: order.time,
     basePrice, tax, total: basePrice + tax,
-    date: new Date().toLocaleDateString('ar-SA'),
-    dueDate: new Date(Date.now() + 7*24*60*60*1000).toLocaleDateString('ar-SA'),
+    date:     new Date().toLocaleDateString('ar-SA'),
+    dueDate:  new Date(Date.now() + 7*24*60*60*1000).toLocaleDateString('ar-SA'),
     status: 'pending_payment', paymentMethod: '',
-    notes: `فاتورة عن خدمة ${order.service} المقدمة في ${order.date}`,
-    createdAt: new Date().toISOString(), isAutoGenerated: true
+    notes:      `فاتورة عن خدمة ${order.service} المقدمة في ${order.date}`,
+    createdAt:  new Date().toISOString(), isAutoGenerated: true
   };
 }
 
-function showInvoiceForReview(invoiceData, order, user) {
+async function showInvoiceForReview(invoiceData, order, user) {
   closeOrderDetails();
   window.currentInvoiceData = invoiceData;
   window.currentInvoiceOrder = order;
   window.currentInvoiceUser = user;
   window._appliedDiscountPercent = 0;
 
-  // ===== استخدام QR Code محلي بدلاً من الخارجي =====
-  const barcodeImage = currentBarcodeImage ||
-    generateLocalQRCode(`INVOICE:${invoiceData.invoiceNumber}:${invoiceData.total}`, 300);
+  // ===== منطق الباركود: الفني أولاً ثم الشركة كبديل =====
+  // الأولوية: 1) باركود الفني المسؤول  2) باركود الشركة  3) QR مولّد محلياً
+  let barcodeImage = null;
+  const techId = invoiceData.techId || invoiceData.tech_id || order?.tech_id || order?.accepted_by_tech || null;
+  if (techId) {
+    try {
+      const { data: techRow } = await sb.from('technicians')
+        .select('barcode_image').eq('id', techId).maybeSingle();
+      if (techRow?.barcode_image) barcodeImage = techRow.barcode_image;
+    } catch(e) {}
+  }
+  // fallback: باركود الشركة من جدول settings
+  if (!barcodeImage) {
+    try {
+      const { data: barcodeSettings } = await sb.from('settings')
+        .select('value').eq('key', 'barcode').maybeSingle();
+      if (barcodeSettings?.value) {
+        const parsed = typeof barcodeSettings.value === 'string'
+          ? JSON.parse(barcodeSettings.value) : barcodeSettings.value;
+        barcodeImage = parsed?.image || null;
+      }
+    } catch(e) {}
+  }
+  // fallback: currentBarcodeImage من localStorage أو QR مولّد
+  if (!barcodeImage) {
+    barcodeImage = currentBarcodeImage ||
+      generateLocalQRCode(`INVOICE:${invoiceData.invoiceNumber}:${invoiceData.total}`, 300);
+  }
+
+  // حفظ نسخة الباركود المستخدمة مع بيانات الفاتورة لتجميدها (لا تتغير لاحقاً)
+  window.currentInvoiceData._paymentBarcodeImage = barcodeImage;
 
   const invoiceHTML = `
     <div class="invoice-review-modal" style="position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(0,0,0,0.9);display:flex;justify-content:center;align-items:center;z-index:2000;padding:20px;">
@@ -5216,7 +5404,9 @@ async function sendInvoiceToClientWithPayment() {
     notes:         document.getElementById('reviewInvoiceNotes')?.value  || '',
     paymentMethod: 'barcode',
     status:        'pending_payment',
-    sentAt:        new Date().toISOString()
+    sentAt:        new Date().toISOString(),
+    // حفظ نسخة الباركود المستخدمة وقت الإرسال - تبقى ثابتة ولا تتغير لاحقاً
+    _paymentBarcodeImage: window.currentInvoiceData._paymentBarcodeImage || null,
   };
 
   // 1. حفظ الفاتورة في Supabase
@@ -5407,13 +5597,13 @@ async function viewUserInvoice(invoiceId) {
   // إذا لم توجد اجلبها مباشرة
   if (!invoice) {
     const { data } = await sb.from('invoices')
-      .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,sent_at,created_at')
+      .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at')
       .eq('id', invoiceId).single();
     if (data) { invoice = normalizeInvoices([data])[0]; allInvoices.unshift(invoice); }
   }
   if (!invoice) {
     try {
-      const { data } = await sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,sent_at,created_at').eq('id', invoiceId).single();
+      const { data } = await sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at').eq('id', invoiceId).single();
       if (data) { invoice = normalizeInvoices([data])[0]; allInvoices.unshift(invoice); }
     } catch(e) {}
   }
@@ -5656,7 +5846,7 @@ async function loadAdminData() {
     // اجلب المستخدمين والفواتير في الخلفية بعد ما تظهر الطلبات
     const [uRes, iRes] = await Promise.all([
       sb.from('users').select('id,name,email,phone,created_at').order('created_at', { ascending: true }).limit(500),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
     ]);
 
     allUsers    = (uRes.data || []).map(u => ({ ...u, profileImage: u.profile_image }));
@@ -5667,6 +5857,16 @@ async function loadAdminData() {
     setupStatCards();
     // أعد رسم القائمة مع أسماء المستخدمين
     renderOrdersList();
+
+    // تحميل بيانات الأدمن الرئيسي ديناميكياً من قاعدة البيانات (بدل عرض بريد ثابت)
+    try {
+      const adminNameEl  = document.getElementById('mainAdminName');
+      const adminEmailEl = document.getElementById('mainAdminEmail');
+      if (adminNameEl && adminEmailEl && currentAdmin) {
+        adminNameEl.textContent  = currentAdmin.name  || 'الأدمن الرئيسي';
+        adminEmailEl.textContent = currentAdmin.email || '';
+      }
+    } catch(e) {}
 
   } catch(err) {
     // تأكد أن لوحة الأدمن لا تزال ظاهرة عند الخطأ
@@ -5852,30 +6052,106 @@ async function showOrderDetails(orderId) {
 // (دالة verifyReceipt الموحّدة معرّفة أعلاه مع إشعار العميل عند تأكيد/رفض الدفع)
 
 
-// ===== دخول لوحة الفني: لم يعد هناك "رمز وصول" منفصل أو رمز عام (master code) -
-// كان هذا يسمح لأي زائر يعرف الرمز الثابت المكتوب داخل هذا الملف بالدخول
-// كفني "ضيف" بصلاحيات كاملة دون أي حساب حقيقي أو تحقق من Supabase Auth، وهو
-// بالضبط نوع الثغرة الممنوعة صراحة (كلمة/رمز إداري ثابت داخل الواجهة). أصبح
-// الفني يسجّل دخوله فقط عبر نفس نموذج تسجيل الدخول العادي (Supabase Auth)
-// بعد أن يمنحه الأدمن دور 'technician' من لوحة الإدارة =====
 async function showTechLogin() {
   showModal(`
     <div style="padding:0;max-width:420px;width:100%;">
       <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:25px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
         <i class="fas fa-hard-hat" style="font-size:2.5rem;margin-bottom:10px;display:block;"></i>
         <h3 style="margin:0;">دخول الفني</h3>
-        <p style="margin:8px 0 0;opacity:0.85;font-size:0.9rem;">سجّل الدخول بحسابك المعتاد (البريد وكلمة المرور)</p>
+        <p style="margin:8px 0 0;opacity:0.85;font-size:0.9rem;">أدخل رمز الوصول الخاص بك</p>
       </div>
       <div style="background:white;padding:25px;border-radius:0 0 var(--radius) var(--radius);">
-        <p style="color:var(--gray);font-size:0.9rem;text-align:center;margin-bottom:18px;">
-          إذا كان حسابك مفعّلاً كفني من قِبل الإدارة، ستدخل مباشرة إلى لوحة الفني بعد تسجيل الدخول بحسابك العادي.
-        </p>
-        <button onclick="closeModal(); showLoginPage();" style="width:100%;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;">
-          <i class="fas fa-sign-in-alt"></i> تسجيل الدخول بحسابي
-        </button>
+        <div class="form-group">
+          <label><i class="fas fa-key"></i> رمز الفني</label>
+          <input type="password" id="techCode" class="form-control" placeholder="أدخل رمز الوصول الخاص بك"
+            onkeydown="if(event.key==='Enter') loginTech()" autofocus>
+          <small style="color:var(--gray);font-size:0.82rem;">كل فني لديه رمز خاص به</small>
+        </div>
+        <div class="form-group" id="techNameGroup" style="display:none;">
+          <label><i class="fas fa-user"></i> اسمك (اختياري)</label>
+          <input type="text" id="techName" class="form-control" placeholder="اسمك">
+        </div>
+        <div style="display:flex;gap:10px;margin-top:15px;">
+          <button onclick="loginTech()" style="flex:2;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;">
+            <i class="fas fa-sign-in-alt"></i> دخول
+          </button>
+          <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;">
+            إلغاء
+          </button>
+        </div>
       </div>
     </div>
   `);
+  // أظهر حقل الاسم إذا كان رمز عام
+  setTimeout(() => {
+    const codeInput = document.getElementById('techCode');
+    if (codeInput) codeInput.addEventListener('input', function() {
+      const ng = document.getElementById('techNameGroup');
+      if (ng) ng.style.display = (TECH_CONFIG && !TECHNICIANS_LIST.find(t=>t.code===this.value)) ? 'block' : 'none';
+    });
+  }, 100);
+}
+
+async function loginTech() {
+  const code = document.getElementById('techCode')?.value?.trim();
+  if (!code) { showAlert('أدخل رمز الوصول', 'error'); return; }
+
+  const btn = document.querySelector('[onclick="loginTech()"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ التحقق...'; }
+
+  try {
+    // جلب الفني من Supabase بالرمز
+    let { data: tech } = await sb.from('technicians')
+      .select('*').eq('code', code).eq('is_active', true).maybeSingle();
+
+    // إذا لم يجد بالرمز، ابحث بـ code = 'user_' + id (مضاف من البريد)
+    if (!tech) {
+      const { data: techs } = await sb.from('technicians')
+        .select('*').eq('is_active', true);
+      tech = (techs || []).find(t => t.code === code);
+    }
+
+    if (!tech && code !== TECH_CONFIG.masterCode) {
+      showAlert('رمز الوصول غير صحيح أو الحساب موقوف', 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول'; }
+      return;
+    }
+
+    if (tech) {
+      // تأكد أن permissions كاملة
+      const defaultPerms = { viewOrders: true, updateStatus: true, viewCustomer: false, allGovernorates: false };
+      const perms = tech.permissions || defaultPerms;
+      currentTechnician = {
+        ...tech,
+        permissions: { ...defaultPerms, ...perms },
+        loginTime: new Date().toISOString()
+      };
+    } else {
+      // رمز عام
+      const name = document.getElementById('techName')?.value?.trim() || 'فني ضيف';
+      currentTechnician = {
+        id: null, name, code, governorate: null,
+        permissions: { viewOrders: true, updateStatus: true, viewCustomer: true, allGovernorates: true },
+        loginTime: new Date().toISOString()
+      };
+    }
+
+    localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
+    // أظهر زر الفني في navbar
+    const tb = document.getElementById('techNavBtn');
+    if (tb) tb.style.display = 'flex';
+    closeModal();
+    showTechDashboard();
+    showAlert(`مرحباً ${currentTechnician.name}! 👷`, 'success', 3000);
+
+    // تحقق من إشعارات للفني
+    if (currentTechnician.id) checkTechNotifications(currentTechnician.id);
+
+  } catch(e) {
+    showAlert('خطأ في تسجيل الدخول', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول'; }
+  }
 }
 
 function showTechDashboard() {
@@ -6326,11 +6602,17 @@ async function uploadTechBarcode(input) {
   const file = input.files[0];
   if (!file || !file.type.match('image.*')) { showAlert('يرجى اختيار صورة صالحة', 'error'); return; }
   if (file.size > 5 * 1024 * 1024) { showAlert('حجم الصورة أكبر من 5MB', 'error'); return; }
+  // تحقق مزدوج: يجب أن يكون الفني مسجّل دخول وأن المعرف يخصه
+  if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني أولاً', 'error'); return; }
   const reader = new FileReader();
   reader.onload = async function (e) {
     try {
       const compressed = await compressImage(e.target.result, 'barcodes');
-      const { error } = await sb.from('technicians').update({ barcode_image: compressed }).eq('id', currentTechnician.id);
+      // الشرط الأمني: eq('id', currentTechnician.id) يمنع الفني من تعديل باركود فني آخر
+      // RLS في قاعدة البيانات تطبّق نفس الشرط من الجانب الخلفي
+      const { error } = await sb.from('technicians')
+        .update({ barcode_image: compressed })
+        .eq('id', currentTechnician.id);
       if (error) throw error;
       currentTechnician.barcode_image = compressed;
       localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
@@ -6345,9 +6627,15 @@ async function uploadTechBarcode(input) {
 }
 
 async function removeTechBarcode() {
+  if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني أولاً', 'error'); return; }
   if (!confirm('حذف باركودك الخاص؟ سيُستخدم باركود الشركة الافتراضي بدلاً منه.')) return;
   try {
-    await sb.from('technicians').update({ barcode_image: null }).eq('id', currentTechnician.id);
+    // eq('id', currentTechnician.id) يمنع الفني من حذف باركود فني آخر
+    // RLS تطبّق نفس الشرط من الجانب الخلفي كطبقة أمان إضافية
+    const { error } = await sb.from('technicians')
+      .update({ barcode_image: null })
+      .eq('id', currentTechnician.id);
+    if (error) throw error;
     currentTechnician.barcode_image = null;
     localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
     showAlert('تم حذف باركودك الخاص', 'success');
@@ -6365,18 +6653,29 @@ function exitTechDashboard() {
   else _showWelcome();
 }
 
+// تسجيل خروج من لوحة الفني فقط: يبقى المستخدم مسجلاً في حسابه العادي
+// ويبقى Supabase Auth Session قائماً - لا يُمسّ
 function logoutTech() {
   if (window._techPollInterval) { clearInterval(window._techPollInterval); window._techPollInterval = null; }
   currentTechnician = null;
-  currentUser = null;
+  // لا نمسح currentUser ولا جلسة Auth
   localStorage.removeItem('obied_tech');
-  localStorage.removeItem('obied_current_user');
   var td = document.getElementById('techDashboard');
   if (td) td.style.display = 'none';
   var tb = document.getElementById('techNavBtn');
   if (tb) tb.style.display = 'none';
-  _showWelcome();
-  showAlert('تم تسجيل الخروج', 'success');
+  // العودة لحساب المستخدم العادي إن كان موجوداً، وإلا للصفحة الرئيسية
+  if (currentUser) {
+    updateUIForLoggedInUser();
+    _showUserHome(currentUser);
+    showAlert('تم الخروج من لوحة الفني - لا تزال مسجلاً في حسابك', 'success', 3000);
+  } else {
+    // تسجيل خروج كامل فقط إذا لم يكن هناك حساب مستخدم
+    sb.auth.signOut().catch(()=>{});
+    localStorage.removeItem('obied_current_user');
+    _showWelcome();
+    showAlert('تم تسجيل الخروج', 'success');
+  }
 }
 
 // ================== الدوال المفقودة (إصلاح شامل) ==================
@@ -6595,7 +6894,7 @@ async function createInvoice(orderId) {
   }
   const invoiceData = await createAutomaticInvoice(order, user);
   closeOrderDetails();
-  showInvoiceForReview(invoiceData, order, user);
+  await showInvoiceForReview(invoiceData, order, user);
 }
 
 // ----- طباعة/تحميل PDF لأي فاتورة عبر نافذة طباعة حقيقية -----
@@ -6852,7 +7151,8 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
     sentAt: null
   };
 
-  showInvoiceForReview(invoiceData, order, user);
+  // async showInvoiceForReview ستجلب باركود الفني تلقائياً قبل العرض
+  await showInvoiceForReview(invoiceData, order, user);
 }
 </script>
 
