@@ -5,12 +5,45 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Apply canonical tracker fix once
+        run: |
+          if grep -q "const statusOrder = \['pending','accepted','assigned','in-progress','completed'\];" index.html && grep -q "async function techStartProcessing(orderId)" index.html; then
+            echo "Canonical tracker already applied."
+          else
+            python3 scripts/one_time_tracker_fix.py
+            python3 - <<'PY'
+            from pathlib import Path
+            s = Path('index.html').read_text(encoding='utf-8')
+            required = [
+              "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];",
+              'async function techStartProcessing(orderId)',
+              "label: 'تم استلام الطلب'",
+              "label: 'تم قبول الطلب'",
+              "label: 'تم تعيين فني'",
+              "label: 'جاري المعالجة'",
+              "label: 'تم الانتهاء'",
+              "sb.rpc('accept_order', { p_order_id: orderId })",
+            ]
+            for x in required:
+              assert x in s, x
+            print('canonical tracker validation passed')
+            PY
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add index.html
+            git commit -m "fix: apply canonical tracker flow"
+            git push
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -45,21 +78,11 @@ jobs:
           with open(path, 'r', encoding='utf-8') as f:
               content = f.read()
           if 'android.permission.POST_NOTIFICATIONS' not in content:
-              content = re.sub(
-                  r'(<manifest[^>]*>)',
-                  r'\1\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
-                  content, count=1
-              )
+              content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />', content, count=1)
           if 'default_notification_icon' not in content:
-              content = content.replace(
-                  '</application>',
-                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@mipmap/ic_launcher" />\n  </application>'
-              )
+              content = content.replace('</application>', '    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@mipmap/ic_launcher" />\n  </application>')
           if 'default_notification_channel_id' not in content:
-              content = content.replace(
-                  '</application>',
-                  '    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="obied_default" />\n  </application>'
-              )
+              content = content.replace('</application>', '    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="obied_default" />\n  </application>')
           with open(path, 'w', encoding='utf-8') as f:
               f.write(content)
           print('AndroidManifest.xml patched successfully')
@@ -71,24 +94,16 @@ jobs:
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
             echo "ERROR: GitHub Actions secret GOOGLE_SERVICES_JSON is missing or empty."
-            echo "Add the complete google-services.json content in Settings > Secrets and variables > Actions."
             exit 1
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
           python3 - <<'PY'
           import json
           from pathlib import Path
-          path = Path('android/app/google-services.json')
-          try:
-              data = json.loads(path.read_text(encoding='utf-8'))
-          except Exception as exc:
-              raise SystemExit(f'ERROR: GOOGLE_SERVICES_JSON is not valid JSON: {exc}')
-          apps = data.get('client', [])
-          package_name = 'com.obied.maintenance'
-          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in apps]
-          if package_name not in packages:
-              raise SystemExit(f'ERROR: google-services.json does not contain Android package {package_name}.')
-          print('Firebase configuration validated for com.obied.maintenance')
+          data = json.loads(Path('android/app/google-services.json').read_text(encoding='utf-8'))
+          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
+          assert 'com.obied.maintenance' in packages, 'google-services.json does not contain com.obied.maintenance'
+          print('Firebase configuration validated')
           PY
 
       - name: Enable Google Services Gradle plugin
