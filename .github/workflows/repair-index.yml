@@ -1,0 +1,162 @@
+name: Apply index security fixes
+
+on:
+  push:
+    paths:
+      - .github/fix-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch index.html
+        env:
+          TARGET: index.html
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          original = s
+
+          # 1) Customer booking must use the safe public technician view.
+          s = s.replace(
+              "sb.from('technicians')\n        .select('id,name').eq('is_active', true).eq('governorate', booking.governorate).limit(5)",
+              "sb.from('technicians_public')\n        .select('id,name').eq('is_active', true).eq('governorate', booking.governorate).limit(5)"
+          )
+
+          # 2) A technician role must create/find its own row through the secured RPC,
+          #    not direct INSERT (technician INSERT is intentionally admin-only).
+          pattern = re.compile(
+              r"if \(!techData\) \{\s*// أنشئ سجل فني افتراضي تلقائياً إذا تم منح الدور دون ملف فني مسبق.*?\n\s*techData = created;\s*\n\s*\}",
+              re.S,
+          )
+          replacement = """if (!techData) {
+        // إنشاء/استرجاع سجل الفني عبر RPC آمن يعتمد على auth.uid()
+        const { data: ensuredTech, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
+          p_name: userRow.name || 'فني',
+          p_phone: userRow.phone || ''
+        });
+        if (!ensureErr && ensuredTech) techData = ensuredTech;
+      }"""
+          s, n = pattern.subn(replacement, s, count=1)
+          if n != 1:
+              raise SystemExit('Could not patch technician-row creation block')
+
+          # 3) Disable the legacy code/master-code technician login. It cannot create
+          #    a real Supabase Auth session, so it must route to the normal Auth login.
+          s, n = re.subn(
+              r"function showTechLogin\(\) \{.*?\n\}\n\nasync function loginTech\(\) \{.*?\n\}\n\nfunction showTechDashboard",
+              """function showTechLogin() {
+  showLoginPage();
+  switchLoginTab('login');
+  showAlert('👷 سجّل دخول الفني باستخدام البريد الإلكتروني وكلمة المرور المرتبطين بحسابك', 'info', 5000);
+}
+
+async function loginTech() {
+  showLoginPage();
+  switchLoginTab('login');
+  showAlert('👷 تم تحويلك إلى تسجيل الدخول الآمن للفني', 'info', 3500);
+}
+
+function showTechDashboard""",
+              s,
+              count=1,
+              flags=re.S,
+          )
+          if n != 1:
+              raise SystemExit('Could not patch legacy technician login')
+
+          # 4) Never trust a saved local technician session by itself. Require a real
+          #    Supabase Auth session before displaying the technician dashboard.
+          old = """function showTechDashboard() {
+  // تحقق من تسجيل دخول الفني
+  const saved = localStorage.getItem('obied_tech');
+  if (!currentTechnician && saved) currentTechnician = JSON.parse(saved);
+  if (!currentTechnician) { showTechLogin(); return; }
+"""
+          new = """async function showTechDashboard() {
+  // لا تعتمد على localStorage كمصدر مصادقة. يجب وجود جلسة Supabase Auth حقيقية.
+  const { data: sessionData } = await sb.auth.getSession();
+  const session = sessionData?.session;
+  if (!session?.user) {
+    currentTechnician = null;
+    localStorage.removeItem('obied_tech');
+    showTechLogin();
+    return;
+  }
+
+  // إعادة تحميل ملف الفني من قاعدة البيانات للتأكد من الهوية والصلاحيات الحالية.
+  const { data: userRow } = await sb.from('users')
+    .select('id,name,email,phone,role')
+    .eq('auth_uid', session.user.id)
+    .maybeSingle();
+  if (!userRow || userRow.role !== 'technician') {
+    currentTechnician = null;
+    localStorage.removeItem('obied_tech');
+    showAlert('هذا الحساب ليس حساب فني', 'error');
+    showHome();
+    return;
+  }
+
+  let { data: techRow } = await sb.from('technicians')
+    .select('*').eq('user_ref_id', userRow.id).eq('is_active', true).maybeSingle();
+  if (!techRow) {
+    const { data: ensuredTech, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
+      p_name: userRow.name || 'فني',
+      p_phone: userRow.phone || ''
+    });
+    if (ensureErr) {
+      showAlert('تعذر تجهيز ملف الفني: ' + ensureErr.message, 'error', 6000);
+      return;
+    }
+    techRow = ensuredTech;
+  }
+  if (!techRow) {
+    showAlert('لم يتم العثور على ملف الفني', 'error');
+    return;
+  }
+
+  currentUser = { id: userRow.id, name: userRow.name, email: userRow.email, phone: userRow.phone, role: 'technician' };
+  currentTechnician = {
+    ...techRow,
+    permissions: { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false, ...(techRow.permissions || {}) },
+    loginTime: new Date().toISOString()
+  };
+  localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+  localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
+"""
+          if old not in s:
+              raise SystemExit('Could not find technician dashboard auth guard')
+          s = s.replace(old, new, 1)
+
+          if s == original:
+              raise SystemExit('No changes were made')
+          p.write_text(s, encoding='utf-8')
+          print('index.html patched successfully')
+          PY
+
+      - name: Validate basic structure
+        run: |
+          test -s index.html
+          grep -q "ensure_my_technician_row" index.html
+          grep -q "technicians_public" index.html
+          grep -q "sb.auth.getSession" index.html
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/fix-trigger .github/workflows/repair-index.yml
+          git add index.html .github/fix-trigger .github/workflows/repair-index.yml
+          git diff --cached --quiet || git commit -m "fix: secure auth technician flow and public tech lookup"
+          git push
