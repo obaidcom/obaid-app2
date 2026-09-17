@@ -1444,7 +1444,7 @@ async function handleBooking(e) {
     const preferredTechId = document.getElementById('bookingPreferredTech')?.value || '';
     let assignedTechId = preferredTechId ? parseInt(preferredTechId, 10) : null;
     if (!assignedTechId && booking.governorate) {
-      const { data: techList } = await sb.from('technicians')
+      const { data: techList } = await sb.from('technicians_public')
         .select('id,name').eq('is_active', true).eq('governorate', booking.governorate).limit(5);
       if (techList?.length) {
         const { data: techOrders } = await sb.from('orders')
@@ -1524,14 +1524,12 @@ async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
     try {
       let { data: techData } = await sb.from('technicians').select('*').eq('is_active', true).eq('user_ref_id', userRow.id).maybeSingle();
       if (!techData) {
-        // أنشئ سجل فني افتراضي تلقائياً إذا تم منح الدور دون ملف فني مسبق
-        const { data: created } = await sb.from('technicians').insert([{
-          name: userRow.name, code: 'tech_' + userRow.id + '_' + Date.now().toString().slice(-4),
-          governorate: null, phone: userRow.phone || '',
-          permissions: { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false },
-          is_active: true, user_ref_id: userRow.id
-        }]).select().single();
-        techData = created;
+        // إنشاء/استرجاع سجل الفني عبر RPC آمن يعتمد على auth.uid()
+        const { data: ensuredTech, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
+          p_name: userRow.name || 'فني',
+          p_phone: userRow.phone || ''
+        });
+        if (!ensureErr && ensuredTech) techData = ensuredTech;
       }
       if (techData) {
         currentTechnician = {
@@ -6053,112 +6051,66 @@ async function showOrderDetails(orderId) {
 
 
 async function showTechLogin() {
-  showModal(`
-    <div style="padding:0;max-width:420px;width:100%;">
-      <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:25px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
-        <i class="fas fa-hard-hat" style="font-size:2.5rem;margin-bottom:10px;display:block;"></i>
-        <h3 style="margin:0;">دخول الفني</h3>
-        <p style="margin:8px 0 0;opacity:0.85;font-size:0.9rem;">أدخل رمز الوصول الخاص بك</p>
-      </div>
-      <div style="background:white;padding:25px;border-radius:0 0 var(--radius) var(--radius);">
-        <div class="form-group">
-          <label><i class="fas fa-key"></i> رمز الفني</label>
-          <input type="password" id="techCode" class="form-control" placeholder="أدخل رمز الوصول الخاص بك"
-            onkeydown="if(event.key==='Enter') loginTech()" autofocus>
-          <small style="color:var(--gray);font-size:0.82rem;">كل فني لديه رمز خاص به</small>
-        </div>
-        <div class="form-group" id="techNameGroup" style="display:none;">
-          <label><i class="fas fa-user"></i> اسمك (اختياري)</label>
-          <input type="text" id="techName" class="form-control" placeholder="اسمك">
-        </div>
-        <div style="display:flex;gap:10px;margin-top:15px;">
-          <button onclick="loginTech()" style="flex:2;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;">
-            <i class="fas fa-sign-in-alt"></i> دخول
-          </button>
-          <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;">
-            إلغاء
-          </button>
-        </div>
-      </div>
-    </div>
-  `);
-  // أظهر حقل الاسم إذا كان رمز عام
-  setTimeout(() => {
-    const codeInput = document.getElementById('techCode');
-    if (codeInput) codeInput.addEventListener('input', function() {
-      const ng = document.getElementById('techNameGroup');
-      if (ng) ng.style.display = (TECH_CONFIG && !TECHNICIANS_LIST.find(t=>t.code===this.value)) ? 'block' : 'none';
-    });
-  }, 100);
+  showLoginPage();
+  switchLoginTab('login');
+  showAlert('👷 سجّل دخول الفني باستخدام البريد الإلكتروني وكلمة المرور المرتبطين بحسابك', 'info', 5000);
 }
 
 async function loginTech() {
-  const code = document.getElementById('techCode')?.value?.trim();
-  if (!code) { showAlert('أدخل رمز الوصول', 'error'); return; }
-
-  const btn = document.querySelector('[onclick="loginTech()"]');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ التحقق...'; }
-
-  try {
-    // جلب الفني من Supabase بالرمز
-    let { data: tech } = await sb.from('technicians')
-      .select('*').eq('code', code).eq('is_active', true).maybeSingle();
-
-    // إذا لم يجد بالرمز، ابحث بـ code = 'user_' + id (مضاف من البريد)
-    if (!tech) {
-      const { data: techs } = await sb.from('technicians')
-        .select('*').eq('is_active', true);
-      tech = (techs || []).find(t => t.code === code);
-    }
-
-    if (!tech && code !== TECH_CONFIG.masterCode) {
-      showAlert('رمز الوصول غير صحيح أو الحساب موقوف', 'error');
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول'; }
-      return;
-    }
-
-    if (tech) {
-      // تأكد أن permissions كاملة
-      const defaultPerms = { viewOrders: true, updateStatus: true, viewCustomer: false, allGovernorates: false };
-      const perms = tech.permissions || defaultPerms;
-      currentTechnician = {
-        ...tech,
-        permissions: { ...defaultPerms, ...perms },
-        loginTime: new Date().toISOString()
-      };
-    } else {
-      // رمز عام
-      const name = document.getElementById('techName')?.value?.trim() || 'فني ضيف';
-      currentTechnician = {
-        id: null, name, code, governorate: null,
-        permissions: { viewOrders: true, updateStatus: true, viewCustomer: true, allGovernorates: true },
-        loginTime: new Date().toISOString()
-      };
-    }
-
-    localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
-    // أظهر زر الفني في navbar
-    const tb = document.getElementById('techNavBtn');
-    if (tb) tb.style.display = 'flex';
-    closeModal();
-    showTechDashboard();
-    showAlert(`مرحباً ${currentTechnician.name}! 👷`, 'success', 3000);
-
-    // تحقق من إشعارات للفني
-    if (currentTechnician.id) checkTechNotifications(currentTechnician.id);
-
-  } catch(e) {
-    showAlert('خطأ في تسجيل الدخول', 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول'; }
-  }
+  showLoginPage();
+  switchLoginTab('login');
+  showAlert('👷 تم تحويلك إلى تسجيل الدخول الآمن للفني', 'info', 3500);
 }
 
-function showTechDashboard() {
-  // تحقق من تسجيل دخول الفني
-  const saved = localStorage.getItem('obied_tech');
-  if (!currentTechnician && saved) currentTechnician = JSON.parse(saved);
-  if (!currentTechnician) { showTechLogin(); return; }
+async function showTechDashboard() {
+  // لا تعتمد على localStorage كمصدر مصادقة. يجب وجود جلسة Supabase Auth حقيقية.
+  const { data: sessionData } = await sb.auth.getSession();
+  const session = sessionData?.session;
+  if (!session?.user) {
+    currentTechnician = null;
+    localStorage.removeItem('obied_tech');
+    showTechLogin();
+    return;
+  }
+
+  const { data: userRow } = await sb.from('users')
+    .select('id,name,email,phone,role')
+    .eq('auth_uid', session.user.id)
+    .maybeSingle();
+  if (!userRow || userRow.role !== 'technician') {
+    currentTechnician = null;
+    localStorage.removeItem('obied_tech');
+    showAlert('هذا الحساب ليس حساب فني', 'error');
+    showHome();
+    return;
+  }
+
+  let { data: techRow } = await sb.from('technicians')
+    .select('*').eq('user_ref_id', userRow.id).eq('is_active', true).maybeSingle();
+  if (!techRow) {
+    const { data: ensuredTech, error: ensureErr } = await sb.rpc('ensure_my_technician_row', {
+      p_name: userRow.name || 'فني',
+      p_phone: userRow.phone || ''
+    });
+    if (ensureErr) {
+      showAlert('تعذر تجهيز ملف الفني: ' + ensureErr.message, 'error', 6000);
+      return;
+    }
+    techRow = ensuredTech;
+  }
+  if (!techRow) {
+    showAlert('لم يتم العثور على ملف الفني', 'error');
+    return;
+  }
+
+  currentUser = { id: userRow.id, name: userRow.name, email: userRow.email, phone: userRow.phone, role: 'technician' };
+  currentTechnician = {
+    ...techRow,
+    permissions: { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false, ...(techRow.permissions || {}) },
+    loginTime: new Date().toISOString()
+  };
+  localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+  localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
 
   // إخفاء كل الصفحات وإظهار لوحة الفني
   const pages = ['homePage','loginPage','profilePage','adminLoginPage','adminDashboard'];
