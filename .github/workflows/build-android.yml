@@ -17,27 +17,18 @@ jobs:
 
       - name: Apply canonical tracker fix once
         run: |
-          if grep -q "const statusOrder = \['pending','accepted','assigned','in-progress','completed'\];" index.html && grep -q "async function techStartProcessing(orderId)" index.html; then
+          if grep -Fq "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];" index.html && grep -Fq "async function techStartProcessing(orderId)" index.html; then
             echo "Canonical tracker already applied."
           else
             python3 scripts/one_time_tracker_fix.py
-            python3 - <<'PY'
-            from pathlib import Path
-            s = Path('index.html').read_text(encoding='utf-8')
-            required = [
-              "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];",
-              'async function techStartProcessing(orderId)',
-              "label: 'تم استلام الطلب'",
-              "label: 'تم قبول الطلب'",
-              "label: 'تم تعيين فني'",
-              "label: 'جاري المعالجة'",
-              "label: 'تم الانتهاء'",
-              "sb.rpc('accept_order', { p_order_id: orderId })",
-            ]
-            for x in required:
-              assert x in s, x
-            print('canonical tracker validation passed')
-            PY
+            grep -Fq "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];" index.html
+            grep -Fq "async function techStartProcessing(orderId)" index.html
+            grep -Fq "label: 'تم استلام الطلب'" index.html
+            grep -Fq "label: 'تم قبول الطلب'" index.html
+            grep -Fq "label: 'تم تعيين فني'" index.html
+            grep -Fq "label: 'جاري المعالجة'" index.html
+            grep -Fq "label: 'تم الانتهاء'" index.html
+            grep -Fq "sb.rpc('accept_order', { p_order_id: orderId })" index.html
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add index.html
@@ -93,18 +84,11 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "ERROR: GitHub Actions secret GOOGLE_SERVICES_JSON is missing or empty."
+            echo "ERROR: GOOGLE_SERVICES_JSON is missing."
             exit 1
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          data = json.loads(Path('android/app/google-services.json').read_text(encoding='utf-8'))
-          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
-          assert 'com.obied.maintenance' in packages, 'google-services.json does not contain com.obied.maintenance'
-          print('Firebase configuration validated')
-          PY
+          python3 -c "import json; d=json.load(open('android/app/google-services.json')); assert 'com.obied.maintenance' in [c.get('client_info',{}).get('android_client_info',{}).get('package_name') for c in d.get('client',[])]; print('Firebase configuration validated')"
 
       - name: Enable Google Services Gradle plugin
         run: |
