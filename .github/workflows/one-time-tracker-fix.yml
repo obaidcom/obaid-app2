@@ -1,0 +1,44 @@
+name: One-time tracker fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'fix: apply canonical tracker flow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply patch
+        run: python3 scripts/one_time_tracker_fix.py
+      - name: Validate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('index.html').read_text(encoding='utf-8')
+          required = [
+            "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];",
+            'async function techStartProcessing(orderId)',
+            "label: 'تم استلام الطلب'",
+            "label: 'تم قبول الطلب'",
+            "label: 'تم تعيين فني'",
+            "label: 'جاري المعالجة'",
+            "label: 'تم الانتهاء'",
+            "sb.rpc('accept_order', { p_order_id: orderId })",
+          ]
+          for item in required:
+              assert item in s, item
+          print('canonical tracker validation passed')
+          PY
+      - name: Commit and remove one-time files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm scripts/one_time_tracker_fix.py .github/workflows/one-time-tracker-fix.yml
+          git commit -m "fix: apply canonical tracker flow"
+          git push
