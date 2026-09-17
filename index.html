@@ -1594,31 +1594,9 @@ function setupEventListeners() {
         }
       }
 
-      // ===== محاولة 2: مستخدم قديم قبل الترحيل (pass_word نصي في قاعدة البيانات) =====
-      // هذا الـ fallback مؤقت للتوافق فقط - يجب أن يختفي تدريجياً مع ترحيل جميع المستخدمين
-      if (!userData) {
-        try {
-          const { data: legacyUser } = await sb.from('users')
-            .select('id,name,email,phone,profile_image,role')
-            .eq('email', email).eq('pass_word', password).maybeSingle();
-          if (legacyUser) {
-            userData = legacyUser;
-            // ترحيل تلقائي صامت: إنشاء حساب Auth حقيقي للمستخدم القديم
-            // (email confirmation مطلوب إيقافه في Supabase Dashboard)
-            const { data: signUpData, error: signUpErr } = await sb.auth.signUp({ email, password }).catch(() => ({ data: null, error: null }));
-            if (signUpData?.user) {
-              await sb.from('users').update({ auth_uid: signUpData.user.id }).eq('id', legacyUser.id).catch(() => {});
-              // محاولة تسجيل الدخول مباشرة بعد الإنشاء
-              const { data: reAuthData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
-              if (reAuthData?.user) {
-                // تحديث auth_uid إذا لزم
-                await sb.from('users').update({ auth_uid: reAuthData.user.id }).eq('id', legacyUser.id).catch(() => {});
-              }
-            }
-          }
-        } catch(legacyErr) { /* تجاهل أخطاء الترحيل القديم */ }
-      }
-
+      // لا ننشئ حسابات Auth أثناء تسجيل الدخول.
+      // الحسابات القديمة يجب ترحيلها بشكل إداري منفصل حتى لا يسبب تسجيل الدخول
+      // طلبات signUp إضافية أو رسائل بريد غير مطلوبة.
       if (!userData) { showAlert('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'error'); return; }
 
       const role = await resolveUserRole(userData);
@@ -1665,16 +1643,31 @@ function setupEventListeners() {
         const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
         if (existing) { showAlert('هذا البريد مستخدم بالفعل', 'error'); return; }
 
-        // 1) إنشاء حساب Supabase Auth أولاً (الهوية الحقيقية)
+        // 1) إنشاء حساب Supabase Auth.
+        // Confirm Email يجب أن يكون OFF: عندها يعيد Supabase session مباشرة
+        // ولا يرسل رسالة تأكيد بالبريد.
         const { data: signUpData, error: authErr } = await sb.auth.signUp({ email, password });
+        if (authErr) {
+          const msg = authErr.message || '';
+          if (/rate limit|too many requests|429/i.test(msg)) {
+            throw new Error('تم تجاوز حد طلبات التسجيل مؤقتاً. انتظر قليلاً ثم أعد المحاولة.');
+          }
+          if (/already registered/i.test(msg)) {
+            throw new Error('هذا البريد مستخدم بالفعل');
+          }
+          throw new Error(msg);
+        }
         const authUid = signUpData?.user?.id || null;
+        if (!authUid) throw new Error('تعذر إنشاء هوية الحساب');
 
-        if (authErr && authErr.message && !authErr.message.includes('already registered')) {
-          throw new Error(authErr.message);
+        // مع Confirm Email = OFF يجب أن توجد جلسة مباشرة.
+        // إذا لم توجد جلسة، فلا ننشئ صف users حتى لا نترك حساباً غير قابل للدخول.
+        if (!signUpData?.session) {
+          throw new Error('التسجيل يحتاج إلى تعطيل Confirm Email في Supabase حتى يتم الدخول مباشرة دون رسالة تأكيد.');
         }
 
-        // 2) إنشاء سجل users مع auth_uid - ممنوع تخزين كلمة المرور
-        // role يُحدَّد دائماً كـ 'user' ولا يُمرَّر من نموذج التسجيل
+        // 2) إنشاء سجل users مع auth_uid - ممنوع تخزين كلمة المرور.
+        // role يُحدَّد دائماً كـ user ولا يُمرَّر من نموذج التسجيل.
         let { data, error } = await sb.from('users')
           .insert([{ name, email, phone: phone || '', role: 'user', auth_uid: authUid }])
           .select().single();
@@ -1690,7 +1683,7 @@ function setupEventListeners() {
 
         await applyRoleAndRoute(data, 'user', { isNewAccount: true });
       } catch(err) {
-        showAlert('خطأ في إنشاء الحساب: ' + (err.message||''), 'error');
+        showAlert('خطأ في إنشاء الحساب: ' + (err.message||'تعذر إنشاء الحساب'), 'error', 6000);
       } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> إنشاء حساب'; }
       }
