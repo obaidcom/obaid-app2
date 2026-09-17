@@ -6260,8 +6260,8 @@ function renderTechOrders() {
     list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray);"><i class="fas fa-clipboard-check" style="font-size:3rem;opacity:0.3;display:block;margin-bottom:15px;"></i><p>لا توجد طلبات</p></div>';
     return;
   }
-  const sMap = {'pending':'⏳ انتظار','in-progress':'🔧 تنفيذ','completed':'✅ مكتمل','awaiting_payment':'💳 بانتظار الدفع','cancelled':'❌ ملغي'};
-  const cMap = {'pending':'#f59e0b','in-progress':'#3b82f6','completed':'#10b981','awaiting_payment':'#8b5cf6','cancelled':'#ef4444'};
+  const sMap = {'pending':'⏳ تم استلام الطلب','accepted':'👍 تم قبول الطلب','in-progress':'🔧 جاري المعالجة','completed':'✅ تم الانتهاء','awaiting_payment':'💳 بانتظار الدفع','cancelled':'❌ ملغي'};
+  const cMap = {'pending':'#f59e0b','accepted':'#3b82f6','in-progress':'#3b82f6','completed':'#10b981','awaiting_payment':'#8b5cf6','cancelled':'#ef4444'};
   list.innerHTML = orders.map(o => {
     const isMine = currentTechnician?.id && String(o.accepted_by_tech||o.tech_id) === String(currentTechnician.id);
     const isOther = (o.accepted_by_tech || o.tech_id) && !isMine;
@@ -6284,6 +6284,7 @@ function renderTechOrders() {
       ${isMine && o.status !== 'pending' ? renderTechMiniTracker(o) : ''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${o.status==='pending'&&!isOther?`<button onclick="techAcceptOrder('${o.id}')" style="flex:2;min-width:110px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-hand-paper"></i> قبول</button>`:''}
+        ${o.status==='accepted'&&isMine&&perms.updateStatus?`<button onclick="techStartProcessing('${o.id}')" style="flex:2;min-width:130px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-tools"></i> بدء المعالجة</button>`:''}
         ${o.status==='in-progress'&&isMine&&perms.updateStatus?`
           ${!o.on_the_way_at ? `<button onclick="techOnTheWay('${o.id}')" style="flex:1;min-width:100px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-car"></i> في الطريق</button>` : `<div style="flex:1;min-width:100px;text-align:center;padding:10px;background:#eff6ff;border-radius:50px;color:#0284c7;font-size:0.8rem;font-weight:700;"><i class="fas fa-car"></i> في الطريق ✓</div>`}
           <button onclick="techFinishAndInvoice('${o.id}','${o.user_id||o.userId||''}','${(o.name||'').replace(/'/g,'')}','${o.phone||''}','${(o.service||'').replace(/'/g,'')}')" style="flex:2;min-width:100px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px;border-radius:50px;cursor:pointer;font-size:0.85rem;font-family:inherit;font-weight:700;"><i class="fas fa-check-circle"></i> إنهاء وإنشاء فاتورة</button>
@@ -6299,23 +6300,26 @@ function renderTechOrders() {
 
 // ===== شريط تتبع مصغّر واحترافي داخل بطاقة طلب الفني نفسه =====
 function renderTechMiniTracker(o) {
+  const hasTech = !!(o.tech_id || o.accepted_by_tech || o.tech_name);
+  const trackingStatus = (hasTech && o.status === 'accepted') ? 'assigned' : o.status;
   const steps = [
-    { key: 'accepted',  label: 'تم قبول الطلب',   icon: 'fa-hand-paper', done: true },
-    { key: 'assigned',  label: 'تم تعيين فني',     icon: 'fa-hard-hat',   done: true },
-    { key: 'onway',     label: 'في الطريق',        icon: 'fa-car',        done: !!o.on_the_way_at },
-    { key: 'finished',  label: 'تم الانتهاء',      icon: 'fa-check-circle', done: o.status === 'completed' || o.status === 'awaiting_payment' },
-    { key: 'invoiced',  label: 'تم إرسال الفاتورة', icon: 'fa-file-invoice-dollar', done: !!(o.invoice_id || o.invoiceId) }
+    { key: 'pending',     label: 'تم استلام الطلب', icon: 'fa-inbox' },
+    { key: 'accepted',    label: 'تم قبول الطلب',   icon: 'fa-thumbs-up' },
+    { key: 'assigned',    label: 'تم تعيين فني',     icon: 'fa-hard-hat' },
+    { key: 'in-progress', label: 'جاري المعالجة',    icon: 'fa-tools' },
+    { key: 'completed',   label: 'تم الانتهاء',      icon: 'fa-check-circle' }
   ];
+  const currentIdx = Math.max(0, steps.findIndex(s => s.key === trackingStatus));
   return `<div style="display:flex;justify-content:space-between;align-items:flex-start;background:#f8fafc;border-radius:12px;padding:12px 8px;margin-bottom:10px;">
-    ${steps.map((s, i) => `
-      <div style="flex:1;text-align:center;position:relative;">
-        ${i>0 ? `<div style="position:absolute;top:14px;right:50%;width:100%;height:2px;background:${s.done?'#10b981':'#e2e8f0'};z-index:0;"></div>` : ''}
-        <div style="position:relative;z-index:1;width:28px;height:28px;border-radius:50%;background:${s.done?'#10b981':'#e2e8f0'};color:white;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:0.7rem;">
-          <i class="fas ${s.icon}"></i>
-        </div>
-        <div style="font-size:0.62rem;color:${s.done?'#059669':'#94a3b8'};font-weight:${s.done?'700':'400'};">${s.label}</div>
-      </div>
-    `).join('')}
+    ${steps.map((s, i) => {
+      const done = i < currentIdx;
+      const active = i === currentIdx;
+      return `<div style="flex:1;text-align:center;position:relative;">
+        ${i>0 ? `<div style="position:absolute;top:14px;right:50%;width:100%;height:2px;background:${done || active ? '#10b981':'#e2e8f0'};z-index:0;"></div>` : ''}
+        <div style="position:relative;z-index:1;margin:auto;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${done?'#10b981':active?'#2563eb':'#e2e8f0'};color:${done||active?'white':'#64748b'};"><i class="fas ${s.icon}"></i></div>
+        <div style="font-size:0.68rem;margin-top:5px;color:${done||active?'#1f2937':'#94a3b8'};font-weight:${active?'800':'600'};line-height:1.3;">${s.label}</div>
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
@@ -6691,10 +6695,11 @@ function renderProfileTracking() {
     return;
   }
 
-  const statusOrder = ['pending','accepted','in-progress','completed'];
-  const rawIdx = statusOrder.indexOf(active.status);
-  const currentIdx = rawIdx === -1 ? 0 : rawIdx;
+  const statusOrder = ['pending','accepted','assigned','in-progress','completed'];
   const hasTech = !!(active.tech_name || active.tech_id || active.accepted_by_tech);
+  const trackingStatus = (hasTech && active.status === 'accepted') ? 'assigned' : active.status;
+  const rawIdx = statusOrder.indexOf(trackingStatus);
+  const currentIdx = rawIdx === -1 ? 0 : rawIdx;
 
   c.innerHTML = `
     <h4 style="margin-bottom:0.25rem;color:var(--dark);">${active.service || ''} <span style="color:var(--gray);font-size:0.85rem;">#${active.id}</span></h4>
@@ -6707,12 +6712,9 @@ function renderProfileTracking() {
     <div class="tracking-steps">
       ${ORDER_FLOW_STEPS.map(st => {
         let done, active_;
-        if (st.key === 'assigned') { done = false; active_ = hasTech; }
-        else {
-          const i = statusOrder.indexOf(st.key);
-          done = i !== -1 && i < currentIdx;
-          active_ = st.key === active.status;
-        }
+        const i = statusOrder.indexOf(st.key);
+        done = i !== -1 && i < currentIdx;
+        active_ = st.key === trackingStatus;
         const cls = done ? 'completed' : (active_ ? 'active' : '');
         return `<div class="tracking-step">
           <div class="step-icon ${cls}"><i class="fas ${st.icon}"></i></div>
@@ -6948,51 +6950,50 @@ function saveSettingsFromPanel() {
 async function techAcceptOrder(orderId) {
   if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني لقبول الطلبات', 'error'); return; }
   try {
-    // ===== إصلاح حالة السباق: تحديث ذرّي واحد يشترط أن الطلب لا يزال
-    // بلا فني ضمن نفس عملية UPDATE (WHERE id=X AND accepted_by_tech IS NULL)
-    // بدل فحص منفصل ثم تحديث منفصل - يمنع فنيّين من قبول نفس الطلب معًا
-    // فعليًا على مستوى قاعدة البيانات، وليس فقط منطق التطبيق =====
-    const { data: updatedRows, error: updateErr } = await sb.from('orders').update({
-      accepted_by_tech: currentTechnician.id,
-      tech_id: currentTechnician.id,
-      tech_name: currentTechnician.name || '',
-      tech_phone: currentTechnician.phone || '',
-      tech_accepted_at: new Date().toISOString(),
-      status: 'in-progress',
-      updated_at: new Date().toISOString()
-    }).eq('id', orderId).is('accepted_by_tech', null).select();
-
-    if (updateErr) throw updateErr;
-
-    if (!updatedRows || updatedRows.length === 0) {
-      // التحديث لم يؤثر على أي صف = فني آخر سبقك بجزء من الثانية
-      showAlert('تم قبول هذا الطلب من فني آخر بالفعل', 'warning');
-      loadTechOrders();
-      return;
-    }
+    const { data: acceptedOrder, error } = await sb.rpc('accept_order', { p_order_id: orderId });
+    if (error) throw error;
+    if (!acceptedOrder) { showAlert('تعذر قبول الطلب أو تم قبوله من فني آخر', 'warning'); loadTechOrders(); return; }
 
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
-    if (idx !== -1) {
-      allOrders[idx].status = 'in-progress';
-      allOrders[idx].accepted_by_tech = currentTechnician.id;
-      allOrders[idx].tech_id = currentTechnician.id;
-      allOrders[idx].tech_name = currentTechnician.name || '';
-    }
+    if (idx !== -1) allOrders[idx] = { ...allOrders[idx], ...acceptedOrder, status: 'accepted' };
     renderTechOrders();
     updateTechStats();
 
-    // إشعار حقيقي (Push) للعميل بقبول طلبه
-    const acceptedOrder = allOrders[idx];
-    if (acceptedOrder?.user_id) {
+    if (acceptedOrder.user_id) {
       sb.from('notifications').insert([{
         user_id: acceptedOrder.user_id,
-        message: '✅ تم قبول طلبك (' + (acceptedOrder.service||'') + ') وسيتوجه إليك الفني ' + (currentTechnician.name||'') + ' قريباً',
-        type: 'order_update', is_read: false
+        message: '✅ تم قبول طلبك (' + (acceptedOrder.service||'') + ') وتم تعيين الفني ' + (currentTechnician.name||''),
+        type: 'order_update', related_id: acceptedOrder.id, is_read: false
       }]).catch(()=>{});
     }
+    showAlert('✅ تم قبول الطلب — تم تعيين الفني. اضغط «بدء المعالجة» عند البدء.', 'success', 5000);
+  } catch (e) {
+    showAlert('خطأ في قبول الطلب: ' + (e.message || e), 'error');
+    loadTechOrders();
+  }
+}
 
-    showAlert('✅ تم قبول الطلب بنجاح', 'success');
-  } catch (e) { showAlert('خطأ في قبول الطلب: ' + e.message, 'error'); }
+// ===== الفني: بدء المعالجة =====
+async function techStartProcessing(orderId) {
+  if (!currentTechnician?.id) return;
+  try {
+    const { data, error } = await sb.from('orders')
+      .update({ status: 'in-progress', updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .eq('tech_id', currentTechnician.id)
+      .eq('accepted_by_tech', currentTechnician.id)
+      .eq('status', 'accepted')
+      .select().single();
+    if (error) throw error;
+    const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
+    if (idx !== -1) allOrders[idx] = { ...allOrders[idx], ...data };
+    renderTechOrders();
+    updateTechStats();
+    showAlert('✅ تم بدء المعالجة', 'success', 3000);
+  } catch (e) {
+    showAlert('تعذر بدء المعالجة: ' + (e.message || e), 'error');
+    loadTechOrders();
+  }
 }
 
 // ===== الفني في الطريق: مرحلة تتبع إضافية دون تغيير حالة الطلب الأساسية =====
