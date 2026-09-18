@@ -117,3 +117,5 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
 # Rebuild after Auth registration/login hardening.
+
+# Rebuild after technician invoice, phone persistence, and push-token fixes.
