@@ -1639,17 +1639,12 @@ function setupEventListeners() {
 
       if (btn) { btn.disabled = true; btn.textContent = 'جارٍ إنشاء الحساب...'; }
       try {
-        // التحقق من عدم تكرار البريد
-        const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
-        if (existing) { showAlert('هذا البريد مستخدم بالفعل', 'error'); return; }
-
-        // 1) إنشاء/استكمال هوية Supabase Auth.
-        // إذا كان Auth قد أُنشئ في محاولة سابقة لكن إنشاء users فشل، نُكمل الحساب
-        // بتسجيل الدخول بنفس كلمة المرور بدل إظهار "الحساب موجود" وترك المستخدم عالقاً.
+        // إنشاء/استكمال هوية Supabase Auth. إذا كانت الهوية أُنشئت في محاولة سابقة
+        // لكن خطوة ملف users فشلت، نعيد تسجيل الدخول ونكمل الملف بدل إظهار خطأ مضلل.
         let signUpData = null;
         let authErr = null;
         ({ data: signUpData, error: authErr } = await sb.auth.signUp({ email, password }));
-        if (authErr && /already registered|already exists/i.test(authErr.message || '')) {
+        if (authErr && /already registered|already exists|user already/i.test(authErr.message || '')) {
           const retryAuth = await sb.auth.signInWithPassword({ email, password });
           if (retryAuth.error) throw new Error('هذا البريد مستخدم بالفعل. إذا كان هذا حسابك، استخدم كلمة المرور الصحيحة لتسجيل الدخول.');
           signUpData = retryAuth.data;
@@ -1662,23 +1657,40 @@ function setupEventListeners() {
           }
           throw new Error(msg);
         }
-        const authUid = signUpData?.user?.id || null;
-        if (!authUid) throw new Error('تعذر إنشاء هوية الحساب');
+
+        // Confirm Email يجب أن يكون OFF حتى نحصل على جلسة مباشرة.
         if (!signUpData?.session) {
-          throw new Error('التسجيل يحتاج إلى تعطيل Confirm Email في Supabase حتى يتم الدخول مباشرة دون رسالة تأكيد.');
+          const retryAuth = await sb.auth.signInWithPassword({ email, password });
+          if (retryAuth.error || !retryAuth.data?.session) {
+            throw new Error('تم إنشاء الحساب، لكن لم تبدأ جلسة الدخول تلقائياً. تأكد من أن Confirm Email = OFF في Supabase.');
+          }
+          signUpData = retryAuth.data;
+        }
+        if (!signUpData?.user?.id) throw new Error('تعذر إنشاء هوية الحساب');
+
+        // إنشاء/استكمال ملف users. العملية idempotent ويمكن تكرارها بأمان.
+        let data = null;
+        let profileErr = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          ({ data, error: profileErr } = await sb.rpc('create_my_user_profile', {
+            p_name: name, p_email: email, p_phone: phone || ''
+          }));
+          if (!profileErr && data?.id) break;
+          if (attempt === 1) await new Promise(r => setTimeout(r, 500));
+        }
+        if (profileErr || !data?.id) {
+          const { data: existingProfile, error: existingErr } = await sb.from('users')
+            .select('id,name,email,phone,profile_image,role,auth_uid')
+            .eq('auth_uid', signUpData.user.id).maybeSingle();
+          if (existingErr || !existingProfile?.id) {
+            throw profileErr || existingErr || new Error('تم إنشاء الحساب لكن تعذر حفظ ملف المستخدم');
+          }
+          data = existingProfile;
         }
 
-        // 2) إنشاء/استكمال ملف المستخدم عبر RPC آمن مربوط بـ auth.uid().
-        const { data, error: profileErr } = await sb.rpc('create_my_user_profile', {
-          p_name: name, p_email: email, p_phone: phone || ''
-        });
-        if (profileErr) throw profileErr;
-        if (!data?.id) throw new Error('تم إنشاء الهوية لكن تعذر إنشاء ملف المستخدم');
-
-        // التوجيه الفوري إلى الواجهة الرئيسية وتسجيل الجهاز بعد اكتمال currentUser.
+        // التوجيه الفوري للرئيسية وتسجيل الجهاز بعد اكتمال currentUser.
         await applyRoleAndRoute(data, 'user', { isNewAccount: true });
-        // تسجيل الجهاز بعد اكتمال currentUser؛ التسجيل المبكر كان يفوّت الجهاز.
-        if (typeof syncPushToken === 'function') setTimeout(() => syncPushToken(), 300);
+        if (typeof syncPushToken === 'function') await syncPushToken();
       } catch(err) {
         showAlert('خطأ في إنشاء الحساب: ' + (err.message||'تعذر إنشاء الحساب'), 'error', 6000);
       } finally {
@@ -6730,10 +6742,10 @@ function renderProfileTracking() {
   c.innerHTML = `
     <h4 style="margin-bottom:0.25rem;color:var(--dark);">${active.service || ''} <span style="color:var(--gray);font-size:0.85rem;">#${active.id}</span></h4>
     <p style="color:var(--gray);font-size:0.85rem;margin-bottom:1rem;">${active.date || ''}</p>
-    ${active.on_the_way_at && active.status === 'in-progress' ? `
+    ${active.on_the_way_at && active.status !== 'completed' && active.status !== 'cancelled' ? `
     <div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;padding:14px 18px;border-radius:14px;margin-bottom:1.2rem;display:flex;align-items:center;gap:12px;animation:pulse 2s infinite;">
       <i class="fas fa-car" style="font-size:1.5rem;"></i>
-      <div><strong>الفني في الطريق إليك الآن!</strong><br><span style="font-size:0.8rem;opacity:0.9;">${active.tech_name||''}</span></div>
+      <div><strong>🚗 الفني في الطريق إليك الآن</strong><br><span style="font-size:0.8rem;opacity:0.9;">${active.tech_name||''}</span></div>
     </div>` : ''}
     <div class="tracking-steps">
       ${ORDER_FLOW_STEPS.map(st => {
@@ -7178,10 +7190,7 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
       }).catch(function (e) { console.warn('channel creation failed', e); });
     }
 
-    PushNotifications.requestPermissions().then(function (res) {
-      if (res.receive === 'granted') PushNotifications.register();
-    });
-
+    // سجّل المستمعين قبل register حتى لا نفقد حدث registration في الإقلاع السريع.
     PushNotifications.addListener('registration', function (token) {
       window._nativePushToken = token.value;
       syncPushToken();
@@ -7189,6 +7198,14 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
 
     PushNotifications.addListener('registrationError', function (err) {
       console.error('Push registration error', err);
+      if (typeof showAlert === 'function') showAlert('⚠️ تعذر تسجيل إشعارات الجهاز: ' + (err?.error || 'خطأ غير معروف'), 'warning', 7000);
+    });
+
+    PushNotifications.requestPermissions().then(function (res) {
+      if (res.receive === 'granted') return PushNotifications.register();
+      if (typeof showAlert === 'function') showAlert('⚠️ لم يتم السماح بإشعارات التطبيق. فعّل إشعارات عبيد من إعدادات الهاتف.', 'warning', 8000);
+    }).catch(function (err) {
+      console.error('Push permission/register error', err);
     });
 
     PushNotifications.addListener('pushNotificationReceived', function (notification) {
