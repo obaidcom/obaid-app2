@@ -1681,7 +1681,21 @@ function setupEventListeners() {
         }
         if (error) throw error;
 
+        // تحقق نهائي من حفظ رقم الهاتف ثم ثبّته صراحةً في ملف المستخدم.
+        // هذا يمنع فقدانه بسبب أي اختلاف في قيمة الحقل أو نسخة الواجهة.
+        if (phone) {
+          const { data: verifiedUser, error: phoneErr } = await sb.from('users')
+            .update({ phone })
+            .eq('id', data.id)
+            .select('id,name,email,phone,profile_image,role,auth_uid')
+            .single();
+          if (phoneErr) throw phoneErr;
+          data = verifiedUser || data;
+        }
+
         await applyRoleAndRoute(data, 'user', { isNewAccount: true });
+        // تسجيل الجهاز بعد اكتمال currentUser؛ التسجيل المبكر كان يفوّت الجهاز.
+        if (typeof syncPushToken === 'function') setTimeout(() => syncPushToken(), 300);
       } catch(err) {
         showAlert('خطأ في إنشاء الحساب: ' + (err.message||'تعذر إنشاء الحساب'), 'error', 6000);
       } finally {
@@ -5401,15 +5415,47 @@ async function sendInvoiceToClientWithPayment() {
   };
 
   // 1. حفظ الفاتورة في Supabase
-  const saved = await saveInvoice(updatedInvoice);
-  if (!saved) {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال الفاتورة'; }
-    return;
+  // الفني يستخدم RPC محميًا للتأكد من أن الفاتورة تُحفظ باسم الفني المسؤول
+  // حتى لو تغيّرت سياسات RLS في الواجهة.
+  let saved = null;
+  const techSending = !!currentTechnician?.id && Number(updatedInvoice.techId || updatedInvoice.tech_id) === Number(currentTechnician.id);
+  if (techSending) {
+    const { data: rpcSaved, error: rpcErr } = await sb.rpc('create_tech_invoice', {
+      p_order_id: Number(updatedInvoice.orderId),
+      p_invoice_number: updatedInvoice.invoiceNumber,
+      p_customer_id: updatedInvoice.customerId ? Number(updatedInvoice.customerId) : null,
+      p_customer_name: updatedInvoice.customerName || '',
+      p_customer_email: updatedInvoice.customerEmail || '',
+      p_customer_phone: updatedInvoice.customerPhone || '',
+      p_service: updatedInvoice.service || '',
+      p_service_date: updatedInvoice.serviceDate || '',
+      p_base_price: Number(updatedInvoice.basePrice) || 0,
+      p_tax: Number(updatedInvoice.tax) || 0,
+      p_total: Number(updatedInvoice.total) || 0,
+      p_status: updatedInvoice.status || 'pending_payment',
+      p_payment_method: updatedInvoice.paymentMethod || 'barcode',
+      p_notes: updatedInvoice.notes || '',
+      p_payment_barcode_image: updatedInvoice._paymentBarcodeImage || null,
+      p_sent_at: updatedInvoice.sentAt || new Date().toISOString()
+    });
+    if (rpcErr) {
+      console.error('create_tech_invoice:', rpcErr);
+      showAlert('تعذر إرسال الفاتورة: ' + (rpcErr.message || 'خطأ في صلاحيات الفاتورة'), 'error', 7000);
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال الفاتورة'; }
+      return;
+    }
+    saved = Array.isArray(rpcSaved) ? rpcSaved[0] : rpcSaved;
+  } else {
+    saved = await saveInvoice(updatedInvoice);
+    if (!saved) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال الفاتورة'; }
+      return;
+    }
   }
 
   // 2. تحديث الطلب
   const orderId = window.currentInvoiceOrder.id;
-  await sb.from('orders').update({
+  const { error: orderUpdateError } = await sb.from('orders').update({
     status:         'awaiting_payment',
     invoice_id:     saved.id,
     invoice_number: saved.invoice_number || saved.invoiceNumber || '',
@@ -5417,6 +5463,10 @@ async function sendInvoiceToClientWithPayment() {
     payment_method: 'barcode',
     updated_at:     new Date().toISOString()
   }).eq('id', orderId);
+  if (orderUpdateError) {
+    console.error('invoice order update:', orderUpdateError);
+    showAlert('تم حفظ الفاتورة لكن تعذر تحديث حالة الطلب: ' + orderUpdateError.message, 'warning', 7000);
+  }
 
   // 3. تحديث محلي
   const oi = allOrders.findIndex(o => o.id == orderId);
