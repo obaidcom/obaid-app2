@@ -3346,9 +3346,32 @@ let userRealtimeChannel = null;
 let userPollInterval = null;
 
 function startRealtimeForUser(userId) {
-  if (userPollInterval) return;
   const uid = parseInt(userId, 10);
-  // فحص الإشعارات كل 30 ثانية بغض النظر عن الصفحة المفتوحة حالياً
+  if (!uid) return;
+
+  // لا نكتفي بالـpolling: اشترك في تغييرات الطلب نفسه حتى يظهر
+  // status وtech_id وon_the_way_at للمستخدم فوراً، بدون انتظار 30 ثانية.
+  if (userRealtimeChannel) {
+    try { sb.removeChannel(userRealtimeChannel); } catch(e) {}
+    userRealtimeChannel = null;
+  }
+  try {
+    userRealtimeChannel = sb.channel('user-orders-' + uid + '-' + Date.now())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: 'user_id=eq.' + uid
+      }, async () => {
+        try { await loadUserData(uid); } catch(e) {}
+      })
+      .subscribe();
+  } catch(e) {
+    console.warn('user realtime unavailable', e);
+  }
+
+  if (userPollInterval) return;
+  // فحص الإشعارات كل 30 ثانية كمسار احتياطي حتى لو لم تكن صفحة الملف مفتوحة.
   userPollInterval = setInterval(async () => {
     if (!currentUser) { stopRealtime(); return; }
     try {
