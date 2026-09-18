@@ -1643,56 +1643,39 @@ function setupEventListeners() {
         const { data: existing } = await sb.from('users').select('id').eq('email', email).maybeSingle();
         if (existing) { showAlert('هذا البريد مستخدم بالفعل', 'error'); return; }
 
-        // 1) إنشاء حساب Supabase Auth.
-        // Confirm Email يجب أن يكون OFF: عندها يعيد Supabase session مباشرة
-        // ولا يرسل رسالة تأكيد بالبريد.
-        const { data: signUpData, error: authErr } = await sb.auth.signUp({ email, password });
+        // 1) إنشاء/استكمال هوية Supabase Auth.
+        // إذا كان Auth قد أُنشئ في محاولة سابقة لكن إنشاء users فشل، نُكمل الحساب
+        // بتسجيل الدخول بنفس كلمة المرور بدل إظهار "الحساب موجود" وترك المستخدم عالقاً.
+        let signUpData = null;
+        let authErr = null;
+        ({ data: signUpData, error: authErr } = await sb.auth.signUp({ email, password }));
+        if (authErr && /already registered|already exists/i.test(authErr.message || '')) {
+          const retryAuth = await sb.auth.signInWithPassword({ email, password });
+          if (retryAuth.error) throw new Error('هذا البريد مستخدم بالفعل. إذا كان هذا حسابك، استخدم كلمة المرور الصحيحة لتسجيل الدخول.');
+          signUpData = retryAuth.data;
+          authErr = null;
+        }
         if (authErr) {
           const msg = authErr.message || '';
           if (/rate limit|too many requests|429/i.test(msg)) {
             throw new Error('تم تجاوز حد طلبات التسجيل مؤقتاً. انتظر قليلاً ثم أعد المحاولة.');
           }
-          if (/already registered/i.test(msg)) {
-            throw new Error('هذا البريد مستخدم بالفعل');
-          }
           throw new Error(msg);
         }
         const authUid = signUpData?.user?.id || null;
         if (!authUid) throw new Error('تعذر إنشاء هوية الحساب');
-
-        // مع Confirm Email = OFF يجب أن توجد جلسة مباشرة.
-        // إذا لم توجد جلسة، فلا ننشئ صف users حتى لا نترك حساباً غير قابل للدخول.
         if (!signUpData?.session) {
           throw new Error('التسجيل يحتاج إلى تعطيل Confirm Email في Supabase حتى يتم الدخول مباشرة دون رسالة تأكيد.');
         }
 
-        // 2) إنشاء سجل users مع auth_uid - ممنوع تخزين كلمة المرور.
-        // role يُحدَّد دائماً كـ user ولا يُمرَّر من نموذج التسجيل.
-        let { data, error } = await sb.from('users')
-          .insert([{ name, email, phone: phone || '', role: 'user', auth_uid: authUid }])
-          .select().single();
+        // 2) إنشاء/استكمال ملف المستخدم عبر RPC آمن مربوط بـ auth.uid().
+        const { data, error: profileErr } = await sb.rpc('create_my_user_profile', {
+          p_name: name, p_email: email, p_phone: phone || ''
+        });
+        if (profileErr) throw profileErr;
+        if (!data?.id) throw new Error('تم إنشاء الهوية لكن تعذر إنشاء ملف المستخدم');
 
-        if (error) {
-          // fallback: بدون role إذا لم يكن العمود موجوداً بعد
-          const retry = await sb.from('users')
-            .insert([{ name, email, phone: phone || '', auth_uid: authUid }])
-            .select().single();
-          data = retry.data; error = retry.error;
-        }
-        if (error) throw error;
-
-        // تحقق نهائي من حفظ رقم الهاتف ثم ثبّته صراحةً في ملف المستخدم.
-        // هذا يمنع فقدانه بسبب أي اختلاف في قيمة الحقل أو نسخة الواجهة.
-        if (phone) {
-          const { data: verifiedUser, error: phoneErr } = await sb.from('users')
-            .update({ phone })
-            .eq('id', data.id)
-            .select('id,name,email,phone,profile_image,role,auth_uid')
-            .single();
-          if (phoneErr) throw phoneErr;
-          data = verifiedUser || data;
-        }
-
+        // التوجيه الفوري إلى الواجهة الرئيسية وتسجيل الجهاز بعد اكتمال currentUser.
         await applyRoleAndRoute(data, 'user', { isNewAccount: true });
         // تسجيل الجهاز بعد اكتمال currentUser؛ التسجيل المبكر كان يفوّت الجهاز.
         if (typeof syncPushToken === 'function') setTimeout(() => syncPushToken(), 300);
@@ -7040,7 +7023,7 @@ async function techStartProcessing(orderId) {
 }
 
 // ===== الفني في الطريق: مرحلة تتبع إضافية دون تغيير حالة الطلب الأساسية =====
-async function techOnTheWay(orderId) {
+async async function techOnTheWay(orderId) {
   if (!currentTechnician?.id) return;
   try {
     const { error } = await sb.from('orders').update({ on_the_way_at: new Date().toISOString() }).eq('id', orderId);
@@ -7048,15 +7031,7 @@ async function techOnTheWay(orderId) {
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) allOrders[idx].on_the_way_at = new Date().toISOString();
     renderTechOrders();
-    // إشعار حقيقي (Push) للعميل بأن الفني في الطريق
-    const order = allOrders[idx];
-    if (order?.user_id) {
-      sb.from('notifications').insert([{
-        user_id: order.user_id,
-        message: '🚗 الفني ' + (currentTechnician.name||'') + ' في الطريق إليك الآن لخدمة: ' + order.service,
-        type: 'order_update', is_read: false
-      }]).catch(()=>{});
-    }
+    // الإشعار يُنشأ تلقائياً من Trigger قاعدة البيانات بعد تحديث on_the_way_at.
     showAlert('✅ تم إعلام العميل أنك في الطريق', 'success');
   } catch (e) {
     showAlert('تعذر التحديث: ' + e.message, 'error');
@@ -7074,15 +7049,8 @@ async function techFinishAndInvoice(orderId, userId, name, phone, service) {
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx !== -1) allOrders[idx].status = 'completed';
 
-    // إشعار حقيقي (Push) للعميل بإنهاء الخدمة
+    // إشعار إتمام الخدمة يُنشأ تلقائياً من Trigger قاعدة البيانات.
     const order = allOrders[idx];
-    if (order?.user_id) {
-      sb.from('notifications').insert([{
-        user_id: order.user_id,
-        message: '🎉 تم إنهاء الخدمة (' + (order.service||'') + ') بنجاح',
-        type: 'order_update', is_read: false
-      }]).catch(()=>{});
-    }
 
     // الانتقال مباشرة لإنشاء الفاتورة
     techCreateInvoice(orderId, userId, name, phone, service);
