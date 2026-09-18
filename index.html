@@ -7023,7 +7023,7 @@ async function techStartProcessing(orderId) {
 }
 
 // ===== الفني في الطريق: مرحلة تتبع إضافية دون تغيير حالة الطلب الأساسية =====
-async async function techOnTheWay(orderId) {
+async function techOnTheWay(orderId) {
   if (!currentTechnician?.id) return;
   try {
     const { error } = await sb.from('orders').update({ on_the_way_at: new Date().toISOString() }).eq('id', orderId);
