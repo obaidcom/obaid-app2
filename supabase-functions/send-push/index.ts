@@ -79,6 +79,8 @@ Deno.serve(async (req: Request) => {
     const title = record.title || "عبيد للصيانة";
     const body = record.body || record.message || "لديك تحديث جديد";
     const type = record.type || "general";
+    const relatedId = record.related_id ?? record.relatedId ?? record.id ?? "";
+    const invoiceId = record.invoice_id ?? record.invoiceId ?? "";
 
     if (!userId) {
       return new Response(JSON.stringify({ ok: false, error: "user_id missing" }), { status: 400 });
@@ -96,7 +98,11 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getAccessToken();
     const results = await Promise.all(
-      subs.map((s) => sendToToken(accessToken, s.device_token, title, body, { type: String(type) }))
+      subs.map((s) => sendToToken(accessToken, s.device_token, title, body, {
+        type: String(type),
+        related_id: String(relatedId),
+        invoice_id: String(invoiceId)
+      }))
     );
 
     return new Response(
