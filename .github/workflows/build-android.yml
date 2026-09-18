@@ -36,6 +36,13 @@ jobs:
             git push
           fi
 
+      - name: Apply final auth tracker and push hardening
+        run: |
+          python3 scripts/final_auth_tracker_push_fix.py
+          grep -Fq "تم إنشاء حسابك وتسجيل دخولك بنجاح" index.html
+          grep -Fq "enableNativePush" index.html
+          grep -Fq "['awaiting_payment','pending_verification','paid']" index.html
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
