@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -15,26 +15,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Apply canonical tracker fix once
+      - name: Validate canonical tracker flow
         run: |
-          if grep -Fq "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];" index.html && grep -Fq "async function techStartProcessing(orderId)" index.html; then
-            echo "Canonical tracker already applied."
-          else
-            python3 scripts/one_time_tracker_fix.py
-            grep -Fq "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];" index.html
-            grep -Fq "async function techStartProcessing(orderId)" index.html
-            grep -Fq "label: 'تم استلام الطلب'" index.html
-            grep -Fq "label: 'تم قبول الطلب'" index.html
-            grep -Fq "label: 'تم تعيين فني'" index.html
-            grep -Fq "label: 'جاري المعالجة'" index.html
-            grep -Fq "label: 'تم الانتهاء'" index.html
-            grep -Fq "sb.rpc('accept_order', { p_order_id: orderId })" index.html
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add index.html
-            git commit -m "fix: apply canonical tracker flow"
-            git push
-          fi
+          grep -Fq "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];" index.html
+          grep -Fq "async function techStartProcessing(orderId)" index.html
+          grep -Fq "label: 'تم استلام الطلب'" index.html
+          grep -Fq "label: 'تم قبول الطلب'" index.html
+          grep -Fq "label: 'تم تعيين فني'" index.html
+          grep -Fq "label: 'جاري المعالجة'" index.html
+          grep -Fq "label: 'تم الانتهاء'" index.html
+          grep -Fq "sb.rpc('accept_order', { p_order_id: orderId })" index.html
+          echo "Canonical tracker validation passed."
 
       - name: Validate application fixes before Android build
         run: |
