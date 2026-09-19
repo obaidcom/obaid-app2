@@ -41,9 +41,10 @@ new = """      } catch(err) {
         }
         showAlert('خطأ في إنشاء الحساب: ' + (err.message||'تعذر إنشاء الحساب'), 'error', 6000);
       } finally {"""
-if old not in s:
-    raise SystemExit("registration catch block not found")
-s = s.replace(old, new, 1)
+if old in s:
+    s = s.replace(old, new, 1)
+elif "registration recovery:" not in s:
+    raise SystemExit("registration catch block not found and recovery patch is absent")
 
 # 2) Customer tracker: map post-service payment states to the completed stage.
 old = """  const trackingStatus = (hasTech && active.status === 'accepted') ? 'assigned' : active.status;
