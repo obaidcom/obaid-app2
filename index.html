@@ -5867,47 +5867,104 @@ async function verifyReceipt(status) {
   if (!currentReceiptForVerification) return;
   const invoice = currentReceiptForVerification;
   let rejectReason = '';
-  if (status === 'verified') {
-    invoice.receiptStatus = 'verified'; invoice.status = 'paid';
-    invoice.receiptVerifiedAt = new Date().toISOString();
-    const order = allOrders.find(o => o.invoiceId == invoice.id);
-    if (order) { order.status = 'completed'; order.paymentStatus = 'paid'; }
-    showAlert('تم قبول الإيصال وتحديث الفاتورة إلى مدفوعة', 'success');
-  } else {
+
+  if (status !== 'verified') {
     const reason = document.getElementById('rejectReasonText')?.value?.trim();
     if (!reason) { showAlert('اكتب سبب الرفض أولاً', 'error'); return; }
     rejectReason = reason;
-    invoice.receiptStatus = 'rejected'; invoice.receiptRejectionReason = reason; invoice.status = 'pending_payment';
-    closeModal(); // إغلاق نافذة سبب الرفض
+  }
+
+  const verifyStatus = status === 'verified' ? 'verified' : 'rejected';
+  let savedInvoice = null;
+
+  // الفني لا يعدّل الفاتورة مباشرة عبر PostgREST؛ يستخدم RPC محمياً
+  // ويتحقق الخادم من أن الفاتورة تخص هذا الفني، ثم يحدّث الفاتورة والطلب معاً.
+  const isOwnTechInvoice =
+    !!currentTechnician?.id &&
+    Number(invoice.techId || invoice.tech_id) === Number(currentTechnician.id);
+
+  if (isOwnTechInvoice) {
+    const { data, error } = await sb.rpc('tech_verify_invoice_payment', {
+      p_invoice_id: Number(invoice.id),
+      p_status: verifyStatus
+    });
+    if (error) {
+      showAlert('تعذر تحديث حالة الدفع: ' + (error.message || 'خطأ غير معروف'), 'error', 7000);
+      return;
+    }
+    savedInvoice = Array.isArray(data) ? data[0] : data;
+  } else {
+    // مسار الأدمن الحالي
+    const { data, error } = await sb.from('invoices')
+      .update({
+        receipt_status: verifyStatus,
+        status: status === 'verified' ? 'paid' : 'pending_payment',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', invoice.id)
+      .select()
+      .single();
+    if (error) {
+      showAlert('تعذر تحديث الفاتورة: ' + (error.message || 'خطأ غير معروف'), 'error', 7000);
+      return;
+    }
+    savedInvoice = data;
+
+    const relOrd = allOrders.find(o => String(o.invoiceId || o.invoice_id) === String(invoice.id));
+    if (relOrd) {
+      const { error: orderError } = await sb.from('orders')
+        .update({
+          status: status === 'verified' ? 'completed' : 'awaiting_payment',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', relOrd.id);
+      if (orderError) console.warn('invoice order status update:', orderError);
+    }
+  }
+
+  // تحديث النسخة المحلية بعد نجاح قاعدة البيانات فقط.
+  Object.assign(invoice, normalizeInvoices([savedInvoice || invoice])[0] || {});
+  invoice.receiptStatus = verifyStatus;
+  invoice.status = status === 'verified' ? 'paid' : 'pending_payment';
+  invoice.receiptRejectionReason = rejectReason;
+
+  const relOrd = allOrders.find(o => String(o.invoiceId || o.invoice_id) === String(invoice.id));
+  if (relOrd) {
+    relOrd.status = status === 'verified' ? 'completed' : 'awaiting_payment';
+    relOrd.paymentStatus = status === 'verified' ? 'paid' : 'unpaid';
+  }
+
+  if (status === 'verified') {
+    showAlert('✅ تم قبول الإيصال — أصبحت الفاتورة «مدفوعة» عند الفني والعميل', 'success', 5000);
+  } else {
+    closeModal();
     showAlert('تم رفض الإيصال', 'success');
   }
+
   closeReceiptVerification();
-  loadReceiptsForVerification();
-  updateReceiptStats();
-  renderOrdersList();
+  if (typeof loadReceiptsForVerification === 'function') loadReceiptsForVerification();
+  if (typeof updateReceiptStats === 'function') updateReceiptStats();
+  if (typeof renderOrdersList === 'function') renderOrdersList();
+  if (typeof loadTechOrders === 'function' && currentTechnician?.id) loadTechOrders();
 
-  // Supabase في الخلفية
-  const verifyStatus = status === 'verified' ? 'verified' : 'rejected';
-  await sb.from('invoices').update({ receipt_status: verifyStatus, status: status==='verified'?'paid':'pending_payment', updated_at: new Date().toISOString() }).eq('id', invoice.id);
-  const relOrd = allOrders.find(o => String(o.invoiceId||o.invoice_id) === String(invoice.id));
-  if (relOrd) sb.from('orders').update({ status: status==='verified'?'completed':'awaiting_payment', updated_at: new Date().toISOString() }).eq('id', relOrd.id).then(()=>{});
-
-  // إشعار العميل بنتيجة التحقق من الدفع
+  // إشعار العميل بنتيجة التحقق من الدفع.
   const customerId = invoice.customerId || invoice.customer_id;
   if (customerId) {
     const msg = status === 'verified'
-      ? `✅ تم تأكيد استلام دفعتك للفاتورة ${invoice.invoiceNumber||invoice.invoice_number||''} بمبلغ ${parseFloat(invoice.total||0).toFixed(0)} ل.س - شكراً لك!`
-      : `❌ تم رفض إيصال الدفع للفاتورة ${invoice.invoiceNumber||invoice.invoice_number||''}${rejectReason?(' - السبب: '+rejectReason):''} - يرجى المحاولة مجدداً`;
+      ? `✅ تم تأكيد استلام دفعتك للفاتورة ${invoice.invoiceNumber||invoice.invoice_number||''} بمبلغ ${parseFloat(invoice.total||0).toFixed(0)} ل.س - أصبحت الفاتورة مدفوعة.`
+      : `❌ تم رفض إيصال الدفع للفاتورة ${invoice.invoiceNumber||invoice.invoice_number||''}${rejectReason ? (' - السبب: '+rejectReason) : ''} - يرجى المحاولة مجدداً`;
     sb.from('notifications').insert([{
-      user_id:    customerId,
+      user_id: customerId,
       invoice_id: parseInt(invoice.id, 10),
-      message:    msg,
-      type:       status === 'verified' ? 'payment_confirmed' : 'payment_rejected',
-      is_read:    false
-    }]).then(()=>{});
+      related_id: parseInt(invoice.id, 10),
+      message: msg,
+      type: status === 'verified' ? 'payment_confirmed' : 'payment_rejected',
+      is_read: false
+    }).then(({ error }) => {
+      if (error) console.warn('payment notification error:', error);
+    });
   }
 }
-
 function closeReceiptVerification() { document.getElementById('receiptVerificationModal').style.display = 'none'; currentReceiptForVerification = null; }
 function filterReceipts() { loadReceiptsForVerification(); }
 async function updateReceiptStats() {
