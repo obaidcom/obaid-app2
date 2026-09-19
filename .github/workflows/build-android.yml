@@ -36,12 +36,15 @@ jobs:
             git push
           fi
 
-      - name: Apply final auth tracker and push hardening
+      - name: Validate application fixes before Android build
         run: |
-          python3 scripts/final_auth_tracker_push_fix.py
+          grep -Fq "complete_tech_order" index.html
+          grep -Fq "create_tech_invoice" index.html
+          grep -Fq "create_my_user_profile" index.html
           grep -Fq "تم إنشاء حسابك وتسجيل دخولك بنجاح" index.html
           grep -Fq "enableNativePush" index.html
           grep -Fq "['awaiting_payment','pending_verification','paid']" index.html
+          echo "Application fix validation passed."
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
