@@ -63,7 +63,9 @@ new = """  function initNativePush() {
     if (window._nativePushInitialized) return;
     if (!isNative()) return;
     window._nativePushInitialized = true;"""
-if old not in s:
+if old in s:
+    s = s.replace(old, new, 1)
+elif "nativePushInitialized" not in s:
     raise SystemExit("native push initializer not found")
 s = s.replace(old, new, 1)
 
