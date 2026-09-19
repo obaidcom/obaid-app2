@@ -5177,13 +5177,25 @@ async function updateOrderStatus(orderId, newStatus) {
   const order = allOrders[orderIndex];
   const oldStatus = order.status;
 
-  // تحديث الحالة في Supabase
+  // تحديث الحالة في Supabase.
+  // لا نرسل completed_at مباشرة عبر PostgREST؛ عند الإنهاء نستخدم RPC
+  // حتى لا تتوقف الواجهة بسبب schema cache قديم.
   try {
-    const updatePayload = { status: newStatus, updated_at: new Date().toISOString() };
-    if (newStatus === 'completed') updatePayload.completed_at = new Date().toISOString();
-    const { error: statusErr } = await sb.from('orders').update(updatePayload).eq('id', order.id);
-    if (statusErr) throw statusErr;
-  } catch(err) { console.error('status update:', err); showAlert('خطأ في تحديث الحالة: ' + err.message, 'error'); return; }
+    if (newStatus === 'completed') {
+      const { data: completedOrder, error: statusErr } = await sb.rpc('complete_tech_order', {
+        p_order_id: Number(order.id)
+      });
+      if (statusErr) throw statusErr;
+      if (completedOrder) {
+        allOrders[orderIndex] = { ...allOrders[orderIndex], ...completedOrder, status: 'completed' };
+      }
+    } else {
+      const { error: statusErr } = await sb.from('orders')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', order.id);
+      if (statusErr) throw statusErr;
+    }
+  } catch(err) { console.error('status update:', err); showAlert('خطأ في تحديث الحالة: ' + (err.message || err), 'error'); return; }
 
   // إشعار للفني المعين إذا تغيرت الحالة لـ in-progress
   if (newStatus === 'in-progress' && order.tech_id) {
