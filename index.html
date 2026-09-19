@@ -1544,7 +1544,8 @@ async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
 
   updateUIForLoggedInUser();
   updateBookingForm();
-  if (typeof syncPushToken === 'function') syncPushToken();
+  if (typeof enableNativePush === 'function') enableNativePush();
+  if (typeof syncPushToken === 'function') setTimeout(() => syncPushToken(), 250);
 
   if (currentAdmin) {
     hideAllPages();
@@ -7175,12 +7176,10 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
       if (typeof currentUser === 'undefined' || !currentUser || !currentUser.id) return;
       if (typeof sb === 'undefined') return;
       const platform = window.Capacitor.getPlatform();
-      const { error } = await sb.from('push_subscriptions').upsert({
-        user_id: currentUser.id,
-        device_token: window._nativePushToken,
-        platform: platform,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'device_token' });
+      const { error } = await sb.rpc('register_push_token', {
+        p_device_token: window._nativePushToken,
+        p_platform: platform
+      });
       if (error) throw error;
     } catch (e) {
       console.warn('push token sync failed', e);
@@ -7194,7 +7193,9 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
   window.syncPushToken = syncPushToken;
 
   function initNativePush() {
+    if (window._nativePushInitialized) return;
     if (!isNative()) return;
+    window._nativePushInitialized = true;
     const PushNotifications = window.Capacitor.Plugins.PushNotifications;
     if (!PushNotifications) return;
 
@@ -7252,6 +7253,8 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
       } catch (e) {}
     });
   }
+
+  window.enableNativePush = initNativePush;
 
   document.addEventListener('DOMContentLoaded', function () {
     setTimeout(initNativePush, 300);
