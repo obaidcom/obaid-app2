@@ -1693,6 +1693,30 @@ function setupEventListeners() {
         await applyRoleAndRoute(data, 'user', { isNewAccount: true });
         if (typeof syncPushToken === 'function') await syncPushToken();
       } catch(err) {
+        // إذا نجحت Supabase Auth لكن فشل حفظ ملف users، استرجع الجلسة وأكمل الملف.
+        try {
+          const { data: recoveryAuth } = await sb.auth.getUser();
+          const au = recoveryAuth?.user;
+          if (au?.id) {
+            let { data: recoveredProfile } = await sb.from('users')
+              .select('id,name,email,phone,profile_image,role,auth_uid')
+              .eq('auth_uid', au.id).maybeSingle();
+            if (!recoveredProfile) {
+              const { data: ensured, error: ensuredErr } = await sb.rpc('create_my_user_profile', {
+                p_name: name, p_email: email, p_phone: phone || ''
+              });
+              if (ensuredErr) throw ensuredErr;
+              recoveredProfile = ensured;
+            }
+            if (recoveredProfile?.id) {
+              await applyRoleAndRoute(recoveredProfile, 'user', { isNewAccount: true });
+              showAlert('✅ تم إنشاء الحساب وتسجيل الدخول بنجاح', 'success', 5000);
+              return;
+            }
+          }
+        } catch (recoveryErr) {
+          console.error('registration recovery:', recoveryErr);
+        }
         showAlert('خطأ في إنشاء الحساب: ' + (err.message||'تعذر إنشاء الحساب'), 'error', 6000);
       } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> إنشاء حساب'; }
@@ -5472,19 +5496,23 @@ async function sendInvoiceToClientWithPayment() {
     }
   }
 
-  // 2. تحديث الطلب
+  // 2. تحديث الطلب.
+  // create_tech_invoice يربط الفاتورة بالطلب ويحوّله إلى awaiting_payment
+  // في نفس العملية. للمسارات الأخرى يبقى التحديث المباشر متاحاً.
   const orderId = window.currentInvoiceOrder.id;
-  const { error: orderUpdateError } = await sb.from('orders').update({
-    status:         'awaiting_payment',
-    invoice_id:     saved.id,
-    invoice_number: saved.invoice_number || saved.invoiceNumber || '',
-    invoice_amount: saved.total || 0,
-    payment_method: 'barcode',
-    updated_at:     new Date().toISOString()
-  }).eq('id', orderId);
-  if (orderUpdateError) {
-    console.error('invoice order update:', orderUpdateError);
-    showAlert('تم حفظ الفاتورة لكن تعذر تحديث حالة الطلب: ' + orderUpdateError.message, 'warning', 7000);
+  if (!techSending) {
+    const { error: orderUpdateError } = await sb.from('orders').update({
+      status:         'awaiting_payment',
+      invoice_id:     saved.id,
+      invoice_number: saved.invoice_number || saved.invoiceNumber || '',
+      invoice_amount: saved.total || 0,
+      payment_method: 'barcode',
+      updated_at:     new Date().toISOString()
+    }).eq('id', orderId);
+    if (orderUpdateError) {
+      console.error('invoice order update:', orderUpdateError);
+      showAlert('تم حفظ الفاتورة لكن تعذر تحديث حالة الطلب: ' + orderUpdateError.message, 'warning', 7000);
+    }
   }
 
   // 3. تحديث محلي
@@ -7078,20 +7106,23 @@ async function techOnTheWay(orderId) {
 // ===== إنهاء الطلب والانتقال مباشرة لإنشاء الفاتورة - تجربة موحدة بدل زرين منفصلين =====
 async function techFinishAndInvoice(orderId, userId, name, phone, service) {
   try {
-    const { error } = await sb.from('orders').update({
-      status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString()
-    }).eq('id', orderId);
+    // لا نعتمد على PostgREST لإرسال completed_at مباشرة؛ نستخدم RPC محمي
+    // حتى لا تتأثر عملية الإنهاء بذاكرة schema cache القديمة.
+    const { data: completedOrder, error } = await sb.rpc('complete_tech_order', {
+      p_order_id: Number(orderId)
+    });
     if (error) throw error;
+
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
-    if (idx !== -1) allOrders[idx].status = 'completed';
+    if (idx !== -1) {
+      allOrders[idx] = { ...allOrders[idx], ...(completedOrder || {}), status: 'completed' };
+    }
 
     // إشعار إتمام الخدمة يُنشأ تلقائياً من Trigger قاعدة البيانات.
-    const order = allOrders[idx];
-
-    // الانتقال مباشرة لإنشاء الفاتورة
+    const order = completedOrder || allOrders[idx] || { id: orderId, service, user_id: userId, name, phone };
     techCreateInvoice(orderId, userId, name, phone, service);
   } catch (e) {
-    showAlert('تعذر إنهاء الطلب: ' + e.message, 'error', 6000);
+    showAlert('تعذر إنهاء الطلب: ' + (e.message || e), 'error', 6000);
   }
 }
 
