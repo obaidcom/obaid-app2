@@ -31,6 +31,7 @@ jobs:
         run: |
           grep -Fq "complete_tech_order" index.html
           grep -Fq "create_tech_invoice" index.html
+          grep -Fq "tech_verify_invoice_payment" index.html
           grep -Fq "create_my_user_profile" index.html
           grep -Fq "enableNativePush" index.html
           echo "Application fix validation passed."
