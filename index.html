@@ -1533,15 +1533,13 @@ async function updateBookingSubdistricts() {
   }
 
   const govId = SYRIA_GOV_ID_MAP[normalizeArabicPlaceName(gov)];
-  const districtIds = new Set(
-    (SYRIA_DISTRICTS_META || [])
-      .filter(x => x?.governorateId === govId)
-      .map(x => x?.id)
-      .filter(Boolean)
-  );
 
-  let list = districtIds.size
-    ? SYRIA_SUBDISTRICTS.filter(x => districtIds.has(x?.districtId))
+  // كل ناحية في مصدر البيانات تحمل governorateId مباشرة.
+  // نعتمد عليه بدل المرور عبر قائمة المناطق (ADM2)، لأن بعض المناطق
+  // قد تكون ناقصة/غير متطابقة في ملف المناطق، وهذا كان يمنع ظهور
+  // نواحي بعض المحافظات.
+  let list = govId
+    ? SYRIA_SUBDISTRICTS.filter(x => x?.governorateId === govId)
     : [];
 
   const q = normalizeArabicPlaceName(search?.value || '');
