@@ -1319,21 +1319,22 @@ function resetAdminSettings() {
 }
 
 const SYRIA_GOVERNORATES = ['دمشق','ريف دمشق','حلب','حمص','حماة','إدلب','اللاذقية','طرطوس','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'];
+// 62 منطقة إدارية (ADM2) — مصدر مرجعي حديث ومراجعة مع أكثر من مصدر.
 const DISTRICTS_BY_GOV = Object.freeze({
   'دمشق':['دمشق'],
-  'ريف دمشق':['مركز ريف دمشق','داريا','دوما','القطيفة','النبك','التل','الزبداني','قطنا','قدسيا','يبرود'],
-  'حلب':['جبل سمعان','عفرين','الأتارب','عين العرب','أعزاز','الباب','دير حافر','جرابلس','منبج','السفيرة'],
-  'حمص':['حمص','المخرم','القصير','الرستن','تدمر','تلدو','تلكلخ'],
-  'حماة':['حماة','السقيلبية','السلمية','مصياف','محردة'],
-  'إدلب':['إدلب','أريحا','حارم','جسر الشغور','معرة النعمان'],
-  'اللاذقية':['اللاذقية','الحفة','جبلة','القرداحة'],
-  'طرطوس':['طرطوس','بانياس','دريكيش','الشيخ بدر','صافيتا'],
-  'دير الزور':['دير الزور','البوكمال','الميادين'],
-  'الرقة':['الرقة','تل أبيض','الطبقة'],
+  'ريف دمشق':['النبك','القطيفة','التل','الزبداني','داريا','دوما','مركز ريف دمشق','قطنا','يبرود'],
+  'حلب':['عفرين','الباب','السفيرة','عين العرب','أعزاز','جرابلس','منبج','جبل سمعان'],
+  'حمص':['المخرم','القصير','الرستن','حمص','تدمر','تلكلخ'],
+  'حماة':['سلمية','السقيلبية','حماة','مصياف','محردة'],
+  'إدلب':['أريحا','حارم','إدلب','جسر الشغور','معرة النعمان'],
+  'اللاذقية':['الحفة','جبلة','اللاذقية','القرداحة'],
+  'طرطوس':['الشيخ بدر','بانياس','القدموس','دريكيش','صافيتا','طرطوس'],
+  'دير الزور':['البوكمال','دير الزور','الميادين'],
+  'الرقة':['الثورة','الرقة','تل أبيض'],
   'الحسكة':['الحسكة','المالكية','القامشلي','رأس العين'],
-  'درعا':['درعا','إزرع','الصنمين'],
+  'درعا':['الصنمين','درعا','إزرع'],
   'السويداء':['السويداء','صلخد','شهبا'],
-  'القنيطرة':['القنيطرة','فيق']
+  'القنيطرة':['فيق','القنيطرة']
 });
 
 function renderBookingForm() {
@@ -1602,7 +1603,7 @@ async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
       if (techData) {
         currentTechnician = {
           ...techData,
-          permissions: techData.permissions || { viewOrders:true, updateStatus:true, viewCustomer:false, allGovernorates:false },
+          permissions: techData.permissions || { viewOrders:true, updateStatus:true, viewCustomer:true, allGovernorates:false },
           loginTime: new Date().toISOString()
         };
         localStorage.setItem('obied_tech', JSON.stringify(currentTechnician));
@@ -2398,7 +2399,7 @@ async function assignUserAsTech(userId, userName, userPhone, existingTechId) {
   const perms = {
     viewOrders:      document.getElementById('aPermView')?.checked    ?? true,
     updateStatus:    document.getElementById('aPermUpdate')?.checked   ?? true,
-    viewCustomer:    document.getElementById('aPermCustomer')?.checked ?? false,
+    viewCustomer:    document.getElementById('aPermCustomer')?.checked ?? true,
     allGovernorates: document.getElementById('aPermAllGov')?.checked   ?? false,
   };
   const techData = {
@@ -2551,7 +2552,7 @@ async function addNewTechnician() {
   const perms = {
     viewOrders:      document.getElementById('permViewOrders')?.checked ?? true,
     updateStatus:    document.getElementById('permUpdateStatus')?.checked ?? true,
-    viewCustomer:    document.getElementById('permViewCustomer')?.checked ?? false,
+    viewCustomer:    document.getElementById('permViewCustomer')?.checked ?? true,
     allGovernorates: document.getElementById('permAllGov')?.checked ?? false,
   };
   if (!name || !code) { showAlert('أدخل الاسم والرمز', 'error'); return; }
@@ -2621,7 +2622,7 @@ async function saveTechEdit(techId) {
   const perms = {
     viewOrders:      document.getElementById('ePermViewOrders')?.checked ?? true,
     updateStatus:    document.getElementById('ePermUpdateStatus')?.checked ?? true,
-    viewCustomer:    document.getElementById('ePermViewCustomer')?.checked ?? false,
+    viewCustomer:    document.getElementById('ePermViewCustomer')?.checked ?? true,
     allGovernorates: document.getElementById('ePermAllGov')?.checked ?? false,
   };
   const { error } = await sb.from('technicians').update({
@@ -6396,7 +6397,7 @@ async function showTechDashboard() {
 async function loadTechOrders() {
   try {
     let query = sb.from('orders')
-      .select('id,user_id,name,phone,service,date,time,status,governorate,district,photo,on_the_way_at,invoice_id,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,district,address,latitude,longitude,photo,on_the_way_at,invoice_id,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
       .order('created_at', { ascending: false });
 
     const perms = currentTechnician?.permissions || {};
@@ -6422,6 +6423,16 @@ async function loadTechOrders() {
     if (error) throw error;
 
     let list = (orders || []).map(o => ({ ...o, userId: o.user_id, createdAt: o.created_at }));
+
+    if (currentTechnician?.id) {
+      list = list.filter(o => {
+        const assigned = o.accepted_by_tech || o.tech_id;
+        if (o.status === 'pending' && !o.accepted_by_tech) {
+          return !o.tech_id || String(o.tech_id) === String(currentTechnician.id);
+        }
+        return String(assigned || '') === String(currentTechnician.id);
+      });
+    }
     // إذا كان الفني "غير متاح"، يخفى عنه الطلبات الجديدة غير المُسندة، ويبقى يرى طلباته الخاصة فقط
     if (currentTechnician?.is_available === false) {
       list = list.filter(o => String(o.accepted_by_tech || o.tech_id || '') === String(currentTechnician.id));
@@ -6505,6 +6516,13 @@ function renderTechOrders() {
         ${perms.viewCustomer?`<div><i class="fas fa-phone" style="color:#10b981;"></i> ${o.phone||'—'}</div>`:'<div><i class="fas fa-phone" style="color:#e2e8f0;"></i> محجوب</div>'}
         <div><i class="fas fa-calendar" style="color:#f59e0b;"></i> ${o.date||'—'}</div>
         <div><i class="fas fa-clock" style="color:#8b5cf6;"></i> ${o.time||'—'}</div>
+        ${o.district?`<div><i class="fas fa-map-marked-alt" style="color:#8b5cf6;"></i> المنطقة: ${o.district}</div>`:''}
+        ${o.address?`<div style="grid-column:1/-1;"><i class="fas fa-location-dot" style="color:#ef4444;"></i> العنوان: ${o.address}</div>`:''}
+        ${(o.latitude!=null && o.longitude!=null)?`
+          <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span><i class="fas fa-location-crosshairs" style="color:#10b981;"></i> الموقع: ${Number(o.latitude).toFixed(6)}, ${Number(o.longitude).toFixed(6)}</span>
+            <button type="button" onclick="window.open('https://www.google.com/maps?q=${encodeURIComponent(o.latitude+','+o.longitude)}','_blank')" style="background:#10b981;color:white;border:none;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.78rem;"><i class="fas fa-map"></i> فتح الخريطة</button>
+          </div>`:''}
         ${o.notes?`<div style="grid-column:1/-1;"><i class="fas fa-comment" style="color:#94a3b8;"></i> ${o.notes}</div>`:''}
       </div>
       ${o.photo?`<img src="${o.photo}" onclick="window.open(this.src)" style="max-width:120px;max-height:90px;border-radius:8px;cursor:pointer;margin-bottom:10px;border:1px solid #e2e8f0;">`:''}
@@ -7195,7 +7213,12 @@ async function techAcceptOrder(orderId) {
     }
     showAlert('✅ تم قبول الطلب — تم تعيين الفني. اضغط «بدء المعالجة» عند البدء.', 'success', 5000);
   } catch (e) {
-    showAlert('خطأ في قبول الطلب: ' + (e.message || e), 'error');
+    const msg = e?.message || String(e);
+    if (msg.includes('غير متاح') || msg.includes('فني آخر')) {
+      showAlert('⚠️ هذا الطلب أصبح محجوزاً من فني آخر أو لم يعد متاحاً للقبول.', 'warning', 5000);
+    } else {
+      showAlert('خطأ في قبول الطلب: ' + msg, 'error');
+    }
     loadTechOrders();
   }
 }
