@@ -21,12 +21,21 @@
     --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
   }
-  body.dark-mode {
-    background: #0b1220 !important;
-  }
-  body.dark-mode .nav { background: rgba(11,18,32,0.95) !important; }
-  body.dark-mode .nav-link { color: #f1f5f9 !important; }
-  body.dark-mode #homePage { background: #0b1220 !important; }
+  body.dark-mode { background:#0b1220 !important; color:#f1f5f9; }
+  body.dark-mode .nav, body.dark-mode .main-header { background:rgba(11,18,32,.96) !important; border-bottom-color:#1e3a5f !important; }
+  body.dark-mode .nav-link { color:#f1f5f9 !important; }
+  body.dark-mode .nav-link:hover, body.dark-mode .nav-link.active { background:#2563eb !important; color:#fff !important; }
+  body.dark-mode #homePage, body.dark-mode .main-content, body.dark-mode .services-section { background:#0b1220 !important; }
+  body.dark-mode .booking-section, body.dark-mode .ratings-section, body.dark-mode .admin-dashboard { background:#0f172a !important; }
+  body.dark-mode .service-card, body.dark-mode .booking-form, body.dark-mode .rating-card, body.dark-mode .stat-card, body.dark-mode .admin-login-box, body.dark-mode .admin-header, body.dark-mode .modal-content, body.dark-mode .profile-card { background:#111827 !important; color:#f1f5f9 !important; border-color:#374151 !important; }
+  body.dark-mode .section-title, body.dark-mode .service-card h3, body.dark-mode .rating-info h4, body.dark-mode .form-group label, body.dark-mode .admin-logo { color:#f1f5f9 !important; }
+  body.dark-mode .service-card p, body.dark-mode .rating-info p, body.dark-mode .rating-text { color:#cbd5e1 !important; }
+  body.dark-mode .form-control, body.dark-mode select, body.dark-mode textarea, body.dark-mode input { background:#0f172a !important; color:#f1f5f9 !important; border-color:#374151 !important; }
+  body.dark-mode .form-control::placeholder, body.dark-mode input::placeholder, body.dark-mode textarea::placeholder { color:#94a3b8 !important; }
+  body.dark-mode .admin-btn { background:#1f2937 !important; color:#f1f5f9 !important; border-color:#374151 !important; }
+  body.dark-mode .admin-btn:hover { background:#2563eb !important; color:#fff !important; }
+  body.dark-mode .service-price { background:#172554 !important; color:#60a5fa !important; }
+  body.dark-mode .account-verified-badge { background:#2563eb; border-color:#111827; box-shadow:0 2px 10px rgba(37,99,235,.5); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Tajawal', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #ffffff; color: var(--dark); direction: rtl; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   .welcome-page.hidden { display: none !important; }
@@ -531,7 +540,6 @@
       <a href="#" class="nav-link" onclick="navLinkClick('ratings')"><i class="fas fa-star"></i> التقييمات</a>
       <a href="#" class="nav-link" onclick="navLinkClick('booking')"><i class="fas fa-calendar-check"></i> حجز موعد</a>
       <a href="#" class="nav-link" onclick="toggleDarkMode();closeMenu()"><i class="fas fa-moon" id="darkModeIcon"></i> <span id="darkModeLabel">الوضع الليلي</span></a>
-      <a href="#" class="nav-link" onclick="navLinkClick('profile')"><i class="fas fa-user"></i> ملفي</a>
       <a href="#" class="nav-link" id="adminNavBtn" onclick="currentAdmin?showAdminDashboard():showAdminLogin()" style="display:none;"><i class="fas fa-cog"></i> الإدارة</a>
       <a href="#" class="nav-link" onclick="showLoginPage();closeMenu()" id="loginBtn" style="background:var(--primary);color:white;border-radius:var(--radius);justify-content:center;"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</a>
       <div id="adminNavMenuBtn" style="display:none;padding:8px 15px;">
@@ -6649,10 +6657,14 @@ async function toggleUserVerification(userId, verified) {
   if (error) { console.error('toggleUserVerification error:', error); showAlert('تعذر تحديث توثيق الحساب: ' + (error.message || 'خطأ غير معروف'), 'error', 5000); return; }
   const user = allUsers.find(u => Number(u.id) === id);
   if (user) user.is_verified = !!verified;
-  if (currentUser && Number(currentUser.id) === id) currentUser.is_verified = !!verified;
-  showAlert(verified ? '✅ تم توثيق الحساب' : 'تم إلغاء توثيق الحساب', 'success', 1800);
+  if (currentUser && Number(currentUser.id) === id) {
+    currentUser.is_verified = !!verified;
+    localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+    updateAccountAvatar();
+    updateProfilePage();
+  }
+  showAlert(verified ? '✅ تم توثيق الحساب — ستظهر علامة التوثيق بجانب الاسم' : 'تم إلغاء توثيق الحساب', 'success', 2200);
   showUsersList();
-  if (currentUser && Number(currentUser.id) === id) updateProfilePage();
 }
 
 function renderOrdersList(filterStatus = 'all', filterDate = '') {
