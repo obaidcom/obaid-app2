@@ -57,10 +57,10 @@
   .social-icon { width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--light); color: var(--dark); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; transition: all var(--transition); text-decoration: none; }
   .social-icon:hover { background: var(--primary); color: white; transform: translateY(-2px); }
   .mobile-social { display: none; justify-content: center; gap: 1rem; padding: 1.5rem; border-top: 1px solid rgba(0,0,0,0.1); margin-top: 1rem; }
-  .user-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: var(--shadow); transition: all var(--transition); overflow: hidden; }
+  .user-avatar { position: relative; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: var(--shadow); transition: all var(--transition); overflow: hidden; }
   .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .user-avatar:hover { transform: scale(1.05); }
-  .account-verified-badge { position:absolute; right:-3px; bottom:-2px; width:20px; height:20px; border-radius:50%; background:#f59e0b; color:#fff; border:2px solid #fff; display:inline-flex; align-items:center; justify-content:center; font-size:10px; z-index:2; box-shadow:0 2px 6px rgba(0,0,0,.2); }
+  .account-verified-badge { position:absolute; right:-3px; bottom:-3px; width:20px; height:20px; border-radius:50%; background:#2563eb; color:#fff; border:2px solid #fff; display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:1; z-index:2; box-shadow:0 2px 8px rgba(37,99,235,.35); }
     .main-bottom-nav { display:none; }
   @media (max-width: 768px) {
     .main-bottom-nav { position:fixed; left:10px; right:10px; bottom:10px; z-index:2500; background:rgba(255,255,255,.97); border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 10px 35px rgba(0,0,0,.16); padding:7px; gap:4px; justify-content:space-around; align-items:center; }
@@ -80,6 +80,15 @@
   .account-dropdown-item.danger { color:#dc2626; }
   .account-dropdown-item.danger i { color:#dc2626; }
   .account-dropdown-divider { height:1px; background:#e2e8f0; margin:6px 4px; }
+  .account-social-title { display:flex; align-items:center; gap:8px; padding:8px 10px 6px; color:#64748b; font-size:.78rem; font-weight:800; }
+  .account-social-title i { color:var(--primary); }
+  .account-social-links { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:4px 4px 8px; }
+  .account-social-links a { min-width:0; min-height:54px; padding:7px 3px; border-radius:12px; background:#f8fafc; color:#334155; text-decoration:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:.68rem; font-weight:800; transition:all .2s ease; }
+  .account-social-links a i { font-size:1.05rem; color:var(--primary); }
+  .account-social-links a:hover, .account-social-links a:focus-visible { background:#eff6ff; color:#1d4ed8; transform:translateY(-1px); outline:none; }
+  body.dark-mode .account-social-title { color:#94a3b8; }
+  body.dark-mode .account-social-links a { background:#1f2937; color:#e2e8f0; }
+  body.dark-mode .account-social-links a:hover, body.dark-mode .account-social-links a:focus-visible { background:#1e3a8a; color:#fff; }
   body.dark-mode .account-dropdown { background:#111827; border-color:#374151; }
   body.dark-mode .account-dropdown-item { color:#f1f5f9; }
   body.dark-mode .account-dropdown-item:hover { background:#1f2937; }
@@ -554,6 +563,13 @@
         <button class="account-dropdown-item" onclick="showChangePasswordForm();closeAccountDropdown()"><i class="fas fa-key"></i><span>تغيير كلمة المرور</span></button>
         <button id="techDropdownBtn" class="account-dropdown-item" style="display:none;" onclick="showTechDashboard();closeAccountDropdown()"><i class="fas fa-hard-hat"></i><span>لوحة الفني</span></button>
         <button id="adminDropdownBtn" class="account-dropdown-item" style="display:none;" onclick="showAdminDashboard();closeAccountDropdown()"><i class="fas fa-shield-alt"></i><span>لوحة الإدارة</span></button>
+        <div class="account-social-title"><i class="fas fa-share-alt"></i><span>تواصل معنا</span></div>
+        <div class="account-social-links" aria-label="روابط التواصل الاجتماعي">
+          <a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" target="_blank" rel="noopener noreferrer" aria-label="فيسبوك"><i class="fab fa-facebook-f"></i><span>فيسبوك</span></a>
+          <a href="https://x.com/EubaydMajd" target="_blank" rel="noopener noreferrer" aria-label="X"><i class="fab fa-twitter"></i><span>X</span></a>
+          <a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" target="_blank" rel="noopener noreferrer" aria-label="إنستغرام"><i class="fab fa-instagram"></i><span>إنستغرام</span></a>
+          <a href="https://wa.me/+905357624482" target="_blank" rel="noopener noreferrer" aria-label="واتساب"><i class="fab fa-whatsapp"></i><span>واتساب</span></a>
+        </div>
         <div class="account-dropdown-divider"></div>
         <button class="account-dropdown-item danger" onclick="confirmLogout();closeAccountDropdown()"><i class="fas fa-sign-out-alt"></i><span>تسجيل الخروج</span></button>
       </div>
@@ -1053,6 +1069,10 @@ function showHome() {
   if (hp) hp.style.display = 'block';
   setMainBottomNav(true,'Home');
   closeMenu();
+  if (sessionStorage.getItem('obied_return_home_top') === '1') {
+    sessionStorage.removeItem('obied_return_home_top');
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+  }
 }
 
 function showLoginPage() {
@@ -1100,7 +1120,12 @@ function setMainBottomNav(show, active) {
   nav.style.display = show && window.innerWidth <= 768 ? 'flex' : 'none';
   ['Home','Booking','Notif','Profile'].forEach(k => { const b=document.getElementById('bottom'+k+'Btn'); if(b) b.classList.toggle('active', active===k); });
 }
-function bottomNavHome(){ if(!currentUser) return showLoginPage(); showHome(); setMainBottomNav(true,'Home'); }
+function bottomNavHome(){
+  if(!currentUser) return showLoginPage();
+  // عند اختيار «الرئيسية» من الشريط السفلي: تحديث الصفحة ثم العودة مباشرة إلى أعلى الرئيسية.
+  sessionStorage.setItem('obied_return_home_top','1');
+  window.location.reload();
+}
 function bottomNavBooking(){ if(!currentUser) return showLoginPage(); showHome(); setTimeout(()=>document.getElementById('booking')?.scrollIntoView({behavior:'smooth',block:'start'}),80); setMainBottomNav(true,'Booking'); }
 function bottomNavNotifications(){ if(!currentUser) return showLoginPage(); setMainBottomNav(true,'Notif'); showUserNotificationsPanel(); }
 function bottomNavProfile(){ if(!currentUser) return showLoginPage(); showProfile(); setMainBottomNav(false,'Profile'); }
@@ -1276,7 +1301,7 @@ function updateAccountAvatar() {
   if (!el) return;
   if (!currentUser) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
-  const badge = currentUser.is_verified ? '<span class="account-verified-badge" title="حساب موثّق" aria-label="حساب موثّق"><i class="fas fa-check"></i></span>' : '';
+  const badge = currentUser?.is_verified === true ? '<span class="account-verified-badge" title="حساب موثّق" aria-label="حساب موثّق"><i class="fas fa-check"></i></span>' : '';
   if (currentUser.profileImage) {
     el.innerHTML = `<img src="${currentUser.profileImage}" alt="${(currentUser.name || 'حساب').replace(/"/g, '')}">${badge}`;
   } else {
@@ -7378,7 +7403,7 @@ function updateProfilePage() {
   const emailEl = document.getElementById('profileUserEmail');
   const phoneEl = document.getElementById('profileUserPhone');
   const idEl    = document.getElementById('profileUserId');
-  if (nameEl)  nameEl.innerHTML = (currentUser.name || 'اسم المستخدم') + ' <span id="profileVerifiedBadge" title="حساب موثّق" style="display:' + (currentUser.is_verified ? 'inline-flex' : 'none') + ';vertical-align:middle;margin-right:7px;background:#f59e0b;color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:.78rem;"><i class="fas fa-check"></i></span>';
+  if (nameEl)  nameEl.innerHTML = (currentUser.name || 'اسم المستخدم') + ' <span id="profileVerifiedBadge" title="حساب موثّق" style="display:' + (currentUser.is_verified === true ? 'inline-flex' : 'none') + ';vertical-align:middle;margin-right:7px;background:#f59e0b;color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:.78rem;"><i class="fas fa-check"></i></span>';
   if (emailEl) emailEl.innerHTML    = '<i class="fas fa-envelope"></i> ' + (currentUser.email || '');
   if (phoneEl) phoneEl.innerHTML    = '<i class="fas fa-phone"></i> ' + (currentUser.phone || '');
   if (idEl)    idEl.textContent     = 'ID: #' + String(currentUser.id).padStart(4, '0');
