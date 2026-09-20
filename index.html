@@ -532,7 +532,6 @@
       <div id="accountDropdown" class="account-dropdown" onclick="event.stopPropagation()">
         <button class="account-dropdown-item" onclick="showProfile();closeAccountDropdown()"><i class="fas fa-user"></i><span>ملفي الشخصي</span></button>
         <button class="account-dropdown-item" onclick="showEditAccount();closeAccountDropdown()"><i class="fas fa-user-edit"></i><span>تعديل الاسم ورقم الهاتف</span></button>
-        <button class="account-dropdown-item" onclick="showAccountSecurity();closeAccountDropdown()"><i class="fas fa-shield-alt"></i><span>إعدادات الأمان</span></button>
         <button id="techDropdownBtn" class="account-dropdown-item" style="display:none;" onclick="showTechDashboard();closeAccountDropdown()"><i class="fas fa-hard-hat"></i><span>لوحة الفني</span></button>
         <button id="adminDropdownBtn" class="account-dropdown-item" style="display:none;" onclick="showAdminDashboard();closeAccountDropdown()"><i class="fas fa-shield-alt"></i><span>لوحة الإدارة</span></button>
         <div class="account-dropdown-divider"></div>
@@ -791,7 +790,7 @@
           <button class="upload-photo-btn" onclick="document.getElementById('profileImageUpload').click()"><i class="fas fa-camera"></i></button>
         </div>
         <div class="user-details">
-          <h1 id="profileUserName">اسم المستخدم</h1>
+          <h1 id="profileUserName">اسم المستخدم <span id="profileVerifiedBadge" title="حساب موثّق" style="display:none;vertical-align:middle;margin-right:7px;background:#f59e0b;color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:.78rem;"><i class="fas fa-check"></i></span></h1>
           <p id="profileUserEmail"><i class="fas fa-envelope"></i> user@example.com</p>
           <p id="profileUserPhone"><i class="fas fa-phone"></i> 05xxxxxxxx</p>
           <div class="user-id" id="profileUserId">ID: #0001</div>
@@ -1132,7 +1131,7 @@ async function saveAccountProfile() {
   if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...'; }
   try {
     const { data, error } = await sb.from('users').update({ name, phone }).eq('id', currentUser.id)
-      .select('id,name,email,phone,profile_image,role,auth_uid').single();
+      .select('id,name,email,phone,profile_image,role,is_verified,auth_uid').single();
     if (error) throw error;
     currentUser = { ...currentUser, name:data.name, phone:data.phone, profileImage:data.profile_image, role:data.role };
     localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
@@ -1145,24 +1144,6 @@ async function saveAccountProfile() {
     if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> حفظ التغييرات'; }
   }
 }
-function showAccountSecurity() {
-  if (!currentUser) { showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
-  showModal(`
-    <div style="padding:0;max-width:440px;width:100%;">
-      <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
-        <i class="fas fa-shield-alt" style="font-size:2rem;margin-bottom:8px;"></i>
-        <h3 style="margin:0;">إعدادات الأمان</h3>
-        <p style="margin:6px 0 0;opacity:.85;font-size:.85rem;">إدارة كلمة المرور وحماية الحساب</p>
-      </div>
-      <div style="background:white;padding:22px;">
-        <button onclick="closeModal();showChangePassword()" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-key"></i> تغيير كلمة المرور</button>
-        <div style="margin-top:12px;background:#f8fafc;border-radius:12px;padding:12px;color:#475569;font-size:.82rem;line-height:1.7;">
-          <i class="fas fa-lock" style="color:#7c3aed;"></i> صلاحيات تعديل الاسم والهاتف منفصلة عن كلمة المرور، ولا يمكن للمستخدم تغيير دوره أو صلاحياته.
-        </div>
-      </div>
-    </div>`);
-}
-
 function showProfile() {
   if (!currentUser) { showLoginPage(); showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
   if (currentAdmin) { showAdminDashboard(); return; }
@@ -1171,11 +1152,11 @@ function showProfile() {
   if (pp) pp.style.display = 'block';
   closeMenu();
   const adminTab = document.getElementById('adminPanelTab');
-  if (techTab)  techTab.style.display  = 'none';
+
   if (adminTab) adminTab.style.display = currentAdmin ? 'block' : 'none';
   const pAdminBtn = document.getElementById('profileAdminBtn');
   if (pAdminBtn) pAdminBtn.style.display = currentAdmin      ? 'inline-block' : 'none';
-  if (pTechBtn)  pTechBtn.style.display  = 'none';
+
   if (typeof switchProfileTab === 'function') switchProfileTab('tracking');
   if (typeof loadUserData === 'function' && currentUser) loadUserData(currentUser.id);
 }
@@ -1267,7 +1248,7 @@ function updateUIForLoggedInUser() {
   s('adminDropdownBtn', currentAdmin ? 'flex' : 'none');
   const pab = document.getElementById('profileAdminBtn');
   if (pab) pab.style.display = currentAdmin ? 'inline-block' : 'none';
-  if (ptb) ptb.style.display = 'none';
+
   updateAccountAvatar();
   if (currentUser) {
     sb.from('notifications').select('id').eq('user_id', currentUser.id).eq('is_read', false)
@@ -1905,12 +1886,12 @@ function setupEventListeners() {
       const { data: authData } = await sb.auth.signInWithPassword({ email, password }).catch(() => ({ data: null }));
       if (authData?.user) {
         const { data: linkedUser } = await sb.from('users')
-          .select('id,name,email,phone,profile_image,role').eq('auth_uid', authData.user.id).maybeSingle();
+          .select('id,name,email,phone,profile_image,role,is_verified').eq('auth_uid', authData.user.id).maybeSingle();
         userData = linkedUser;
         if (!userData) {
           // حساب Auth موجود لكن غير مربوط بصف قديم بعد - اربطه الآن عبر البريد
           const { data: byEmail } = await sb.from('users')
-            .select('id,name,email,phone,profile_image,role').eq('email', email).maybeSingle();
+            .select('id,name,email,phone,profile_image,role,is_verified').eq('email', email).maybeSingle();
           if (byEmail) {
             await sb.from('users').update({ auth_uid: authData.user.id }).eq('id', byEmail.id);
             userData = byEmail;
@@ -2004,7 +1985,7 @@ function setupEventListeners() {
         }
         if (profileErr || !data?.id) {
           const { data: existingProfile, error: existingErr } = await sb.from('users')
-            .select('id,name,email,phone,profile_image,role,auth_uid')
+            .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
             .eq('auth_uid', signUpData.user.id).maybeSingle();
           if (existingErr || !existingProfile?.id) {
             throw profileErr || existingErr || new Error('تم إنشاء الحساب لكن تعذر حفظ ملف المستخدم');
@@ -2022,7 +2003,7 @@ function setupEventListeners() {
           const au = recoveryAuth?.user;
           if (au?.id) {
             let { data: recoveredProfile } = await sb.from('users')
-              .select('id,name,email,phone,profile_image,role,auth_uid')
+              .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
               .eq('auth_uid', au.id).maybeSingle();
             if (!recoveredProfile) {
               const { data: ensured, error: ensuredErr } = await sb.rpc('create_my_user_profile', {
@@ -3956,7 +3937,7 @@ document.addEventListener('DOMContentLoaded', function() {
     localStorage.setItem('obied_tech_unlocked', '1');
   }
   if (localStorage.getItem('obied_tech_unlocked') || localStorage.getItem('obied_tech')) {
-    if (tb) tb.style.display = 'flex';
+
     try { const st = localStorage.getItem('obied_tech'); if (st) currentTechnician = JSON.parse(st); } catch(e) {}
   }
 
@@ -3990,7 +3971,7 @@ async function restoreSession() {
     if (session?.user) {
       // جلسة Auth حقيقية موجودة - اجلب بيانات المستخدم من قاعدة البيانات
       const { data: userRow } = await sb.from('users')
-        .select('id,name,email,phone,profile_image,role,auth_uid')
+        .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
         .eq('auth_uid', session.user.id).maybeSingle();
 
       if (userRow) {
@@ -4001,7 +3982,7 @@ async function restoreSession() {
 
       // Auth موجود لكن لا يوجد سجل users مرتبط - حاول الربط عبر البريد
       const { data: byEmail } = await sb.from('users')
-        .select('id,name,email,phone,profile_image,role')
+        .select('id,name,email,phone,profile_image,role,is_verified')
         .eq('email', session.user.email).maybeSingle();
 
       if (byEmail) {
@@ -4025,11 +4006,11 @@ async function restoreSession() {
       if (u && u.id) {
         // تحقق صامت من أن السجل لا يزال موجوداً في قاعدة البيانات
         const { data: freshUser } = await sb.from('users')
-          .select('id,name,email,phone,profile_image,role')
+          .select('id,name,email,phone,profile_image,role,is_verified')
           .eq('id', u.id).maybeSingle();
         if (freshUser) {
           currentUser = { id: freshUser.id, name: freshUser.name, email: freshUser.email,
-                         phone: freshUser.phone, profileImage: freshUser.profile_image, role: freshUser.role };
+                         phone: freshUser.phone, profileImage: freshUser.profile_image, is_verified: !!freshUser.is_verified, role: freshUser.role };
           localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
           // محاولة رفع الجلسة: إذا كان لديه pass_word في قاعدة البيانات، ننبّهه بأن يسجّل دخول مرة أخرى
           _showUserHome(currentUser);
@@ -4105,8 +4086,7 @@ function _showTechPanel() {
   if (wp) wp.style.display = 'none';
   var mc = document.getElementById('mainContent');
   if (mc) mc.style.display = 'block';
-  if (tb) tb.style.display = 'none';
-  if (ptb) ptb.style.display = 'none';
+
   var tdb = document.getElementById('techDropdownBtn');
   if (tdb) tdb.style.display = 'flex';
   ['homePage','loginPage','profilePage','adminLoginPage','adminDashboard'].forEach(function(id) {
@@ -6512,7 +6492,7 @@ async function loadAdminData() {
 
     // اجلب المستخدمين والفواتير في الخلفية بعد ما تظهر الطلبات
     const [uRes, iRes] = await Promise.all([
-      sb.from('users').select('id,name,email,phone,created_at').order('created_at', { ascending: true }).limit(500),
+      sb.from('users').select('id,name,email,phone,is_verified,created_at').order('created_at', { ascending: true }).limit(500),
       sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
     ]);
 
@@ -6571,13 +6551,31 @@ function setupStatCards() {
 }
 
 function showUsersList() {
-  showModal(`<div style="padding:20px;max-width:800px;width:100%;max-height:80vh;overflow-y:auto;">
+  showModal(`<div style="padding:20px;max-width:900px;width:100%;max-height:80vh;overflow-y:auto;">
     <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;padding:20px;border-radius:var(--radius) var(--radius) 0 0;"><h3 style="margin:0;"><i class="fas fa-users"></i> قائمة العملاء (${allUsers.length})</h3></div>
     <div style="background:white;padding:20px;">
-      ${allUsers.map(u => `<div class="order-item"><div class="order-info"><h4>${u.name}</h4><div class="order-meta"><span><i class="fas fa-envelope"></i> ${u.email}</span><span><i class="fas fa-phone"></i> ${u.phone}</span></div></div><div>${allOrders.filter(o=>o.userId===u.id).length} طلبات</div></div>`).join('')}
+      ${allUsers.map(u => {
+        const verified = !!u.is_verified;
+        const badge = verified ? '<span title="حساب موثّق" style="display:inline-flex;align-items:center;justify-content:center;margin-right:6px;background:#f59e0b;color:#fff;width:22px;height:22px;border-radius:50%;font-size:.65rem;"><i class="fas fa-check"></i></span>' : '';
+        return `<div class="order-item"><div class="order-info"><h4>${u.name || 'مستخدم'} ${badge}</h4><div class="order-meta"><span><i class="fas fa-envelope"></i> ${u.email||''}</span><span><i class="fas fa-phone"></i> ${u.phone||''}</span></div></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>${allOrders.filter(o=>o.userId===u.id).length} طلبات</span><button class="btn-primary" style="padding:6px 10px;font-size:.75rem;background:${verified?'#64748b':'#f59e0b'};" onclick="event.stopPropagation();toggleUserVerification(${u.id},${!verified})">${verified?'إلغاء التوثيق':'✓ توثيق الحساب'}</button></div></div>`;
+      }).join('')}
       <div style="margin-top:20px;"><button class="btn-danger" onclick="closeModal()"><i class="fas fa-times"></i> إغلاق</button></div>
     </div>
   </div>`);
+}
+
+async function toggleUserVerification(userId, verified) {
+  if (!currentAdmin) { showAlert('غير مصرح: هذه العملية للمدير فقط', 'error'); return; }
+  const id = parseInt(userId, 10);
+  if (!id) return;
+  const { error } = await sb.from('users').update({ is_verified: !!verified }).eq('id', id);
+  if (error) { console.error('toggleUserVerification error:', error); showAlert('تعذر تحديث توثيق الحساب: ' + (error.message || 'خطأ غير معروف'), 'error', 5000); return; }
+  const user = allUsers.find(u => Number(u.id) === id);
+  if (user) user.is_verified = !!verified;
+  if (currentUser && Number(currentUser.id) === id) currentUser.is_verified = !!verified;
+  showAlert(verified ? '✅ تم توثيق الحساب' : 'تم إلغاء توثيق الحساب', 'success', 1800);
+  showUsersList();
+  if (currentUser && Number(currentUser.id) === id) updateProfilePage();
 }
 
 function renderOrdersList(filterStatus = 'all', filterDate = '') {
@@ -7304,7 +7302,7 @@ function logoutTech() {
   localStorage.removeItem('obied_tech');
   var td = document.getElementById('techDashboard');
   if (td) td.style.display = 'none';
-  if (tb) tb.style.display = 'none';
+
   // العودة لحساب المستخدم العادي إن كان موجوداً، وإلا للصفحة الرئيسية
   if (currentUser) {
     updateUIForLoggedInUser();
@@ -7328,7 +7326,7 @@ function updateProfilePage() {
   const emailEl = document.getElementById('profileUserEmail');
   const phoneEl = document.getElementById('profileUserPhone');
   const idEl    = document.getElementById('profileUserId');
-  if (nameEl)  nameEl.textContent   = currentUser.name || 'اسم المستخدم';
+  if (nameEl)  nameEl.innerHTML = (currentUser.name || 'اسم المستخدم') + ' <span id="profileVerifiedBadge" title="حساب موثّق" style="display:' + (currentUser.is_verified ? 'inline-flex' : 'none') + ';vertical-align:middle;margin-right:7px;background:#f59e0b;color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:.78rem;"><i class="fas fa-check"></i></span>';
   if (emailEl) emailEl.innerHTML    = '<i class="fas fa-envelope"></i> ' + (currentUser.email || '');
   if (phoneEl) phoneEl.innerHTML    = '<i class="fas fa-phone"></i> ' + (currentUser.phone || '');
   if (idEl)    idEl.textContent     = 'ID: #' + String(currentUser.id).padStart(4, '0');
@@ -7499,7 +7497,7 @@ async function handleProfileImageUpload(event) {
     if (!publicUrl) throw new Error('تعذر إنشاء رابط الصورة');
     const { data: updatedUser, error: dbError } = await sb.from('users')
       .update({ profile_image: publicUrl }).eq('id', currentUser.id)
-      .select('id,name,email,phone,profile_image,role').single();
+      .select('id,name,email,phone,profile_image,role,is_verified').single();
     if (dbError) {
       await sb.storage.from('avatars').remove([path]).catch(()=>{});
       throw dbError;
