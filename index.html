@@ -5960,7 +5960,7 @@ async function verifyReceipt(status) {
       message: msg,
       type: status === 'verified' ? 'payment_confirmed' : 'payment_rejected',
       is_read: false
-    }).then(({ error }) => {
+    }]).then(({ error }) => {
       if (error) console.warn('payment notification error:', error);
     });
   }
