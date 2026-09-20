@@ -60,6 +60,19 @@
   .user-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: var(--shadow); transition: all var(--transition); overflow: hidden; }
   .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .user-avatar:hover { transform: scale(1.05); }
+  .user-controls { position: relative; }
+  .account-dropdown { position:absolute; top:calc(100% + 10px); left:0; min-width:250px; background:white; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 15px 40px rgba(0,0,0,.16); padding:8px; z-index:3000; display:none; }
+  .account-dropdown.show { display:block; animation:fadeIn .15s ease; }
+  .account-dropdown-item { width:100%; border:0; background:transparent; color:var(--dark); padding:11px 12px; border-radius:12px; display:flex; align-items:center; gap:10px; cursor:pointer; font-family:inherit; font-size:.9rem; font-weight:700; text-align:right; }
+  .account-dropdown-item:hover { background:#f1f5f9; }
+  .account-dropdown-item i { width:22px; text-align:center; color:var(--primary); }
+  .account-dropdown-item.danger { color:#dc2626; }
+  .account-dropdown-item.danger i { color:#dc2626; }
+  .account-dropdown-divider { height:1px; background:#e2e8f0; margin:6px 4px; }
+  body.dark-mode .account-dropdown { background:#111827; border-color:#374151; }
+  body.dark-mode .account-dropdown-item { color:#f1f5f9; }
+  body.dark-mode .account-dropdown-item:hover { background:#1f2937; }
+  body.dark-mode .account-dropdown-divider { background:#374151; }
   .hero-slider { margin-top: 5rem; position: relative; overflow: hidden; height: clamp(350px, 50vh, 600px); border-radius: var(--radius); margin: 5rem clamp(0.5rem, 2vw, 2rem) 0; }
   .slider-container { width: 100%; height: 100%; position: relative; border-radius: var(--radius); overflow: hidden; }
   .slide { position: absolute; width: 100%; height: 100%; opacity: 0; transform: translateX(100%); transition: all 0.8s cubic-bezier(0.77, 0, 0.175, 1); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: var(--radius); background-color: #1e40af; overflow: hidden; }
@@ -516,7 +529,16 @@
         <a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" data-social="instagram" target="_blank" class="social-icon"><i class="fab fa-instagram"></i></a>
         <a href="https://wa.me/+905357624482" data-social="whatsapp" target="_blank" class="social-icon"><i class="fab fa-whatsapp"></i></a>
       </div>
-      <div class="user-avatar" id="userAvatar" onclick="navLinkClick('profile')" style="display: none;"><i class="fas fa-user"></i></div>
+      <div class="user-avatar" id="userAvatar" onclick="toggleAccountDropdown(event)" style="display: none;"><i class="fas fa-user"></i></div>
+      <div id="accountDropdown" class="account-dropdown" onclick="event.stopPropagation()">
+        <button class="account-dropdown-item" onclick="showProfile();closeAccountDropdown()"><i class="fas fa-user"></i><span>ملفي الشخصي</span></button>
+        <button class="account-dropdown-item" onclick="showEditAccount();closeAccountDropdown()"><i class="fas fa-user-edit"></i><span>تعديل الاسم ورقم الهاتف</span></button>
+        <button class="account-dropdown-item" onclick="showAccountSecurity();closeAccountDropdown()"><i class="fas fa-shield-alt"></i><span>إعدادات الأمان</span></button>
+        <button id="techDropdownBtn" class="account-dropdown-item" style="display:none;" onclick="showTechDashboard();closeAccountDropdown()"><i class="fas fa-hard-hat"></i><span>لوحة الفني</span></button>
+        <button id="adminDropdownBtn" class="account-dropdown-item" style="display:none;" onclick="showAdminDashboard();closeAccountDropdown()"><i class="fas fa-shield-alt"></i><span>لوحة الإدارة</span></button>
+        <div class="account-dropdown-divider"></div>
+        <button class="account-dropdown-item danger" onclick="confirmLogout();closeAccountDropdown()"><i class="fas fa-sign-out-alt"></i><span>تسجيل الخروج</span></button>
+      </div>
     </div>
   </header>
 
@@ -1073,6 +1095,82 @@ function createAccountFromWelcome() {
   }, 150);
 }
 
+function toggleAccountDropdown(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('accountDropdown');
+  if (!menu) return;
+  menu.classList.toggle('show');
+}
+function closeAccountDropdown() {
+  const menu = document.getElementById('accountDropdown');
+  if (menu) menu.classList.remove('show');
+}
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('accountDropdown');
+  const avatar = document.getElementById('userAvatar');
+  if (menu && !menu.contains(e.target) && e.target !== avatar && !avatar?.contains(e.target)) {
+    menu.classList.remove('show');
+  }
+});
+
+function showEditAccount() {
+  if (!currentUser) { showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
+  showModal(`
+    <div style="padding:0;max-width:460px;width:100%;">
+      <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <i class="fas fa-user-edit" style="font-size:2rem;margin-bottom:8px;"></i>
+        <h3 style="margin:0;">تعديل بيانات الحساب</h3>
+        <p style="margin:6px 0 0;opacity:.85;font-size:.85rem;">يمكنك تغيير الاسم ورقم الهاتف فقط</p>
+      </div>
+      <div style="background:white;padding:22px;">
+        <div class="form-group"><label>الاسم</label><input id="editAccountName" class="form-control" type="text" maxlength="100" value="${String(currentUser.name||'').replace(/"/g,'&quot;')}"></div>
+        <div class="form-group"><label>رقم الهاتف</label><input id="editAccountPhone" class="form-control" type="tel" maxlength="30" value="${String(currentUser.phone||'').replace(/"/g,'&quot;')}"></div>
+        <div class="form-group"><label>البريد الإلكتروني</label><input class="form-control" type="email" value="${String(currentUser.email||'').replace(/"/g,'&quot;')}" disabled></div>
+        <button id="saveAccountBtn" onclick="saveAccountProfile()" style="width:100%;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-save"></i> حفظ التغييرات</button>
+      </div>
+    </div>`);
+}
+async function saveAccountProfile() {
+  if (!currentUser?.id) return;
+  const name = document.getElementById('editAccountName')?.value?.trim();
+  const phone = document.getElementById('editAccountPhone')?.value?.trim();
+  const btn = document.getElementById('saveAccountBtn');
+  if (!name) { showAlert('الاسم مطلوب', 'error'); return; }
+  if (name.length < 2) { showAlert('الاسم قصير جداً', 'error'); return; }
+  if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...'; }
+  try {
+    const { data, error } = await sb.from('users').update({ name, phone }).eq('id', currentUser.id)
+      .select('id,name,email,phone,profile_image,role,auth_uid').single();
+    if (error) throw error;
+    currentUser = { ...currentUser, name:data.name, phone:data.phone, profileImage:data.profile_image, role:data.role };
+    localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+    updateProfilePage();
+    updateAccountAvatar();
+    closeModal();
+    showAlert('✅ تم تحديث الاسم ورقم الهاتف', 'success');
+  } catch (e) {
+    showAlert('تعذر حفظ بيانات الحساب: ' + (e.message || e), 'error', 6000);
+    if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> حفظ التغييرات'; }
+  }
+}
+function showAccountSecurity() {
+  if (!currentUser) { showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
+  showModal(`
+    <div style="padding:0;max-width:440px;width:100%;">
+      <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <i class="fas fa-shield-alt" style="font-size:2rem;margin-bottom:8px;"></i>
+        <h3 style="margin:0;">إعدادات الأمان</h3>
+        <p style="margin:6px 0 0;opacity:.85;font-size:.85rem;">إدارة كلمة المرور وحماية الحساب</p>
+      </div>
+      <div style="background:white;padding:22px;">
+        <button onclick="closeModal();showChangePassword()" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;"><i class="fas fa-key"></i> تغيير كلمة المرور</button>
+        <div style="margin-top:12px;background:#f8fafc;border-radius:12px;padding:12px;color:#475569;font-size:.82rem;line-height:1.7;">
+          <i class="fas fa-lock" style="color:#7c3aed;"></i> صلاحيات تعديل الاسم والهاتف منفصلة عن كلمة المرور، ولا يمكن للمستخدم تغيير دوره أو صلاحياته.
+        </div>
+      </div>
+    </div>`);
+}
+
 function showProfile() {
   if (!currentUser) { showLoginPage(); showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
   if (currentAdmin) { showAdminDashboard(); return; }
@@ -1082,12 +1180,12 @@ function showProfile() {
   closeMenu();
   const techTab  = document.getElementById('techPanelTab');
   const adminTab = document.getElementById('adminPanelTab');
-  if (techTab)  techTab.style.display  = currentTechnician ? 'block' : 'none';
-  if (adminTab) adminTab.style.display = currentAdmin      ? 'block' : 'none';
+  if (techTab)  techTab.style.display  = 'none';
+  if (adminTab) adminTab.style.display = currentAdmin ? 'block' : 'none';
   const pAdminBtn = document.getElementById('profileAdminBtn');
   const pTechBtn  = document.getElementById('profileTechBtn');
   if (pAdminBtn) pAdminBtn.style.display = currentAdmin      ? 'inline-block' : 'none';
-  if (pTechBtn)  pTechBtn.style.display  = currentTechnician ? 'inline-block' : 'none';
+  if (pTechBtn)  pTechBtn.style.display  = 'none';
   if (typeof switchProfileTab === 'function') switchProfileTab('tracking');
   if (typeof loadUserData === 'function' && currentUser) loadUserData(currentUser.id);
 }
@@ -1174,11 +1272,14 @@ function updateUIForLoggedInUser() {
   s('notifNavBtn', 'flex');
   if (!currentAdmin) { s('adminNavBtn', 'none'); s('adminNavMenuBtn', 'none'); }
   else { s('adminNavMenuBtn', 'block'); }
-  if (currentTechnician) { s('techNavBtn', 'flex'); }
+  // لوحة الفني تظهر في مكان واحد فقط: القائمة الدائرية بجانب الحساب.
+  s('techNavBtn', 'none');
+  s('techDropdownBtn', currentTechnician ? 'flex' : 'none');
+  s('adminDropdownBtn', currentAdmin ? 'flex' : 'none');
   const pab = document.getElementById('profileAdminBtn');
   const ptb = document.getElementById('profileTechBtn');
   if (pab) pab.style.display = currentAdmin ? 'inline-block' : 'none';
-  if (ptb) ptb.style.display = currentTechnician ? 'inline-block' : 'none';
+  if (ptb) ptb.style.display = 'none';
   updateAccountAvatar();
   if (currentUser) {
     sb.from('notifications').select('id').eq('user_id', currentUser.id).eq('is_read', false)
@@ -1195,6 +1296,9 @@ function updateUIForLoggedOutUser() {
   s('userAvatar', 'none');
   if (!currentAdmin) s('adminNavBtn', 'none');
   s('adminNavMenuBtn', 'none');
+  s('techDropdownBtn', 'none');
+  s('adminDropdownBtn', 'none');
+  closeAccountDropdown();
 }
 
 function confirmLogout() {
@@ -4015,9 +4119,11 @@ function _showTechPanel() {
   var mc = document.getElementById('mainContent');
   if (mc) mc.style.display = 'block';
   var tb = document.getElementById('techNavBtn');
-  if (tb) tb.style.display = 'flex';
+  if (tb) tb.style.display = 'none';
   var ptb = document.getElementById('profileTechBtn');
-  if (ptb) ptb.style.display = 'inline-block';
+  if (ptb) ptb.style.display = 'none';
+  var tdb = document.getElementById('techDropdownBtn');
+  if (tdb) tdb.style.display = 'flex';
   ['homePage','loginPage','profilePage','adminLoginPage','adminDashboard'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.style.display = 'none';
   });
@@ -7380,29 +7486,54 @@ function refreshUserData() {
   });
 }
 
-function handleProfileImageUpload(event) {
+async function handleProfileImageUpload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file || !currentUser) return;
-  if (!file.type.match('image.*')) { showAlert('يرجى اختيار ملف صورة صالح', 'error'); return; }
-  const reader = new FileReader();
-  reader.onload = async function (e) {
-    try {
-      const compressed = await compressImage(e.target.result, 'profiles');
-      const { error } = await sb.from('users').update({ profile_image: compressed }).eq('id', currentUser.id);
-      if (error) throw error;
-      currentUser.profileImage = compressed;
-      localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
-      const img = document.getElementById('profileImage');
-      const icon = document.getElementById('profileIcon');
-      if (img)  { img.src = compressed; img.style.display = 'block'; }
-      if (icon) icon.style.display = 'none';
-      updateAccountAvatar();
-      showAlert('✅ تم تحديث الصورة الشخصية', 'success');
-    } catch (err) {
-      showAlert('حدث خطأ أثناء رفع الصورة', 'error');
+  if (!file.type.match(/^image\/(jpeg|png|webp|gif)$/i)) {
+    showAlert('يرجى اختيار صورة JPG أو PNG أو WEBP أو GIF', 'error');
+    event.target.value = '';
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    showAlert('حجم صورة الملف الشخصي يجب ألا يتجاوز 2MB', 'error', 5000);
+    event.target.value = '';
+    return;
+  }
+  try {
+    const { data: authData, error: authError } = await sb.auth.getUser();
+    if (authError || !authData?.user?.id) throw authError || new Error('انتهت جلسة تسجيل الدخول');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+    const path = authData.user.id + '/profile-' + Date.now() + '.' + ext;
+    const { error: uploadError } = await sb.storage.from('avatars').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type
+    });
+    if (uploadError) throw uploadError;
+    const { data: publicData } = sb.storage.from('avatars').getPublicUrl(path);
+    const publicUrl = publicData?.publicUrl;
+    if (!publicUrl) throw new Error('تعذر إنشاء رابط الصورة');
+    const { data: updatedUser, error: dbError } = await sb.from('users')
+      .update({ profile_image: publicUrl }).eq('id', currentUser.id)
+      .select('id,name,email,phone,profile_image,role').single();
+    if (dbError) {
+      await sb.storage.from('avatars').remove([path]).catch(()=>{});
+      throw dbError;
     }
-  };
-  reader.readAsDataURL(file);
+    currentUser = { ...currentUser, name:updatedUser.name, phone:updatedUser.phone, profileImage:updatedUser.profile_image, role:updatedUser.role };
+    localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+    const img = document.getElementById('profileImage');
+    const icon = document.getElementById('profileIcon');
+    if (img) { img.src = publicUrl + (publicUrl.includes('?') ? '&' : '?') + 'v=' + Date.now(); img.style.display='block'; }
+    if (icon) icon.style.display='none';
+    updateAccountAvatar();
+    showAlert('✅ تم تحديث الصورة الشخصية بنجاح', 'success');
+  } catch (err) {
+    console.error('profile image upload error:', err);
+    showAlert('تعذر رفع الصورة: ' + (err?.message || 'خطأ غير معروف'), 'error', 7000);
+  } finally {
+    event.target.value = '';
+  }
 }
 
 // ----- مودالات قديمة (خلفية غير نشطة حاليًا) — تُغلق بأمان دون أخطاء -----
