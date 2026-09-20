@@ -55,3 +55,41 @@ with check (
     and role=private.my_role()
   )
 );
+
+-- Account verification badge (admin controlled)
+alter table public.users
+  add column if not exists is_verified boolean not null default false;
+
+create index if not exists idx_users_is_verified on public.users(is_verified);
+
+create or replace function private.my_user_is_verified()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select coalesce(u.is_verified,false)
+  from public.users u
+  where u.auth_uid = (select auth.uid())
+  limit 1
+$function$;
+
+revoke all on function private.my_user_is_verified() from public;
+grant execute on function private.my_user_is_verified() to authenticated;
+
+drop policy if exists "users_update_own" on public.users;
+create policy "users_update_own" on public.users
+for update to authenticated
+using (
+  private.my_role()='admin'
+  or auth_uid=(select auth.uid())
+)
+with check (
+  private.my_role()='admin'
+  or (
+    auth_uid=(select auth.uid())
+    and role=private.my_role()
+    and is_verified=private.my_user_is_verified()
+  )
+);
