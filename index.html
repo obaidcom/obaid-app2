@@ -1354,6 +1354,14 @@ function renderBookingForm() {
           <option value="">اختر المحافظة أولاً</option>
         </select>
       </div>
+      <div class="form-group" id="bookingSubdistrictGroup" style="display:none;">
+        <label><i class="fas fa-map-pin"></i> الناحية</label>
+        <input type="search" id="bookingSubdistrictSearch" class="form-control" placeholder="🔎 ابحث عن الناحية..." autocomplete="off" style="margin-bottom:8px;">
+        <select id="bookingSubdistrict" class="form-control" required disabled>
+          <option value="">اختر المنطقة أولاً</option>
+        </select>
+        <div id="bookingSubdistrictCount" style="font-size:.82rem;color:#64748b;margin-top:6px;"></div>
+      </div>
       <div class="form-group"><label><i class="fas fa-user"></i> الاسم الكامل</label><input type="text" id="bookingName" class="form-control" required></div>
       <div class="form-group"><label><i class="fas fa-phone"></i> رقم الهاتف</label><input type="tel" id="bookingPhone" class="form-control" required></div>
       <div class="form-group"><label><i class="fas fa-cog"></i> نوع الخدمة</label>
@@ -1408,13 +1416,100 @@ function renderBookingForm() {
   const bookingForm = document.getElementById('bookingForm');
   const governorateSelect = document.getElementById('bookingGovernorate');
   if (governorateSelect) governorateSelect.addEventListener('change', updateBookingDistricts);
+  const districtSelect = document.getElementById('bookingDistrict');
+  const subdistrictSearch = document.getElementById('bookingSubdistrictSearch');
+  if (districtSelect) districtSelect.addEventListener('change', updateBookingSubdistricts);
+  if (subdistrictSearch) subdistrictSearch.addEventListener('input', updateBookingSubdistricts);
   if (bookingForm) bookingForm.addEventListener('submit', handleBooking);
   updateBookingForm();
 }
 
+let SYRIA_SUBDISTRICTS = [];
+let SYRIA_DISTRICTS_META = [];
+let SYRIA_SUBDISTRICTS_LOADED = false;
+let SYRIA_SUBDISTRICTS_LOADING = null;
+
+function normalizeArabicPlaceName(value) {
+  return String(value || '')
+    .replace(/[إأآٱ]/g,'ا')
+    .replace(/ى/g,'ي')
+    .replace(/ة/g,'ه')
+    .replace(/[ًٌٍَُِّْـ]/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+async function loadSyriaSubdistricts() {
+  if (SYRIA_SUBDISTRICTS_LOADED) return true;
+  if (SYRIA_SUBDISTRICTS_LOADING) return SYRIA_SUBDISTRICTS_LOADING;
+  SYRIA_SUBDISTRICTS_LOADING = (async () => {
+    const baseUrls = [
+      './assets/syria-districts.json',
+      'https://raw.githubusercontent.com/Open-Syria/data-geography/main/data/districts.json'
+    ];
+    const subUrls = [
+      './assets/syria-subdistricts.json',
+      'https://raw.githubusercontent.com/Open-Syria/data-geography/main/data/subdistricts.json'
+    ];
+    async function fetchJson(urls) {
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, { cache: 'force-cache' });
+          if (res.ok) return await res.json();
+        } catch (e) {}
+      }
+      throw new Error('تعذر تحميل بيانات النواحي');
+    }
+    try {
+      [SYRIA_DISTRICTS_META, SYRIA_SUBDISTRICTS] = await Promise.all([
+        fetchJson(baseUrls), fetchJson(subUrls)
+      ]);
+      SYRIA_SUBDISTRICTS_LOADED = Array.isArray(SYRIA_SUBDISTRICTS) && SYRIA_SUBDISTRICTS.length > 0;
+      return SYRIA_SUBDISTRICTS_LOADED;
+    } catch (e) {
+      console.warn('Syria subdistrict dataset load failed', e);
+      SYRIA_DISTRICTS_META = [];
+      SYRIA_SUBDISTRICTS = [];
+      return false;
+    } finally {
+      SYRIA_SUBDISTRICTS_LOADING = null;
+    }
+  })();
+  return SYRIA_SUBDISTRICTS_LOADING;
+}
+
+function getDistrictMeta(governorate, districtName) {
+  const g = normalizeArabicPlaceName(governorate);
+  const d = normalizeArabicPlaceName(districtName);
+  return (SYRIA_DISTRICTS_META || []).find(x =>
+    normalizeArabicPlaceName(x?.name?.ar) === d &&
+    SYRIA_GOV_ID_MAP[g] === x?.governorateId
+  ) || (SYRIA_DISTRICTS_META || []).find(x => normalizeArabicPlaceName(x?.name?.ar) === d);
+}
+
+const SYRIA_GOV_ID_MAP = Object.freeze({
+  'دمشق':'sy-damascus',
+  'ريف دمشق':'sy-rif-dimashq',
+  'حلب':'sy-aleppo',
+  'حمص':'sy-homs',
+  'حماة':'sy-hama',
+  'إدلب':'sy-idlib',
+  'اللاذقية':'sy-latakia',
+  'طرطوس':'sy-tartus',
+  'دير الزور':'sy-deir-ez-zor',
+  'الرقة':'sy-raqqa',
+  'الحسكة':'sy-al-hasakah',
+  'درعا':'sy-daraa',
+  'السويداء':'sy-as-suwayda',
+  'القنيطرة':'sy-quneitra'
+});
+
 function updateBookingDistricts() {
   const gov = document.getElementById('bookingGovernorate')?.value || '';
   const select = document.getElementById('bookingDistrict');
+  const subGroup = document.getElementById('bookingSubdistrictGroup');
+  const subSelect = document.getElementById('bookingSubdistrict');
+  const search = document.getElementById('bookingSubdistrictSearch');
   if (!select) return;
   const districts = DISTRICTS_BY_GOV[gov] || [];
   select.disabled = !gov;
@@ -1422,6 +1517,53 @@ function updateBookingDistricts() {
   select.innerHTML = gov
     ? '<option value="">اختر المنطقة</option>' + districts.map(d => '<option value="' + d + '">' + d + '</option>').join('')
     : '<option value="">اختر المحافظة أولاً</option>';
+  if (subGroup) subGroup.style.display = 'none';
+  if (subSelect) {
+    subSelect.disabled = true;
+    subSelect.innerHTML = '<option value="">اختر المنطقة أولاً</option>';
+  }
+  if (search) search.value = '';
+}
+
+async function updateBookingSubdistricts() {
+  const gov = document.getElementById('bookingGovernorate')?.value || '';
+  const district = document.getElementById('bookingDistrict')?.value || '';
+  const subGroup = document.getElementById('bookingSubdistrictGroup');
+  const subSelect = document.getElementById('bookingSubdistrict');
+  const search = document.getElementById('bookingSubdistrictSearch');
+  const count = document.getElementById('bookingSubdistrictCount');
+  if (!subSelect || !district) {
+    if (subGroup) subGroup.style.display = 'none';
+    return;
+  }
+  if (subGroup) subGroup.style.display = 'block';
+  subSelect.disabled = true;
+  subSelect.innerHTML = '<option value="">جارٍ تحميل النواحي...</option>';
+  if (count) count.textContent = '';
+  const loaded = await loadSyriaSubdistricts();
+  if (!loaded) {
+    subSelect.innerHTML = '<option value="">تعذر تحميل النواحي — اكتب العنوان التفصيلي</option>';
+    if (count) count.textContent = 'سيتم الاحتفاظ بالمنطقة ويمكنك إكمال العنوان يدويًا.';
+    return;
+  }
+  const meta = getDistrictMeta(gov, district);
+  const districtId = meta?.id;
+  let list = districtId
+    ? SYRIA_SUBDISTRICTS.filter(x => x?.districtId === districtId)
+    : [];
+  if (!list.length) {
+    const d = normalizeArabicPlaceName(district);
+    list = SYRIA_SUBDISTRICTS.filter(x => normalizeArabicPlaceName(x?.name?.ar) === d);
+  }
+  const q = normalizeArabicPlaceName(search?.value || '');
+  if (q) {
+    list = list.filter(x => normalizeArabicPlaceName(x?.name?.ar).includes(q));
+  }
+  list.sort((a,b) => String(a?.name?.ar||'').localeCompare(String(b?.name?.ar||''),'ar'));
+  subSelect.disabled = list.length === 0;
+  subSelect.innerHTML = '<option value="">اختر الناحية</option>' +
+    list.map(x => '<option value="' + String(x.name.ar).replace(/"/g,'&quot;') + '">' + x.name.ar + '</option>').join('');
+  if (count) count.textContent = list.length ? 'عدد النتائج: ' + list.length : 'لا توجد ناحية مطابقة للبحث';
 }
 
 async function useCurrentBookingLocation() {
@@ -1507,6 +1649,7 @@ async function handleBooking(e) {
       time:           document.getElementById('bookingTime')?.value || '',
       governorate:    document.getElementById('bookingGovernorate')?.value || '',
       district:       document.getElementById('bookingDistrict')?.value || '',
+      subdistrict:   document.getElementById('bookingSubdistrict')?.value || '',
       address:        document.getElementById('bookingAddress')?.value?.trim() || '',
       latitude:       parseFloat(document.getElementById('bookingLatitude')?.value || '') || null,
       longitude:      parseFloat(document.getElementById('bookingLongitude')?.value || '') || null,
@@ -1516,8 +1659,8 @@ async function handleBooking(e) {
       status:         'pending',
       tech_id:         null
     };
-    if (!booking.service || !booking.governorate || !booking.district) {
-      showAlert('يرجى اختيار المحافظة والمنطقة ونوع الخدمة', 'error');
+    if (!booking.service || !booking.governorate || !booking.district || !booking.subdistrict) {
+      showAlert('يرجى اختيار المحافظة والمنطقة والناحية ونوع الخدمة', 'error');
       return;
     }
 
@@ -3026,7 +3169,7 @@ async function sendBroadcastNotification() {
 
 async function showTechActivity() {
   const { data: orders } = await sb.from('orders')
-    .select('id,service,status,governorate,district,tech_id,tech_name,tech_phone,tech_accepted_at,created_at,name')
+    .select('id,service,status,governorate,district,subdistrict,tech_id,tech_name,tech_phone,tech_accepted_at,created_at,name')
     .not('accepted_by_tech', 'is', null)
     .order('tech_accepted_at', { ascending: false })
     .limit(100);
@@ -3776,7 +3919,7 @@ async function loadUserData(userId) {
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
   try {
     const [oRes, iRes] = await Promise.all([
-      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,district,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
+      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
       sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
@@ -6397,7 +6540,7 @@ async function showTechDashboard() {
 async function loadTechOrders() {
   try {
     let query = sb.from('orders')
-      .select('id,user_id,name,phone,service,date,time,status,governorate,district,address,latitude,longitude,photo,on_the_way_at,invoice_id,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,address,latitude,longitude,photo,on_the_way_at,invoice_id,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
       .order('created_at', { ascending: false });
 
     const perms = currentTechnician?.permissions || {};
@@ -6516,7 +6659,7 @@ function renderTechOrders() {
         ${perms.viewCustomer?`<div><i class="fas fa-phone" style="color:#10b981;"></i> ${o.phone||'—'}</div>`:'<div><i class="fas fa-phone" style="color:#e2e8f0;"></i> محجوب</div>'}
         <div><i class="fas fa-calendar" style="color:#f59e0b;"></i> ${o.date||'—'}</div>
         <div><i class="fas fa-clock" style="color:#8b5cf6;"></i> ${o.time||'—'}</div>
-        ${o.district?`<div><i class="fas fa-map-marked-alt" style="color:#8b5cf6;"></i> المنطقة: ${o.district}</div>`:''}
+        ${o.district?`<div><i class="fas fa-map-marked-alt" style="color:#8b5cf6;"></i> المنطقة: ${o.district}</div>`:''}${o.subdistrict?`<div><i class="fas fa-map-pin" style="color:#10b981;"></i> الناحية: ${o.subdistrict}</div>`:''}
         ${o.address?`<div style="grid-column:1/-1;"><i class="fas fa-location-dot" style="color:#ef4444;"></i> العنوان: ${o.address}</div>`:''}
         ${(o.latitude!=null && o.longitude!=null)?`
           <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
