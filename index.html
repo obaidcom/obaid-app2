@@ -1434,7 +1434,8 @@ async function handleBooking(e) {
       notes:          document.getElementById('bookingNotes')?.value || '',
       photo:          window._bookingPhotoData || null,
       payment_method: 'شام كاش',
-      status:         'pending'
+      status:         'pending',
+      tech_id:         assignedTechId || null
     };
     if (!booking.service || !booking.governorate) {
       showAlert('يرجى اختيار المحافظة ونوع الخدمة', 'error');
@@ -1459,27 +1460,8 @@ async function handleBooking(e) {
     const { data, error } = await sb.from('orders').insert([booking]).select().single();
     if (error) throw error;
 
-    if (assignedTechId && data?.id) {
-      sb.from('tech_notifications').insert([{
-        tech_id: assignedTechId, order_id: data.id,
-        message: 'طلب جديد: ' + booking.service + ' في ' + booking.governorate,
-        type: 'new_order', is_read: false
-      }]).then(()=>{});
-
-      // إشعار حقيقي (Push) للفني - يصل حتى لو كان التطبيق مغلقاً، عبر نفس
-      // مسار notifications المربوط أصلاً بنظام Push للعملاء
-      sb.from('technicians').select('user_ref_id').eq('id', assignedTechId).maybeSingle()
-        .then(({ data: techRow }) => {
-          if (techRow?.user_ref_id) {
-            sb.from('notifications').insert([{
-              user_id: techRow.user_ref_id,
-              message: '🔔 طلب جديد: ' + booking.service + ' في ' + booking.governorate,
-              type: 'new_order',
-              is_read: false
-            }]).catch(()=>{});
-          }
-        }).catch(()=>{});
-    }
+    // إشعار الفني يُنشأ مركزياً من Trigger قاعدة البيانات اعتماداً على tech_id.
+    // لا ننشئ إشعاراً من الواجهة حتى لا يتكرر أو يصل إلى فني غير مقصود.
 
     e.target.reset();
     window._bookingPhotoData = null;
