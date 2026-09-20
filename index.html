@@ -1321,23 +1321,23 @@ function resetAdminSettings() {
 function renderBookingForm() {
   const c = document.getElementById('bookingFormContainer');
   if (!c) return;
-  const govs = ['دمشق','ريف دمشق','حلب','حمص','حماة','إدلب','اللاذقية','طرطوس','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'];
-  const districtsByGov = {
-    'دمشق':['دمشق'],
-    'ريف دمشق':['مركز ريف دمشق','النبك','القطيفة','التل','الزبداني','داريا','دوما','قطنا','قدسيا','يبرود'],
-    'حلب':['جبل سمعان','عين العرب','الأتارب','عفرين','الباب','دير حافر','السفيرة','أعزاز','جرابلس','منبج'],
-    'حمص':['حمص','تدمر','المخرم','تلكلخ','الرستن','القصير','تلدو'],
-    'حماة':['حماة','السلمية','السقيلبية','مصياف','محردة'],
-    'إدلب':['إدلب','أريحا','حارم','جسر الشغور','معرة النعمان'],
-    'اللاذقية':['اللاذقية','جبلة','القرداحة','الحفة'],
-    'طرطوس':['طرطوس','دريكيش','بانياس','الشيخ بدر','صافيتا','القدموس'],
-    'دير الزور':['دير الزور','الميادين','البوكمال'],
-    'الرقة':['الرقة','الثورة','تل أبيض'],
-    'الحسكة':['الحسكة','القامشلي','المالكية','رأس العين','الشدادي'],
-    'درعا':['درعا','الصنمين','إزرع'],
-    'السويداء':['السويداء','شهبا','صلخد'],
-    'القنيطرة':['القنيطرة','فيق']
-  };
+const SYRIA_GOVERNORATES = ['دمشق','ريف دمشق','حلب','حمص','حماة','إدلب','اللاذقية','طرطوس','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'];
+const DISTRICTS_BY_GOV = Object.freeze({
+  'دمشق':['دمشق'],
+  'ريف دمشق':['مركز ريف دمشق','داريا','دوما','القطيفة','النبك','التل','الزبداني','قطنا','قدسيا','يبرود'],
+  'حلب':['جبل سمعان','عفرين','الأتارب','عين العرب','أعزاز','الباب','دير حافر','جرابلس','منبج','السفيرة'],
+  'حمص':['حمص','المخرم','القصير','الرستن','تدمر','تلدو','تلكلخ'],
+  'حماة':['حماة','السقيلبية','السلمية','مصياف','محردة'],
+  'إدلب':['إدلب','أريحا','حارم','جسر الشغور','معرة النعمان'],
+  'اللاذقية':['اللاذقية','الحفة','جبلة','القرداحة'],
+  'طرطوس':['طرطوس','بانياس','دريكيش','الشيخ بدر','صافيتا'],
+  'دير الزور':['دير الزور','البوكمال','الميادين'],
+  'الرقة':['الرقة','تل أبيض','الطبقة'],
+  'الحسكة':['الحسكة','المالكية','القامشلي','رأس العين'],
+  'درعا':['درعا','إزرع','الصنمين'],
+  'السويداء':['السويداء','صلخد','شهبا'],
+  'القنيطرة':['القنيطرة','فيق']
+});
   c.innerHTML = `
     <form id="bookingForm" style="background:white;border-radius:var(--radius);box-shadow:var(--shadow);padding:25px;max-width:520px;margin:0 auto;">
       <div class="form-group"><label><i class="fas fa-map-marker-alt"></i> المحافظة</label>
@@ -1413,8 +1413,9 @@ function updateBookingDistricts() {
   const gov = document.getElementById('bookingGovernorate')?.value || '';
   const select = document.getElementById('bookingDistrict');
   if (!select) return;
-  const districts = districtsByGov[gov] || [];
+  const districts = DISTRICTS_BY_GOV[gov] || [];
   select.disabled = !gov;
+  select.style.pointerEvents = gov ? 'auto' : 'none';
   select.innerHTML = gov
     ? '<option value="">اختر المنطقة</option>' + districts.map(d => '<option value="' + d + '">' + d + '</option>').join('')
     : '<option value="">اختر المحافظة أولاً</option>';
@@ -1438,7 +1439,10 @@ async function useCurrentBookingLocation() {
     document.getElementById('bookingLongitude').value = lng;
     if (status) status.innerHTML = '✅ تم حفظ موقعك الجغرافي للطلب. يمكنك أيضًا كتابة العنوان التفصيلي.';
   } catch (err) {
-    if (status) status.textContent = '⚠️ لم يتم تحديد الموقع. اسمح للتطبيق بالموقع أو اكتب العنوان يدويًا.';
+    const reason = err && err.code === 1 ? 'تم رفض صلاحية الموقع.' :
+      err && err.code === 2 ? 'تعذر تحديد موقع الجهاز.' :
+      err && err.code === 3 ? 'انتهت مهلة تحديد الموقع.' : 'تعذر تحديد الموقع.';
+    if (status) status.textContent = '⚠️ ' + reason + ' يمكنك السماح بالموقع من إعدادات التطبيق أو كتابة العنوان يدويًا.';
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> استخدام موقعي الحالي'; }
   }
@@ -1507,10 +1511,10 @@ async function handleBooking(e) {
       photo:          window._bookingPhotoData || null,
       payment_method: 'شام كاش',
       status:         'pending',
-      tech_id:         assignedTechId || null
+      tech_id:         null
     };
-    if (!booking.service || !booking.governorate) {
-      showAlert('يرجى اختيار المحافظة ونوع الخدمة', 'error');
+    if (!booking.service || !booking.governorate || !booking.district) {
+      showAlert('يرجى اختيار المحافظة والمنطقة ونوع الخدمة', 'error');
       return;
     }
 
@@ -1529,6 +1533,7 @@ async function handleBooking(e) {
       }
     }
 
+    booking.tech_id = assignedTechId || null;
     const { data, error } = await sb.from('orders').insert([booking]).select().single();
     if (error) throw error;
 
@@ -1536,6 +1541,11 @@ async function handleBooking(e) {
     // لا ننشئ إشعاراً من الواجهة حتى لا يتكرر أو يصل إلى فني غير مقصود.
 
     e.target.reset();
+    updateBookingDistricts();
+    const latEl = document.getElementById('bookingLatitude');
+    const lngEl = document.getElementById('bookingLongitude');
+    if (latEl) latEl.value = '';
+    if (lngEl) lngEl.value = '';
     window._bookingPhotoData = null;
     const locStatus = document.getElementById('bookingLocationStatus');
     if (locStatus) locStatus.textContent = 'يمكنك اختيار العنوان فقط أو إضافة موقعك الجغرافي أيضًا.';

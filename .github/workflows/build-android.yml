@@ -70,6 +70,10 @@ jobs:
               content = f.read()
           if 'android.permission.POST_NOTIFICATIONS' not in content:
               content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />', content, count=1)
+          if 'android.permission.ACCESS_FINE_LOCATION' not in content:
+              content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />', content, count=1)
+          if 'android.permission.ACCESS_COARSE_LOCATION' not in content:
+              content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />', content, count=1)
           if 'default_notification_icon' not in content:
               content = content.replace('</application>', '    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@mipmap/ic_launcher" />\n  </application>')
           if 'default_notification_channel_id' not in content:
