@@ -505,7 +505,6 @@
       <a href="#" class="nav-link" onclick="toggleDarkMode();closeMenu()"><i class="fas fa-moon" id="darkModeIcon"></i> <span id="darkModeLabel">الوضع الليلي</span></a>
       <a href="#" class="nav-link" onclick="navLinkClick('profile')"><i class="fas fa-user"></i> ملفي</a>
       <a href="#" class="nav-link" id="adminNavBtn" onclick="currentAdmin?showAdminDashboard():showAdminLogin()" style="display:none;"><i class="fas fa-cog"></i> الإدارة</a>
-      <a href="#" class="nav-link" id="techNavBtn" onclick="showTechDashboard()" style="display:none;background:#8b5cf6;color:white;border-radius:var(--radius);justify-content:center;"><i class="fas fa-hard-hat"></i> لوحة الفني</a>
       <a href="#" class="nav-link" onclick="showLoginPage();closeMenu()" id="loginBtn" style="background:var(--primary);color:white;border-radius:var(--radius);justify-content:center;"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</a>
       <div id="adminNavMenuBtn" style="display:none;padding:8px 15px;">
         <a href="#" class="nav-link" onclick="showAdminDashboard();closeMenu()" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;border-radius:var(--radius);justify-content:center;margin:0;"><i class="fas fa-shield-alt"></i> لوحة الإدارة</a>
@@ -783,10 +782,7 @@
         <button id="profileAdminBtn" onclick="showAdminDashboard()" style="display:none;background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);padding:8px 18px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:700;backdrop-filter:blur(10px);">
           <i class="fas fa-shield-alt"></i> لوحة الإدارة
         </button>
-        <button id="profileTechBtn" onclick="showTechDashboard()" style="display:none;background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.5);padding:8px 18px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:700;backdrop-filter:blur(10px);">
-          <i class="fas fa-hard-hat"></i> لوحة الفني
-        </button>
-      </div>
+        </div>
       <div class="profile-info">
         <div class="profile-avatar-large" id="profileAvatarLarge">
           <img id="profileImage" src="" alt="صورة المستخدم">
@@ -847,10 +843,6 @@
         <button id="profileTabInvoices" onclick="switchProfileTab('invoices')"
           style="flex:1;min-width:100px;padding:1rem;border:none;background:none;font-family:inherit;font-size:0.95rem;font-weight:600;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;transition:all 0.3s;white-space:nowrap;">
           <i class="fas fa-file-invoice"></i> فواتيري
-        </button>
-        <button id="techPanelTab" onclick="showTechDashboard()"
-          style="display:none;flex:1;min-width:100px;padding:1rem;border:none;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;font-family:inherit;font-size:0.95rem;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.3s;white-space:nowrap;border-radius:8px;margin:5px;">
-          <i class="fas fa-hard-hat"></i> لوحة الفني
         </button>
         <button id="adminPanelTab" onclick="showAdminDashboard()"
           style="display:none;flex:1;min-width:100px;padding:1rem;border:none;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:white;font-family:inherit;font-size:0.95rem;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.3s;white-space:nowrap;border-radius:8px;margin:5px;">
@@ -1178,12 +1170,10 @@ function showProfile() {
   const pp = document.getElementById('profilePage');
   if (pp) pp.style.display = 'block';
   closeMenu();
-  const techTab  = document.getElementById('techPanelTab');
   const adminTab = document.getElementById('adminPanelTab');
   if (techTab)  techTab.style.display  = 'none';
   if (adminTab) adminTab.style.display = currentAdmin ? 'block' : 'none';
   const pAdminBtn = document.getElementById('profileAdminBtn');
-  const pTechBtn  = document.getElementById('profileTechBtn');
   if (pAdminBtn) pAdminBtn.style.display = currentAdmin      ? 'inline-block' : 'none';
   if (pTechBtn)  pTechBtn.style.display  = 'none';
   if (typeof switchProfileTab === 'function') switchProfileTab('tracking');
@@ -1273,11 +1263,9 @@ function updateUIForLoggedInUser() {
   if (!currentAdmin) { s('adminNavBtn', 'none'); s('adminNavMenuBtn', 'none'); }
   else { s('adminNavMenuBtn', 'block'); }
   // لوحة الفني تظهر في مكان واحد فقط: القائمة الدائرية بجانب الحساب.
-  s('techNavBtn', 'none');
   s('techDropdownBtn', currentTechnician ? 'flex' : 'none');
   s('adminDropdownBtn', currentAdmin ? 'flex' : 'none');
   const pab = document.getElementById('profileAdminBtn');
-  const ptb = document.getElementById('profileTechBtn');
   if (pab) pab.style.display = currentAdmin ? 'inline-block' : 'none';
   if (ptb) ptb.style.display = 'none';
   updateAccountAvatar();
@@ -3968,7 +3956,6 @@ document.addEventListener('DOMContentLoaded', function() {
     localStorage.setItem('obied_tech_unlocked', '1');
   }
   if (localStorage.getItem('obied_tech_unlocked') || localStorage.getItem('obied_tech')) {
-    const tb = document.getElementById('techNavBtn');
     if (tb) tb.style.display = 'flex';
     try { const st = localStorage.getItem('obied_tech'); if (st) currentTechnician = JSON.parse(st); } catch(e) {}
   }
@@ -4118,9 +4105,7 @@ function _showTechPanel() {
   if (wp) wp.style.display = 'none';
   var mc = document.getElementById('mainContent');
   if (mc) mc.style.display = 'block';
-  var tb = document.getElementById('techNavBtn');
   if (tb) tb.style.display = 'none';
-  var ptb = document.getElementById('profileTechBtn');
   if (ptb) ptb.style.display = 'none';
   var tdb = document.getElementById('techDropdownBtn');
   if (tdb) tdb.style.display = 'flex';
@@ -7319,7 +7304,6 @@ function logoutTech() {
   localStorage.removeItem('obied_tech');
   var td = document.getElementById('techDashboard');
   if (td) td.style.display = 'none';
-  var tb = document.getElementById('techNavBtn');
   if (tb) tb.style.display = 'none';
   // العودة لحساب المستخدم العادي إن كان موجوداً، وإلا للصفحة الرئيسية
   if (currentUser) {
