@@ -666,6 +666,7 @@
               <div onclick="showAssignTechFromEmail();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-user-plus" style="color:#10b981;width:18px;"></i> تعيين فني من الإيميل</div>
               <div onclick="showTechActivity();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-line" style="color:#8b5cf6;width:18px;"></i> نشاط الفنيين</div>
               <div onclick="showAdminStats();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-pie" style="color:#2563eb;width:18px;"></i> الإحصائيات العامة</div>
+              <div onclick="showSubdistrictManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-map-marked-alt" style="color:#0ea5e9;width:18px;"></i> إدارة النواحي</div>
               <div onclick="showDiscountCodesManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-tags" style="color:#ec4899;width:18px;"></i> أكواد الخصم</div>
               <div onclick="showExportReport();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-file-export" style="color:#059669;width:18px;"></i> تصدير تقرير</div>
               <div onclick="sendMaintenanceReminders();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-bell" style="color:#f59e0b;width:18px;"></i> تذكيرات الصيانة</div>
@@ -1534,6 +1535,19 @@ async function updateBookingSubdistricts() {
 
   const govId = SYRIA_GOV_ID_MAP[normalizeArabicPlaceName(gov)];
 
+  // النواحي التي يضيفها المدير من لوحة الإدارة تُدمج مع القائمة الرسمية.
+  let customSubdistricts = [];
+  try {
+    const { data: customRows } = await sb.from('service_subdistricts')
+      .select('id,governorate,name,is_active')
+      .eq('governorate', gov)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+    customSubdistricts = Array.isArray(customRows) ? customRows : [];
+  } catch (e) {
+    console.warn('تعذر تحميل النواحي المضافة من الإدارة', e);
+  }
+
   // كل ناحية في مصدر البيانات تحمل governorateId مباشرة.
   // نعتمد عليه بدل المرور عبر قائمة المناطق (ADM2)، لأن بعض المناطق
   // قد تكون ناقصة/غير متطابقة في ملف المناطق، وهذا كان يمنع ظهور
@@ -1541,6 +1555,17 @@ async function updateBookingSubdistricts() {
   let list = govId
     ? SYRIA_SUBDISTRICTS.filter(x => x?.governorateId === govId)
     : [];
+
+  const existingNames = new Set(
+    list.map(x => normalizeArabicPlaceName(x?.name?.ar || ''))
+  );
+  customSubdistricts.forEach(x => {
+    const n = normalizeArabicPlaceName(x?.name || '');
+    if (n && !existingNames.has(n)) {
+      list.push({ name: { ar: x.name }, _custom: true, _customId: x.id });
+      existingNames.add(n);
+    }
+  });
 
   const q = normalizeArabicPlaceName(search?.value || '');
   if (q) {
@@ -2891,6 +2916,92 @@ async function showAdminStats() {
   } catch (e) {
     showAlert('تعذر جلب الإحصائيات: ' + e.message, 'error', 6000);
   }
+}
+
+// ===== إدارة النواحي من لوحة الإدارة =====
+async function showSubdistrictManagement() {
+  if (!currentAdmin) return;
+  showModal('<div style="padding:60px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:#0ea5e9;"></i><p>جارٍ تحميل النواحي...</p></div>');
+  let rows = [];
+  try {
+    const { data, error } = await sb.from('service_subdistricts')
+      .select('*').order('governorate', { ascending: true }).order('name', { ascending: true });
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) {
+    showAlert('تعذر تحميل النواحي المضافة: ' + e.message, 'error');
+  }
+  renderSubdistrictManagement(rows);
+}
+
+function renderSubdistrictManagement(rows) {
+  const govs = SYRIA_GOVERNORATES || [];
+  showModal(`
+    <div style="padding:0;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;">
+      <div style="background:linear-gradient(135deg,#0284c7,#0ea5e9);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;z-index:2;">
+        <h3 style="margin:0 0 6px;"><i class="fas fa-map-marked-alt"></i> إدارة النواحي</h3>
+        <div style="font-size:.82rem;opacity:.9;">إضافة ناحية جديدة أو تعطيل/حذف النواحي التي أضافتها الإدارة.</div>
+      </div>
+      <div style="background:white;padding:20px;">
+        <label style="font-weight:700;">المحافظة</label>
+        <select id="adminSubdistrictGov" class="form-control" style="margin:6px 0 10px;">
+          <option value="">اختر المحافظة</option>
+          ${govs.map(g => `<option value="${g}">${g}</option>`).join('')}
+        </select>
+        <label style="font-weight:700;">اسم الناحية</label>
+        <input id="adminSubdistrictName" class="form-control" placeholder="مثال: ناحية جديدة" style="margin:6px 0 10px;">
+        <button onclick="addAdminSubdistrict()" style="width:100%;background:#0ea5e9;color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;">
+          <i class="fas fa-plus"></i> إضافة الناحية
+        </button>
+        <div style="border-top:1px solid #e2e8f0;margin-top:18px;padding-top:15px;">
+          <h4 style="margin:0 0 10px;">النواحي المضافة يدويًا</h4>
+          ${rows.length ? rows.map(r => `
+            <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <div><strong>${r.name}</strong><div style="font-size:.8rem;color:#64748b;">${r.governorate} • ${r.is_active ? 'فعّالة' : 'معطّلة'}</div></div>
+              <div style="display:flex;gap:6px;">
+                <button onclick="toggleAdminSubdistrict(${r.id},${!r.is_active})" style="background:#f1f5f9;border:0;padding:7px 9px;border-radius:8px;cursor:pointer;" title="تفعيل/تعطيل"><i class="fas fa-power-off"></i></button>
+                <button onclick="deleteAdminSubdistrict(${r.id})" style="background:#fef2f2;color:#ef4444;border:0;padding:7px 9px;border-radius:8px;cursor:pointer;" title="حذف"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>`).join('') : '<p style="text-align:center;color:#64748b;padding:18px;">لم تتم إضافة نواحٍ يدويًا بعد.</p>'}
+        </div>
+        <button onclick="closeModal()" style="width:100%;margin-top:10px;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+      </div>
+    </div>`);
+}
+
+async function addAdminSubdistrict() {
+  if (!currentAdmin) return;
+  const governorate = document.getElementById('adminSubdistrictGov')?.value?.trim();
+  const name = document.getElementById('adminSubdistrictName')?.value?.trim();
+  if (!governorate || !name) { showAlert('اختر المحافظة واكتب اسم الناحية.', 'warning'); return; }
+  const { error } = await sb.from('service_subdistricts').insert({
+    governorate, name, is_active: true, created_by: currentUser?.id || null
+  });
+  if (error) {
+    showAlert(error.code === '23505' ? 'هذه الناحية موجودة مسبقًا في المحافظة.' : 'تعذر إضافة الناحية: ' + error.message, 'error');
+    return;
+  }
+  showAlert('تمت إضافة الناحية بنجاح.', 'success');
+  showSubdistrictManagement();
+  updateBookingSubdistricts();
+}
+
+async function toggleAdminSubdistrict(id, isActive) {
+  if (!currentAdmin) return;
+  const { error } = await sb.from('service_subdistricts').update({ is_active: isActive }).eq('id', id);
+  if (error) { showAlert('تعذر تغيير حالة الناحية: ' + error.message, 'error'); return; }
+  showSubdistrictManagement();
+  updateBookingSubdistricts();
+}
+
+async function deleteAdminSubdistrict(id) {
+  if (!currentAdmin) return;
+  if (!confirm('هل تريد حذف هذه الناحية المضافة يدويًا؟')) return;
+  const { error } = await sb.from('service_subdistricts').delete().eq('id', id);
+  if (error) { showAlert('تعذر حذف الناحية: ' + error.message, 'error'); return; }
+  showAlert('تم حذف الناحية.', 'success');
+  showSubdistrictManagement();
+  updateBookingSubdistricts();
 }
 
 // ===== أكواد الخصم =====
