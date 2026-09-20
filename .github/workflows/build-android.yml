@@ -52,8 +52,18 @@ jobs:
 
       - name: Prepare web assets
         run: |
-          mkdir -p www
+          mkdir -p www/assets
           cp index.html www/index.html
+          curl -fL --retry 3 https://raw.githubusercontent.com/Open-Syria/data-geography/main/data/districts.json -o www/assets/syria-districts.json
+          curl -fL --retry 3 https://raw.githubusercontent.com/Open-Syria/data-geography/main/data/subdistricts.json -o www/assets/syria-subdistricts.json
+          python3 - <<'PY'
+          import json
+          for path in ['www/assets/syria-districts.json','www/assets/syria-subdistricts.json']:
+              data=json.load(open(path,encoding='utf-8'))
+              assert isinstance(data,list) and data, path
+              print(path, len(data), 'records')
+          assert len(json.load(open('www/assets/syria-subdistricts.json',encoding='utf-8'))) == 272
+          PY
 
       - name: Add Android platform
         run: npx cap add android
