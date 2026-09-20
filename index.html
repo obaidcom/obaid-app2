@@ -1381,6 +1381,16 @@ function renderBookingForm() {
           <option value="">بدون تفضيل - أقرب فني متاح</option>
         </select>
       </div>
+      <div class="form-group"><label><i class="fas fa-map-marker-alt"></i> العنوان التفصيلي (اختياري)</label><textarea id="bookingAddress" class="form-control" rows="2" placeholder="مثال: الشارع، البناء، الطابق، قرب..."></textarea></div>
+      <div class="form-group">
+        <label><i class="fas fa-location-crosshairs"></i> الموقع الجغرافي (اختياري)</label>
+        <button type="button" id="bookingLocationBtn" onclick="useCurrentBookingLocation()" style="width:100%;background:#ecfdf5;color:#047857;border:1px solid #86efac;padding:12px;border-radius:12px;cursor:pointer;font-family:inherit;">
+          <i class="fas fa-location-crosshairs"></i> استخدام موقعي الحالي
+        </button>
+        <div id="bookingLocationStatus" style="font-size:.85rem;color:#64748b;margin-top:7px;">يمكنك اختيار العنوان فقط أو إضافة موقعك الجغرافي أيضًا.</div>
+        <input type="hidden" id="bookingLatitude">
+        <input type="hidden" id="bookingLongitude">
+      </div>
       <div class="form-group"><label><i class="fas fa-comment"></i> ملاحظات</label><textarea id="bookingNotes" class="form-control" rows="2"></textarea></div>
       <div class="form-group">
         <label><i class="fas fa-camera"></i> صورة العطل (اختياري - تساعد الفني يجهّز الأدوات المناسبة)</label>
@@ -1408,6 +1418,30 @@ function updateBookingDistricts() {
   select.innerHTML = gov
     ? '<option value="">اختر المنطقة</option>' + districts.map(d => '<option value="' + d + '">' + d + '</option>').join('')
     : '<option value="">اختر المحافظة أولاً</option>';
+}
+
+async function useCurrentBookingLocation() {
+  const btn = document.getElementById('bookingLocationBtn');
+  const status = document.getElementById('bookingLocationStatus');
+  if (!navigator.geolocation) {
+    if (status) status.textContent = '⚠️ جهازك لا يدعم تحديد الموقع. يمكنك كتابة العنوان يدويًا.';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ تحديد الموقع...'; }
+  try {
+    const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true, timeout: 12000, maximumAge: 60000
+    }));
+    const lat = Number(pos.coords.latitude.toFixed(7));
+    const lng = Number(pos.coords.longitude.toFixed(7));
+    document.getElementById('bookingLatitude').value = lat;
+    document.getElementById('bookingLongitude').value = lng;
+    if (status) status.innerHTML = '✅ تم حفظ موقعك الجغرافي للطلب. يمكنك أيضًا كتابة العنوان التفصيلي.';
+  } catch (err) {
+    if (status) status.textContent = '⚠️ لم يتم تحديد الموقع. اسمح للتطبيق بالموقع أو اكتب العنوان يدويًا.';
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> استخدام موقعي الحالي'; }
+  }
 }
 
 window._bookingPhotoData = null;
@@ -1466,6 +1500,9 @@ async function handleBooking(e) {
       time:           document.getElementById('bookingTime')?.value || '',
       governorate:    document.getElementById('bookingGovernorate')?.value || '',
       district:       document.getElementById('bookingDistrict')?.value || '',
+      address:        document.getElementById('bookingAddress')?.value?.trim() || '',
+      latitude:       parseFloat(document.getElementById('bookingLatitude')?.value || '') || null,
+      longitude:      parseFloat(document.getElementById('bookingLongitude')?.value || '') || null,
       notes:          document.getElementById('bookingNotes')?.value || '',
       photo:          window._bookingPhotoData || null,
       payment_method: 'شام كاش',
@@ -1500,6 +1537,8 @@ async function handleBooking(e) {
 
     e.target.reset();
     window._bookingPhotoData = null;
+    const locStatus = document.getElementById('bookingLocationStatus');
+    if (locStatus) locStatus.textContent = 'يمكنك اختيار العنوان فقط أو إضافة موقعك الجغرافي أيضًا.';
     const preview = document.getElementById('bookingPhotoPreview');
     if (preview) preview.style.display = 'none';
     const photoLabel = document.getElementById('bookingPhotoLabel');
