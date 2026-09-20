@@ -45,17 +45,13 @@ drop policy if exists "users_update_own" on public.users;
 create policy "users_update_own" on public.users
 for update to authenticated
 using (
-  (select private.my_role())='admin'
+  private.my_role()='admin'
   or auth_uid=(select auth.uid())
 )
 with check (
-  (select private.my_role())='admin'
+  private.my_role()='admin'
   or (
     auth_uid=(select auth.uid())
-    and role=(
-      select u.role from public.users u
-      where u.auth_uid=(select auth.uid())
-      limit 1
-    )
+    and role=private.my_role()
   )
 );
