@@ -60,6 +60,7 @@
   .user-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; border: 3px solid white; box-shadow: var(--shadow); transition: all var(--transition); overflow: hidden; }
   .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .user-avatar:hover { transform: scale(1.05); }
+  .account-verified-badge { position:absolute; right:-3px; bottom:-2px; width:20px; height:20px; border-radius:50%; background:#f59e0b; color:#fff; border:2px solid #fff; display:inline-flex; align-items:center; justify-content:center; font-size:10px; z-index:2; box-shadow:0 2px 6px rgba(0,0,0,.2); }
   .user-controls { position: relative; }
   .account-dropdown { position:absolute; top:calc(100% + 10px); left:0; min-width:250px; background:white; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 15px 40px rgba(0,0,0,.16); padding:8px; z-index:3000; display:none; }
   .account-dropdown.show { display:block; animation:fadeIn .15s ease; }
@@ -1213,11 +1214,12 @@ function updateAccountAvatar() {
   if (!el) return;
   if (!currentUser) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
+  const badge = currentUser.is_verified ? '<span class="account-verified-badge" title="حساب موثّق" aria-label="حساب موثّق"><i class="fas fa-check"></i></span>' : '';
   if (currentUser.profileImage) {
-    el.innerHTML = `<img src="${currentUser.profileImage}" alt="${(currentUser.name || 'حساب').replace(/"/g, '')}">`;
+    el.innerHTML = `<img src="${currentUser.profileImage}" alt="${(currentUser.name || 'حساب').replace(/"/g, '')}">${badge}`;
   } else {
     // أيقونة الموقع نفسها كافتراضي بدل أيقونة الشخص العامة
-    el.innerHTML = '<i class="fas fa-tools"></i>';
+    el.innerHTML = '<i class="fas fa-tools"></i>' + badge;
   }
 }
 
