@@ -1349,12 +1349,7 @@ function renderBookingForm() {
           ${govs.map(g=>`<option value="${g}">${g}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group"><label><i class="fas fa-map-marked-alt"></i> المنطقة</label>
-        <select id="bookingDistrict" class="form-control" required disabled>
-          <option value="">اختر المحافظة أولاً</option>
-        </select>
-      </div>
-      <div class="form-group" id="bookingSubdistrictGroup" style="display:none;">
+      <div class="form-group" id="bookingSubdistrictGroup">
         <label><i class="fas fa-map-pin"></i> الناحية</label>
         <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:8px;">
           <input type="search" id="bookingSubdistrictSearch" class="form-control" placeholder="🔎 اكتب اسم الناحية..." autocomplete="off" style="margin:0;flex:1;">
@@ -1363,7 +1358,7 @@ function renderBookingForm() {
           </button>
         </div>
         <select id="bookingSubdistrict" class="form-control" required disabled>
-          <option value="">اختر المنطقة أولاً</option>
+          <option value="">اختر المحافظة أولاً</option>
         </select>
         <div id="bookingSubdistrictCount" style="font-size:.82rem;color:#64748b;margin-top:6px;"></div>
       </div>
@@ -1420,10 +1415,8 @@ function renderBookingForm() {
     </form>`;
   const bookingForm = document.getElementById('bookingForm');
   const governorateSelect = document.getElementById('bookingGovernorate');
-  if (governorateSelect) governorateSelect.addEventListener('change', updateBookingDistricts);
-  const districtSelect = document.getElementById('bookingDistrict');
   const subdistrictSearch = document.getElementById('bookingSubdistrictSearch');
-  if (districtSelect) districtSelect.addEventListener('change', updateBookingSubdistricts);
+  if (governorateSelect) governorateSelect.addEventListener('change', updateBookingSubdistricts);
   if (subdistrictSearch) subdistrictSearch.addEventListener('input', updateBookingSubdistricts);
   if (bookingForm) bookingForm.addEventListener('submit', handleBooking);
   updateBookingForm();
@@ -1509,66 +1502,67 @@ const SYRIA_GOV_ID_MAP = Object.freeze({
   'القنيطرة':'sy-quneitra'
 });
 
-function updateBookingDistricts() {
-  const gov = document.getElementById('bookingGovernorate')?.value || '';
-  const select = document.getElementById('bookingDistrict');
-  const subGroup = document.getElementById('bookingSubdistrictGroup');
-  const subSelect = document.getElementById('bookingSubdistrict');
-  const search = document.getElementById('bookingSubdistrictSearch');
-  if (!select) return;
-  const districts = DISTRICTS_BY_GOV[gov] || [];
-  select.disabled = !gov;
-  select.style.pointerEvents = gov ? 'auto' : 'none';
-  select.innerHTML = gov
-    ? '<option value="">اختر المنطقة</option>' + districts.map(d => '<option value="' + d + '">' + d + '</option>').join('')
-    : '<option value="">اختر المحافظة أولاً</option>';
-  if (subGroup) subGroup.style.display = 'none';
-  if (subSelect) {
-    subSelect.disabled = true;
-    subSelect.innerHTML = '<option value="">اختر المنطقة أولاً</option>';
-  }
-  if (search) search.value = '';
-}
-
 async function updateBookingSubdistricts() {
   const gov = document.getElementById('bookingGovernorate')?.value || '';
-  const district = document.getElementById('bookingDistrict')?.value || '';
   const subGroup = document.getElementById('bookingSubdistrictGroup');
   const subSelect = document.getElementById('bookingSubdistrict');
   const search = document.getElementById('bookingSubdistrictSearch');
   const count = document.getElementById('bookingSubdistrictCount');
-  if (!subSelect || !district) {
-    if (subGroup) subGroup.style.display = 'none';
+
+  if (!subSelect) return;
+
+  if (!gov) {
+    if (subGroup) subGroup.style.display = 'block';
+    subSelect.disabled = true;
+    subSelect.innerHTML = '<option value="">اختر المحافظة أولاً</option>';
+    if (search) search.value = '';
+    if (count) count.textContent = '';
     return;
   }
+
   if (subGroup) subGroup.style.display = 'block';
   subSelect.disabled = true;
   subSelect.innerHTML = '<option value="">جارٍ تحميل النواحي...</option>';
   if (count) count.textContent = '';
+
   const loaded = await loadSyriaSubdistricts();
   if (!loaded) {
-    subSelect.innerHTML = '<option value="">تعذر تحميل النواحي — اكتب العنوان التفصيلي</option>';
-    if (count) count.textContent = 'سيتم الاحتفاظ بالمنطقة ويمكنك إكمال العنوان يدويًا.';
+    subSelect.innerHTML = '<option value="">تعذر تحميل النواحي</option>';
+    if (count) count.textContent = 'تعذر تحميل قائمة النواحي، حاول مرة أخرى.';
     return;
   }
-  const meta = getDistrictMeta(gov, district);
-  const districtId = meta?.id;
-  let list = districtId
-    ? SYRIA_SUBDISTRICTS.filter(x => x?.districtId === districtId)
+
+  const govId = SYRIA_GOV_ID_MAP[normalizeArabicPlaceName(gov)];
+  const districtIds = new Set(
+    (SYRIA_DISTRICTS_META || [])
+      .filter(x => x?.governorateId === govId)
+      .map(x => x?.id)
+      .filter(Boolean)
+  );
+
+  let list = districtIds.size
+    ? SYRIA_SUBDISTRICTS.filter(x => districtIds.has(x?.districtId))
     : [];
-  if (!list.length) {
-    const d = normalizeArabicPlaceName(district);
-    list = SYRIA_SUBDISTRICTS.filter(x => normalizeArabicPlaceName(x?.name?.ar) === d);
-  }
+
   const q = normalizeArabicPlaceName(search?.value || '');
   if (q) {
     list = list.filter(x => normalizeArabicPlaceName(x?.name?.ar).includes(q));
   }
-  list.sort((a,b) => String(a?.name?.ar||'').localeCompare(String(b?.name?.ar||''),'ar'));
+
+  list.sort((a,b) => String(a?.name?.ar || '').localeCompare(String(b?.name?.ar || ''), 'ar'));
+
   subSelect.disabled = list.length === 0;
   subSelect.innerHTML = '<option value="">اختر الناحية</option>' +
-    list.map(x => '<option value="' + String(x.name.ar).replace(/"/g,'&quot;') + '">' + x.name.ar + '</option>').join('');
-  if (count) count.textContent = list.length ? 'عدد النتائج: ' + list.length : 'لا توجد ناحية مطابقة للبحث';
+    list.map(x => {
+      const name = String(x?.name?.ar || '');
+      return '<option value="' + name.replace(/"/g,'&quot;') + '">' + name + '</option>';
+    }).join('');
+
+  if (count) {
+    count.textContent = list.length
+      ? 'عدد النواحي المتاحة في ' + gov + ': ' + list.length
+      : 'لا توجد ناحية مطابقة للبحث';
+  }
 }
 
 async function useCurrentBookingLocation() {
@@ -1653,7 +1647,7 @@ async function handleBooking(e) {
       date:           document.getElementById('bookingDate')?.value || '',
       time:           document.getElementById('bookingTime')?.value || '',
       governorate:    document.getElementById('bookingGovernorate')?.value || '',
-      district:       document.getElementById('bookingDistrict')?.value || '',
+      district:       null,
       subdistrict:   document.getElementById('bookingSubdistrict')?.value || '',
       address:        document.getElementById('bookingAddress')?.value?.trim() || '',
       latitude:       parseFloat(document.getElementById('bookingLatitude')?.value || '') || null,
@@ -1664,8 +1658,8 @@ async function handleBooking(e) {
       status:         'pending',
       tech_id:         null
     };
-    if (!booking.service || !booking.governorate || !booking.district || !booking.subdistrict) {
-      showAlert('يرجى اختيار المحافظة والمنطقة والناحية ونوع الخدمة', 'error');
+    if (!booking.service || !booking.governorate || !booking.subdistrict) {
+      showAlert('يرجى اختيار المحافظة والناحية ونوع الخدمة', 'error');
       return;
     }
 
@@ -1692,7 +1686,7 @@ async function handleBooking(e) {
     // لا ننشئ إشعاراً من الواجهة حتى لا يتكرر أو يصل إلى فني غير مقصود.
 
     e.target.reset();
-    updateBookingDistricts();
+    updateBookingSubdistricts();
     const latEl = document.getElementById('bookingLatitude');
     const lngEl = document.getElementById('bookingLongitude');
     if (latEl) latEl.value = '';
