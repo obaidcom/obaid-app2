@@ -1318,9 +1318,6 @@ function resetAdminSettings() {
   showAlert('تم إعادة الضبط، أعد تحميل الصفحة', 'success');
 }
 
-function renderBookingForm() {
-  const c = document.getElementById('bookingFormContainer');
-  if (!c) return;
 const SYRIA_GOVERNORATES = ['دمشق','ريف دمشق','حلب','حمص','حماة','إدلب','اللاذقية','طرطوس','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'];
 const DISTRICTS_BY_GOV = Object.freeze({
   'دمشق':['دمشق'],
@@ -1338,6 +1335,11 @@ const DISTRICTS_BY_GOV = Object.freeze({
   'السويداء':['السويداء','صلخد','شهبا'],
   'القنيطرة':['القنيطرة','فيق']
 });
+
+function renderBookingForm() {
+  const c = document.getElementById('bookingFormContainer');
+  if (!c) return;
+  const govs = SYRIA_GOVERNORATES;
   c.innerHTML = `
     <form id="bookingForm" style="background:white;border-radius:var(--radius);box-shadow:var(--shadow);padding:25px;max-width:520px;margin:0 auto;">
       <div class="form-group"><label><i class="fas fa-map-marker-alt"></i> المحافظة</label>
