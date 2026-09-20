@@ -667,6 +667,7 @@
               <div onclick="showTechActivity();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-line" style="color:#8b5cf6;width:18px;"></i> نشاط الفنيين</div>
               <div onclick="showAdminStats();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-chart-pie" style="color:#2563eb;width:18px;"></i> الإحصائيات العامة</div>
               <div onclick="showSubdistrictManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-map-marked-alt" style="color:#0ea5e9;width:18px;"></i> إدارة النواحي</div>
+              <div onclick="showServiceCatalogManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-tools" style="color:#16a34a;width:18px;"></i> إدارة الخدمات</div>
               <div onclick="showDiscountCodesManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-tags" style="color:#ec4899;width:18px;"></i> أكواد الخصم</div>
               <div onclick="showExportReport();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-file-export" style="color:#059669;width:18px;"></i> تصدير تقرير</div>
               <div onclick="sendMaintenanceReminders();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-bell" style="color:#f59e0b;width:18px;"></i> تذكيرات الصيانة</div>
@@ -1367,11 +1368,7 @@ function renderBookingForm() {
       <div class="form-group"><label><i class="fas fa-phone"></i> رقم الهاتف</label><input type="tel" id="bookingPhone" class="form-control" required></div>
       <div class="form-group"><label><i class="fas fa-cog"></i> نوع الخدمة</label>
         <select id="bookingService" class="form-control" required>
-          <option value="">اختر الخدمة</option>
-          <option value="كهرباء">صيانة كهرباء</option>
-          <option value="مياه">صيانة مياه</option>
-          <option value="طاقة شمسية">طاقة شمسية</option>
-          <option value="طوارئ">خدمة طوارئ</option>
+          <option value="">جارٍ تحميل الخدمات...</option>
         </select>
       </div>
       <div class="form-group"><label><i class="fas fa-calendar"></i> التاريخ</label><input type="date" id="bookingDate" class="form-control" required></div>
@@ -2916,6 +2913,109 @@ async function showAdminStats() {
   } catch (e) {
     showAlert('تعذر جلب الإحصائيات: ' + e.message, 'error', 6000);
   }
+}
+
+// ===== إدارة الخدمات من لوحة الإدارة =====
+async function loadServiceCatalog() {
+  const select = document.getElementById('bookingService');
+  if (!select) return;
+  try {
+    const { data, error } = await sb.from('service_catalog')
+      .select('id,name,is_active').eq('is_active', true).order('name', { ascending: true });
+    if (error) throw error;
+    const rows = Array.isArray(data) ? data : [];
+    select.innerHTML = '<option value="">اختر الخدمة</option>' +
+      rows.map(r => '<option value="' + String(r.name).replace(/"/g,'&quot;') + '">' +
+        String(r.name).replace(/</g,'&lt;') + '</option>').join('');
+    if (!rows.length) select.innerHTML = '<option value="">لا توجد خدمات متاحة</option>';
+  } catch (e) {
+    console.warn('تعذر تحميل الخدمات من الإدارة', e);
+    select.innerHTML =
+      '<option value="">اختر الخدمة</option>' +
+      '<option value="كهرباء">صيانة كهرباء</option>' +
+      '<option value="مياه">صيانة مياه</option>' +
+      '<option value="طاقة شمسية">طاقة شمسية</option>' +
+      '<option value="طاقة شمسية">طاقة شمسية</option>' +
+      '<option value="طوارئ">خدمة طوارئ</option>';
+  }
+}
+
+async function showServiceCatalogManagement() {
+  if (!currentAdmin) return;
+  showModal('<div style="padding:60px 20px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:#16a34a;"></i><p>جارٍ تحميل الخدمات...</p></div>');
+  let rows = [];
+  try {
+    const { data, error } = await sb.from('service_catalog')
+      .select('*').order('name', { ascending: true });
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) {
+    showAlert('تعذر تحميل الخدمات: ' + e.message, 'error');
+  }
+  renderServiceCatalogManagement(rows);
+}
+
+function renderServiceCatalogManagement(rows) {
+  showModal(`
+    <div style="padding:0;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;">
+      <div style="background:linear-gradient(135deg,#15803d,#16a34a);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;position:sticky;top:0;z-index:2;">
+        <h3 style="margin:0 0 6px;"><i class="fas fa-tools"></i> إدارة الخدمات</h3>
+        <div style="font-size:.82rem;opacity:.9;">إضافة خدمة جديدة أو تفعيل/تعطيل الخدمات الظاهرة في الحجز.</div>
+      </div>
+      <div style="background:white;padding:20px;">
+        <label style="font-weight:700;">اسم الخدمة</label>
+        <input id="adminServiceName" class="form-control" placeholder="مثال: صيانة المكيفات" style="margin:6px 0 10px;">
+        <label style="font-weight:700;">وصف الخدمة (اختياري)</label>
+        <input id="adminServiceDescription" class="form-control" placeholder="وصف مختصر" style="margin:6px 0 10px;">
+        <button onclick="addAdminService()" style="width:100%;background:#16a34a;color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;">
+          <i class="fas fa-plus"></i> إضافة الخدمة
+        </button>
+        <div style="border-top:1px solid #e2e8f0;margin-top:18px;padding-top:15px;">
+          <h4 style="margin:0 0 10px;">الخدمات</h4>
+          ${rows.length ? rows.map(r => `
+            <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <div><strong>${String(r.name).replace(/</g,'&lt;')}</strong><div style="font-size:.8rem;color:#64748b;">${r.is_active ? 'فعّالة وتظهر للمستخدم' : 'معطّلة ولا تظهر للمستخدم'}</div></div>
+              <div style="display:flex;gap:6px;">
+                <button onclick="toggleAdminService(${r.id},${!r.is_active})" style="background:#f1f5f9;border:0;padding:7px 9px;border-radius:8px;cursor:pointer;" title="تفعيل/تعطيل"><i class="fas fa-power-off"></i></button>
+                <button onclick="deleteAdminService(${r.id})" style="background:#fef2f2;color:#ef4444;border:0;padding:7px 9px;border-radius:8px;cursor:pointer;" title="حذف"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>`).join('') : '<p style="text-align:center;color:#64748b;padding:18px;">لا توجد خدمات.</p>'}
+        </div>
+        <button onclick="closeModal()" style="width:100%;margin-top:10px;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إغلاق</button>
+      </div>
+    </div>`);
+}
+
+async function addAdminService() {
+  if (!currentAdmin) return;
+  const name = document.getElementById('adminServiceName')?.value?.trim();
+  const description = document.getElementById('adminServiceDescription')?.value?.trim() || null;
+  if (!name) { showAlert('اكتب اسم الخدمة أولاً', 'warning'); return; }
+  const { error } = await sb.from('service_catalog').insert({ name, description, created_by: currentAdmin.id });
+  if (error) {
+    showAlert(error.code === '23505' ? 'هذه الخدمة موجودة بالفعل' : 'تعذر إضافة الخدمة: ' + error.message, 'error');
+    return;
+  }
+  showAlert('تمت إضافة الخدمة بنجاح', 'success');
+  await loadServiceCatalog();
+  await showServiceCatalogManagement();
+}
+
+async function toggleAdminService(id, isActive) {
+  if (!currentAdmin) return;
+  const { error } = await sb.from('service_catalog').update({ is_active: isActive }).eq('id', id);
+  if (error) { showAlert('تعذر تحديث الخدمة: ' + error.message, 'error'); return; }
+  await loadServiceCatalog();
+  await showServiceCatalogManagement();
+}
+
+async function deleteAdminService(id) {
+  if (!currentAdmin) return;
+  if (!confirm('هل تريد حذف هذه الخدمة؟')) return;
+  const { error } = await sb.from('service_catalog').delete().eq('id', id);
+  if (error) { showAlert('تعذر حذف الخدمة: ' + error.message, 'error'); return; }
+  await loadServiceCatalog();
+  await showServiceCatalogManagement();
 }
 
 // ===== إدارة النواحي من لوحة الإدارة =====
@@ -7700,6 +7800,7 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
 
   document.addEventListener('DOMContentLoaded', function () {
     setTimeout(initNativePush, 300);
+    setTimeout(loadServiceCatalog, 500);
   });
 })();
 </script>
