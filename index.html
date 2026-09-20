@@ -36,7 +36,36 @@
   body.dark-mode .admin-btn:hover { background:#2563eb !important; color:#fff !important; }
   body.dark-mode .service-price { background:#172554 !important; color:#60a5fa !important; }
   body.dark-mode .account-verified-badge { background:#2563eb; border-color:#111827; box-shadow:0 2px 10px rgba(37,99,235,.5); }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  <style>
+/* ===== تذييل احترافي أسفل نظام الحجز ===== */
+.main-footer{background:linear-gradient(135deg,#0f172a 0%,#172554 55%,#1e3a8a 100%);color:#e2e8f0;padding:42px clamp(18px,4vw,55px) 18px;margin-top:0;position:relative;overflow:hidden}
+.main-footer::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 12% 15%,rgba(59,130,246,.18),transparent 32%),radial-gradient(circle at 88% 85%,rgba(245,158,11,.12),transparent 30%);pointer-events:none}
+.footer-shell{position:relative;z-index:1;max-width:1250px;margin:0 auto;display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:28px}
+.footer-brand,.footer-contact,.footer-social{min-width:0}
+.footer-brand{padding-left:10px}
+.footer-brand-icon{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#3b82f6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.25rem;box-shadow:0 8px 22px rgba(37,99,235,.3);margin-bottom:14px}
+.footer-brand h3,.footer-contact h3,.footer-social h3{margin:0 0 7px;color:#fff;font-size:1.12rem;font-weight:900}
+.footer-brand>div:nth-child(2) span{color:#93c5fd;font-size:.78rem;font-weight:800}
+.footer-brand p,.footer-social p{color:#cbd5e1;font-size:.86rem;line-height:1.9;margin:13px 0 0;max-width:390px}
+.footer-contact h3 i,.footer-social h3 i{color:#60a5fa;margin-left:6px}
+.footer-contact-item{display:flex;align-items:center;gap:11px;text-decoration:none;color:#e2e8f0;margin:10px 0;padding:10px 11px;border:1px solid rgba(148,163,184,.16);background:rgba(255,255,255,.045);border-radius:13px;transition:.2s ease}
+.footer-contact-item:hover{background:rgba(37,99,235,.18);border-color:rgba(96,165,250,.35);transform:translateY(-1px)}
+.footer-contact-icon{width:35px;height:35px;flex:0 0 35px;border-radius:10px;background:rgba(37,99,235,.2);color:#60a5fa;display:flex;align-items:center;justify-content:center}
+.footer-contact-item span:last-child{display:flex;flex-direction:column;gap:1px;min-width:0}
+.footer-contact-item b{font-size:.76rem;color:#93c5fd}
+.footer-contact-item small{font-size:.82rem;color:#f1f5f9;overflow-wrap:anywhere}
+.footer-social-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:15px}
+.footer-social-grid a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:9px 8px;border-radius:13px;text-decoration:none;color:#e2e8f0;background:rgba(255,255,255,.06);border:1px solid rgba(148,163,184,.16);font-size:.8rem;font-weight:800;transition:.2s ease}
+.footer-social-grid a i{font-size:1rem}
+.footer-social-grid a:hover{background:#2563eb;color:#fff;border-color:#60a5fa;transform:translateY(-2px);box-shadow:0 7px 18px rgba(37,99,235,.2)}
+.footer-service-strip{position:relative;z-index:1;max-width:1250px;margin:30px auto 18px;padding:13px 16px;border-top:1px solid rgba(148,163,184,.18);border-bottom:1px solid rgba(148,163,184,.18);display:flex;justify-content:center;align-items:center;gap:clamp(15px,4vw,45px);flex-wrap:wrap;color:#cbd5e1;font-size:.78rem;font-weight:700}
+.footer-service-strip span{display:inline-flex;align-items:center;gap:7px}.footer-service-strip i{color:#fbbf24}
+.main-footer .copyright{position:relative;z-index:1;text-align:center;color:#94a3b8;font-size:.75rem;padding-top:4px}
+body.dark-mode .main-footer{background:linear-gradient(135deg,#080d18 0%,#0f172a 60%,#172554 100%)}
+@media(max-width:800px){.footer-shell{grid-template-columns:1fr 1fr;gap:24px}.footer-brand{grid-column:1/-1;padding-left:0}.footer-brand p{max-width:none}}
+@media(max-width:520px){.main-footer{padding:34px 15px 16px}.footer-shell{grid-template-columns:1fr;gap:22px}.footer-brand{grid-column:auto}.footer-social-grid{grid-template-columns:repeat(2,1fr)}.footer-service-strip{align-items:flex-start;flex-direction:column;gap:10px;margin-top:24px}}
+</style>
+\n* { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Tajawal', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #ffffff; color: var(--dark); direction: rtl; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   .welcome-page.hidden { display: none !important; }
   .welcome-page { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: white; padding: 2rem; text-align: center; animation: fadeIn 0.5s ease; transition: opacity 0.4s ease, transform 0.4s ease; }
@@ -627,11 +656,50 @@
       </div>
     </section>
   <footer class="main-footer">
-    <div class="footer-content">
-      <div class="footer-section"><h3>عبيد للصيانة</h3><p>نقدم خدمات صيانة الكهرباء والماء والطاقة الشمسية بأعلى معايير الجودة والاحترافية.</p><div class="social-links"><a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" data-social="facebook" target="_blank"><i class="fab fa-facebook-f"></i></a><a href="https://x.com/EubaydMajd" data-social="twitter" target="_blank"><i class="fab fa-twitter"></i></a><a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" data-social="instagram" target="_blank"><i class="fab fa-instagram"></i></a><a href="https://wa.me/+905357624482" data-social="whatsapp" target="_blank"><i class="fab fa-whatsapp"></i></a></div></div>
-      <div class="footer-section"><h3>اتصل بنا</h3><p><i class="fas fa-phone"></i> +905357624482</p><p><i class="fas fa-envelope"></i> bydlamal@gmail.com</p><p><i class="fas fa-map-marker-alt"></i> جميع مناطق المدينة</p></div>
-      <div class="footer-section"><h3>مواعيد العمل</h3><p><i class="fas fa-clock"></i> 24 ساعة طوال الأسبوع</p><p><i class="fas fa-calendar"></i> خدمة طوارئ على مدار الساعة</p><p><i class="fas fa-user-tie"></i> فنيون معتمدون</p></div>
+    <div class="footer-shell">
+      <div class="footer-brand">
+        <div class="footer-brand-icon"><i class="fas fa-house-chimney"></i></div>
+        <div>
+          <h3>بيت الصيانة</h3>
+          <span>عبيد للصيانة</span>
+        </div>
+        <p>خدمات صيانة الكهرباء والماء والطاقة الشمسية باحترافية وجودة عالية، مع خدمة طوارئ على مدار الساعة.</p>
+      </div>
+
+      <div class="footer-contact">
+        <h3><i class="fas fa-headset"></i> تواصل معنا</h3>
+        <a href="tel:+905357624482" class="footer-contact-item">
+          <span class="footer-contact-icon"><i class="fas fa-phone"></i></span>
+          <span><b>الهاتف</b><small dir="ltr">+90 535 762 4482</small></span>
+        </a>
+        <a href="mailto:bydlamal@gmail.com" class="footer-contact-item">
+          <span class="footer-contact-icon"><i class="fas fa-envelope"></i></span>
+          <span><b>البريد الإلكتروني</b><small>bydlamal@gmail.com</small></span>
+        </a>
+        <div class="footer-contact-item">
+          <span class="footer-contact-icon"><i class="fas fa-map-marker-alt"></i></span>
+          <span><b>نطاق الخدمة</b><small>جميع مناطق المدينة</small></span>
+        </div>
+      </div>
+
+      <div class="footer-social">
+        <h3><i class="fas fa-share-nodes"></i> تابعنا وتواصل معنا</h3>
+        <p>تابع حسابات عبيد للصيانة أو تواصل معنا مباشرة.</p>
+        <div class="footer-social-grid" aria-label="روابط التواصل الاجتماعي">
+          <a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" data-social="facebook" target="_blank" rel="noopener" aria-label="فيسبوك"><i class="fab fa-facebook-f"></i><span>فيسبوك</span></a>
+          <a href="https://x.com/EubaydMajd" data-social="twitter" target="_blank" rel="noopener" aria-label="X"><i class="fab fa-twitter"></i><span>X</span></a>
+          <a href="https://www.instagram.com/gomaa__obaid?igsh=dWo4MHI2NW0xejFl" data-social="instagram" target="_blank" rel="noopener" aria-label="إنستغرام"><i class="fab fa-instagram"></i><span>إنستغرام</span></a>
+          <a href="https://wa.me/+905357624482" data-social="whatsapp" target="_blank" rel="noopener" aria-label="واتساب"><i class="fab fa-whatsapp"></i><span>واتساب</span></a>
+        </div>
+      </div>
     </div>
+
+    <div class="footer-service-strip">
+      <span><i class="fas fa-clock"></i> 24 ساعة طوال الأسبوع</span>
+      <span><i class="fas fa-triangle-exclamation"></i> خدمة طوارئ على مدار الساعة</span>
+      <span><i class="fas fa-user-tie"></i> فنيون معتمدون</span>
+    </div>
+
     <div class="copyright">جميع الحقوق محفوظة &copy; <span id="currentYear"></span> عبيد للصيانة</div>
   </footer>
 
