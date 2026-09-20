@@ -1526,11 +1526,11 @@ async function updateBookingSubdistricts() {
   subSelect.innerHTML = '<option value="">جارٍ تحميل النواحي...</option>';
   if (count) count.textContent = '';
 
+  // تحميل القائمة الرسمية إن أمكن، لكن لا نوقف القائمة إذا فشل المصدر الرسمي؛
+  // النواحي التي يضيفها المدير من Supabase يجب أن تظهر حتى عند تعذر المصدر الخارجي.
   const loaded = await loadSyriaSubdistricts();
   if (!loaded) {
-    subSelect.innerHTML = '<option value="">تعذر تحميل النواحي</option>';
-    if (count) count.textContent = 'تعذر تحميل قائمة النواحي، حاول مرة أخرى.';
-    return;
+    console.warn('المصدر الرسمي للنواحي غير متاح؛ سيتم عرض النواحي المضافة من الإدارة إن وجدت.');
   }
 
   const govId = SYRIA_GOV_ID_MAP[normalizeArabicPlaceName(gov)];
