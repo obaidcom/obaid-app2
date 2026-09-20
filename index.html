@@ -2974,7 +2974,7 @@ async function sendBroadcastNotification() {
 
 async function showTechActivity() {
   const { data: orders } = await sb.from('orders')
-    .select('id,service,status,governorate,tech_id,tech_name,tech_phone,tech_accepted_at,created_at,name')
+    .select('id,service,status,governorate,district,tech_id,tech_name,tech_phone,tech_accepted_at,created_at,name')
     .not('accepted_by_tech', 'is', null)
     .order('tech_accepted_at', { ascending: false })
     .limit(100);
@@ -3724,7 +3724,7 @@ async function loadUserData(userId) {
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
   try {
     const [oRes, iRes] = await Promise.all([
-      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
+      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,district,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
       sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
@@ -6345,7 +6345,7 @@ async function showTechDashboard() {
 async function loadTechOrders() {
   try {
     let query = sb.from('orders')
-      .select('id,user_id,name,phone,service,date,time,status,governorate,photo,on_the_way_at,invoice_id,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,district,photo,on_the_way_at,invoice_id,tech_id,accepted_by_tech,tech_name,tech_phone,created_at,notes,payment_method')
       .order('created_at', { ascending: false });
 
     const perms = currentTechnician?.permissions || {};
