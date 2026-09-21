@@ -389,6 +389,112 @@
     .form-control { font-size: 16px !important; }
     .payment-btn { padding: 1rem !important; font-size: 1rem !important; }
   }
+</style><style id="obied-booking-polish">
+  /* تحسين مظهر نموذج الحجز فقط */
+  .booking-form, #bookingForm {
+    border:1px solid #e2e8f0;
+    background:#fff;
+  }
+  #bookingForm .form-group { margin-bottom:18px; }
+  #bookingForm .form-group label {
+    color:#1f2937;
+    font-weight:800;
+    display:flex;
+    align-items:center;
+    gap:7px;
+  }
+  #bookingForm .form-group label i { color:#2563eb; width:20px; text-align:center; }
+  #bookingForm .form-control {
+    min-height:50px;
+    border:1.5px solid #dbe3ef;
+    background:#fff;
+    color:#1f2937;
+  }
+  #bookingForm .form-control:hover { border-color:#93c5fd; }
+  #bookingForm .form-control:focus {
+    border-color:#2563eb;
+    box-shadow:0 0 0 4px rgba(37,99,235,.12);
+    transform:translateY(-1px);
+  }
+  #bookingForm button {
+    transition:transform .16s ease, box-shadow .16s ease, background .2s ease, border-color .2s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #bookingForm button:hover {
+    transform:translateY(-2px);
+    box-shadow:0 8px 20px rgba(37,99,235,.18);
+  }
+  #bookingForm button:active {
+    transform:translateY(1px) scale(.98);
+    box-shadow:0 3px 8px rgba(37,99,235,.18);
+  }
+  #bookingForm .btn-primary {
+    min-height:54px;
+    border-radius:14px;
+    box-shadow:0 7px 18px rgba(37,99,235,.22);
+  }
+  #bookingForm .btn-primary:hover {
+    box-shadow:0 11px 26px rgba(37,99,235,.30);
+  }
+  #bookingForm .btn-primary:active {
+    box-shadow:0 3px 9px rgba(37,99,235,.20);
+  }
+  /* شام كاش أسفل زر تأكيد الحجز */
+  #bookingPaymentMethod {
+    margin:14px 0 0;
+    padding:13px 15px;
+    border-radius:14px;
+    background:#f0fdf4;
+    border:1px solid #bbf7d0;
+    color:#166534;
+    text-align:center;
+  }
+  #bookingPaymentMethod strong { color:#166534; }
+  #bookingPaymentMethod i { color:#10b981; margin-left:6px; }
+  /* إصلاح النصوص والقوائم في الوضع الليلي */
+  body.dark-mode #bookingForm,
+  body.dark-mode #bookingFormContainer { color:#f8fafc !important; }
+  body.dark-mode #bookingForm .form-group label { color:#f8fafc !important; }
+  body.dark-mode #bookingForm .form-group label i { color:#60a5fa !important; }
+  body.dark-mode #bookingForm .form-control,
+  body.dark-mode #bookingForm select,
+  body.dark-mode #bookingForm textarea,
+  body.dark-mode #bookingForm input {
+    background:#0f172a !important;
+    color:#f8fafc !important;
+    border-color:#475569 !important;
+  }
+  body.dark-mode #bookingForm .form-control::placeholder,
+  body.dark-mode #bookingForm textarea::placeholder,
+  body.dark-mode #bookingForm input::placeholder { color:#94a3b8 !important; opacity:1; }
+  body.dark-mode #bookingForm option { background:#0f172a !important; color:#f8fafc !important; }
+  body.dark-mode #bookingPaymentMethod {
+    background:#052e1b !important;
+    border-color:#166534 !important;
+    color:#bbf7d0 !important;
+  }
+  body.dark-mode #bookingPaymentMethod strong { color:#bbf7d0 !important; }
+  body.dark-mode #bookingSubdistrictCount,
+  body.dark-mode #bookingLocationStatus { color:#94a3b8 !important; }
+  /* القائمة المسجلة/الحساب في الوضع الليلي */
+  body.dark-mode .account-dropdown,
+  body.dark-mode .account-dropdown-item,
+  body.dark-mode .account-social-title,
+  body.dark-mode .account-social-links a { color:#f8fafc !important; }
+  body.dark-mode .account-dropdown-item i,
+  body.dark-mode .account-social-links a i { color:#60a5fa !important; }
+  body.dark-mode .account-dropdown-item:hover,
+  body.dark-mode .account-dropdown-item:focus-visible { background:#1e293b !important; color:#fff !important; }
+  body.dark-mode .account-dropdown-divider { background:#475569 !important; }
+  /* تأثير ضغط موحّد للأزرار الموجودة دون إضافة أزرار جديدة */
+  button:not(:disabled):active,
+  .nav-link:active,
+  .social-icon:active,
+  .bottom-nav-btn:active,
+  .account-dropdown-item:active {
+    transform:translateY(1px) scale(.97) !important;
+    transition-duration:.08s !important;
+  }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -1601,9 +1707,6 @@ function renderBookingForm() {
           <option value="طوارئ">طوارئ (أي وقت)</option>
         </select>
       </div>
-      <div class="form-group" style="background:#f0fdf4;padding:12px;border-radius:12px;border:1px solid #bbf7d0;">
-        <label style="color:#065f46;font-weight:700;"><i class="fas fa-wallet" style="color:#10b981;"></i> طريقة الدفع: شام كاش فقط</label>
-      </div>
       <div class="form-group" id="preferredTechGroup" style="display:none;">
         <label><i class="fas fa-user-check"></i> فني مفضل (اختياري)</label>
         <select id="bookingPreferredTech" class="form-control">
@@ -1630,6 +1733,9 @@ function renderBookingForm() {
         <img id="bookingPhotoPreview" style="display:none;max-width:100%;max-height:150px;border-radius:12px;margin-top:8px;">
       </div>
       <button type="submit" class="btn-primary responsive-button" style="width:100%;"><i class="fas fa-paper-plane"></i> تأكيد الحجز</button>
+      <div id="bookingPaymentMethod" role="note" aria-label="طريقة الدفع">
+        <i class="fas fa-wallet"></i><strong>طريقة الدفع: شام كاش فقط</strong>
+      </div>
     </form>`;
   const bookingForm = document.getElementById('bookingForm');
   const governorateSelect = document.getElementById('bookingGovernorate');
