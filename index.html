@@ -7757,6 +7757,68 @@ function printInvoice(invoiceId) {
     .footer-settings-actions { flex-direction:column; }
     .footer-settings-actions .btn-primary, .footer-settings-cancel { flex:none; width:100%; }
   }
+
+  /* ===== لمسات واجهة تطبيق صيانة حديثة ===== */
+  :root { --ui-glow: rgba(37,99,235,.16); }
+  .main-header {
+    background:rgba(255,255,255,.94); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border-bottom:1px solid rgba(37,99,235,.10); box-shadow:0 8px 28px rgba(15,23,42,.08);
+  }
+  .logo { font-weight:900; transition:transform .2s ease; }
+  .logo:hover { transform:translateY(-1px); }
+  .logo i { filter:drop-shadow(0 5px 10px rgba(37,99,235,.25)); }
+  .hero-slider {
+    border:0; border-radius:26px; box-shadow:0 20px 55px rgba(15,23,42,.16); isolation:isolate;
+  }
+  .hero-slider::after {
+    content:''; position:absolute; inset:0; border:1px solid rgba(255,255,255,.28);
+    border-radius:26px; pointer-events:none; z-index:5;
+  }
+  .slide-content { padding-right:clamp(1.5rem,7vw,5.5rem); }
+  .slide-content h2 { letter-spacing:-.03em; text-shadow:0 4px 18px rgba(0,0,0,.28); }
+  .slide-content p { text-shadow:0 2px 8px rgba(0,0,0,.18); }
+  .slide-content .btn-primary {
+    border-radius:14px; box-shadow:0 10px 25px rgba(15,23,42,.20); transition:transform .2s ease,box-shadow .2s ease;
+  }
+  .slide-content .btn-primary:hover { transform:translateY(-3px); box-shadow:0 15px 30px rgba(15,23,42,.25); }
+  .services-section { background:linear-gradient(180deg,#fff 0%,#f8fbff 100%); }
+  .section-title { letter-spacing:-.02em; }
+  .section-title::after { width:72px; height:4px; background:linear-gradient(90deg,var(--primary),var(--accent)); box-shadow:0 4px 12px rgba(37,99,235,.22); }
+  .service-card {
+    border:1px solid rgba(37,99,235,.10); border-radius:22px; padding:2rem 1.5rem;
+    box-shadow:0 10px 28px rgba(15,23,42,.07); background:rgba(255,255,255,.96);
+    transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;
+  }
+  .service-card::before { height:5px; }
+  .service-card:hover { transform:translateY(-8px); border-color:rgba(37,99,235,.22); box-shadow:0 20px 42px rgba(15,23,42,.13); }
+  .service-icon {
+    width:72px; height:72px; margin:0 auto 1.2rem; border-radius:20px;
+    display:flex; align-items:center; justify-content:center; background:#eff6ff;
+    box-shadow:inset 0 0 0 1px rgba(37,99,235,.08),0 8px 20px rgba(37,99,235,.10);
+  }
+  .service-card:hover .service-icon { background:#dbeafe; transform:translateY(-3px) scale(1.04); }
+  .service-price { border:1px solid rgba(37,99,235,.10); box-shadow:0 5px 15px rgba(37,99,235,.06); }
+  .booking-section { position:relative; }
+  .booking-section::before {
+    content:'صيانة أسرع • فنيون موثوقون • خدمة على مدار الساعة';
+    display:block; width:max-content; max-width:100%; margin:0 auto 1.2rem; padding:8px 16px;
+    border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:.82rem; font-weight:800;
+    border:1px solid #dbeafe;
+  }
+  .booking-form { border:1px solid rgba(37,99,235,.10); border-radius:24px; }
+  .form-control { border-radius:13px; transition:border-color .2s,box-shadow .2s,transform .2s; }
+  .form-control:focus { border-color:#60a5fa; box-shadow:0 0 0 4px rgba(37,99,235,.10); transform:translateY(-1px); }
+  .main-footer { border-top-width:5px; }
+  @media(max-width:768px) {
+    .hero-slider { border-radius:20px; margin-left:10px; margin-right:10px; }
+    .service-card { border-radius:19px; }
+    .service-icon { width:62px; height:62px; border-radius:17px; }
+    .booking-section::before { font-size:.74rem; text-align:center; }
+  }
+  body.dark-mode .services-section { background:linear-gradient(180deg,#0b1220,#0f172a)!important; }
+  body.dark-mode .service-icon { background:#172554; box-shadow:inset 0 0 0 1px rgba(96,165,250,.12); }
+  body.dark-mode .service-card:hover .service-icon { background:#1e3a8a; }
+  body.dark-mode .booking-section::before { background:#172554; color:#93c5fd; border-color:#1e3a8a; }
 </style></head><body>
     <h2>فاتورة خدمة - عبيد للصيانة</h2>
     <div class="row"><span>رقم الفاتورة</span><strong>${num}</strong></div>
