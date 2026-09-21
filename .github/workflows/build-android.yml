@@ -68,6 +68,21 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Set Android version for update builds
+        run: |
+          python3 - <<'PY'
+          import re
+          path = 'android/app/build.gradle'
+          with open(path, 'r', encoding='utf-8') as f:
+              content = f.read()
+          run_number = int('${{ github.run_number }}')
+          content = re.sub(r'versionCode\\s+\\d+', f'versionCode {run_number}', content, count=1)
+          content = re.sub(r'versionName\\s+\"[^\"]*\"', f'versionName \"1.0.{run_number}\"', content, count=1)
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(content)
+          print(f'Android version set to versionCode={run_number}, versionName=1.0.{run_number}')
+          PY
+
       - name: Generate app icons and splash screen
         run: npx capacitor-assets generate --android
 
