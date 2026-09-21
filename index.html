@@ -649,8 +649,8 @@
   <footer class="main-footer" aria-label="معلومات عبيد للصيانة">
     <div class="footer-content">
       <section class="footer-section">
-        <h3>بيت الصيانة — عبيد للصيانة</h3>
-        <p>خدمات صيانة الكهرباء والماء والطاقة الشمسية بأعلى معايير الجودة والاحترافية.</p>
+        <h3 id="footerTitle">بيت الصيانة — عبيد للصيانة</h3>
+        <p id="footerDescription">خدمات صيانة الكهرباء والماء والطاقة الشمسية بأعلى معايير الجودة والاحترافية.</p>
         <div class="social-links" aria-label="التواصل الاجتماعي">
           <a href="https://www.facebook.com/Mr.Peacea1?mibextid=ZbWKwL" data-social="facebook" target="_blank" rel="noopener noreferrer" aria-label="فيسبوك"><i class="fab fa-facebook-f"></i></a>
           <a href="https://x.com/EubaydMajd" data-social="twitter" target="_blank" rel="noopener noreferrer" aria-label="X"><i class="fab fa-twitter"></i></a>
@@ -660,18 +660,18 @@
       </section>
       <section class="footer-section">
         <h3>اتصل بنا</h3>
-        <p class="footer-contact-item"><i class="fas fa-phone"></i><span>+905357624482</span></p>
-        <p class="footer-contact-item"><i class="fas fa-envelope"></i><span>bydlamal@gmail.com</span></p>
-        <p class="footer-contact-item"><i class="fas fa-map-marker-alt"></i><span>جميع مناطق المدينة</span></p>
+        <p class="footer-contact-item"><i class="fas fa-phone"></i><span id="footerPhone">+905357624482</span></p>
+        <p class="footer-contact-item"><i class="fas fa-envelope"></i><span id="footerEmail">bydlamal@gmail.com</span></p>
+        <p class="footer-contact-item"><i class="fas fa-map-marker-alt"></i><span id="footerLocation">جميع مناطق المدينة</span></p>
       </section>
       <section class="footer-section">
         <h3>مواعيد العمل</h3>
-        <p class="footer-contact-item"><i class="fas fa-clock"></i><span>24 ساعة طوال الأسبوع</span></p>
-        <p class="footer-contact-item"><i class="fas fa-calendar"></i><span>خدمة طوارئ على مدار الساعة</span></p>
-        <p class="footer-contact-item"><i class="fas fa-user-tie"></i><span>فنيون معتمدون</span></p>
+        <p class="footer-contact-item"><i class="fas fa-clock"></i><span id="footerHours">24 ساعة طوال الأسبوع</span></p>
+        <p class="footer-contact-item"><i class="fas fa-calendar"></i><span id="footerEmergency">خدمة طوارئ على مدار الساعة</span></p>
+        <p class="footer-contact-item"><i class="fas fa-user-tie"></i><span id="footerTechnicians">فنيون معتمدون</span></p>
       </section>
     </div>
-    <div class="copyright">جميع الحقوق محفوظة &copy; <span id="currentYear"></span> عبيد للصيانة</div>
+    <div class="copyright"><span id="footerCopyright">جميع الحقوق محفوظة</span> &copy; <span id="currentYear"></span> <span id="footerCopyrightName">عبيد للصيانة</span></div>
   </footer>
 
   </div>
@@ -786,6 +786,7 @@
               <div onclick="showTechManagement();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-hard-hat" style="color:#8b5cf6;width:18px;"></i> إدارة الفنيين</div>
               <div onclick="showComplaintsPanel();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-exclamation-circle" style="color:#ef4444;width:18px;"></i> الشكاوى</div>
               <div onclick="showSettingsPanel();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-palette" style="color:#3b82f6;width:18px;"></i> التسميات والألوان</div>
+              <div onclick="showFooterSettingsPanel();closeAdminMenu()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><i class="fas fa-address-card" style="color:#10b981;width:18px;"></i> إعدادات القائمة السفلية</div>
               <div style="border-top:1px solid #e2e8f0;"></div>
               <div onclick="logoutAdmin()" style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;color:#ef4444;transition:background 0.2s;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''"><i class="fas fa-sign-out-alt" style="width:18px;"></i> تسجيل الخروج</div>
             </div>
@@ -1013,7 +1014,15 @@ let siteSettings = {
     welcomeBtn1:        'دخول الموقع',
     welcomeBtn2:        'إنشاء حساب',
     bookingBtn:         'تأكيد الحجز',
-    footerText:         'جميع الحقوق محفوظة لعبيد للصيانة'
+    footerText:         'جميع الحقوق محفوظة لعبيد للصيانة',
+    footerTitle:        'بيت الصيانة — عبيد للصيانة',
+    footerDescription:  'خدمات صيانة الكهرباء والماء والطاقة الشمسية بأعلى معايير الجودة والاحترافية.',
+    footerPhone:        '+905357624482',
+    footerEmail:        'bydlamal@gmail.com',
+    footerLocation:     'جميع مناطق المدينة',
+    footerHours:        '24 ساعة طوال الأسبوع',
+    footerEmergency:    'خدمة طوارئ على مدار الساعة',
+    footerTechnicians:  'فنيون معتمدون'
   }
 };
 
@@ -4760,10 +4769,24 @@ function applySettings() {
   }
 
   // الفوتر
-  if (l.footerText) {
-    const footer = document.querySelector('.footer-bottom p:not(:has(#currentYear))');
-    if (footer) footer.textContent = l.footerText;
-  }
+  const footerMap = {
+    footerTitle: 'footerTitle',
+    footerDescription: 'footerDescription',
+    footerPhone: 'footerPhone',
+    footerEmail: 'footerEmail',
+    footerLocation: 'footerLocation',
+    footerHours: 'footerHours',
+    footerEmergency: 'footerEmergency',
+    footerTechnicians: 'footerTechnicians'
+  };
+  Object.keys(footerMap).forEach(key => {
+    const el = document.getElementById(footerMap[key]);
+    if (el && l[key]) el.textContent = l[key];
+  });
+  const footerCopyright = document.getElementById('footerCopyright');
+  if (footerCopyright && l.footerText) footerCopyright.textContent = l.footerText;
+  const footerCopyrightName = document.getElementById('footerCopyrightName');
+  if (footerCopyrightName && l.siteName) footerCopyrightName.textContent = l.siteName;
 }
 
 function loadBarcode() {
@@ -7706,7 +7729,35 @@ function printInvoice(invoiceId) {
       .row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed #cbd5e1;}
       .total{background:#f8fafc;padding:16px;border-radius:10px;margin-top:16px;font-weight:bold;font-size:1.3rem;color:#2563eb;display:flex;justify-content:space-between;}
       @media print { body{padding:10px;} }
-    </style></head><body>
+      /* ===== تحسينات واجهة حديثة وآمنة — نطاقها بصري فقط ===== */
+  .main-header { box-shadow: 0 8px 28px rgba(15,23,42,.08); }
+  .logo { letter-spacing: -.02em; }
+  .hero-slider { box-shadow: 0 18px 50px rgba(15,23,42,.12); border: 1px solid rgba(255,255,255,.45); }
+  .slide-content { background: linear-gradient(135deg,rgba(15,45,120,.92),rgba(37,99,235,.70),rgba(59,130,246,.42)); }
+  .service-card { box-shadow: 0 10px 30px rgba(15,23,42,.07); border-color: rgba(37,99,235,.08); }
+  .service-card:hover { transform: translateY(-7px); box-shadow: 0 18px 42px rgba(15,23,42,.13); }
+  .booking-form, .rating-card { box-shadow: 0 14px 38px rgba(15,23,42,.08); }
+  .section-title::after { width: 5rem; background: linear-gradient(90deg,var(--accent),var(--primary)); }
+  .footer-settings-modal { width:min(720px,100%); background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 25px 70px rgba(0,0,0,.25); }
+  .footer-settings-head { display:flex; align-items:center; gap:14px; padding:20px; color:#fff; background:linear-gradient(135deg,#0f766e,#10b981); }
+  .footer-settings-icon { width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.16); font-size:1.25rem; }
+  .footer-settings-head h3 { margin:0 0 4px; font-size:1.1rem; }
+  .footer-settings-head p { margin:0; opacity:.86; font-size:.82rem; }
+  .footer-settings-body { padding:20px; }
+  .footer-settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .footer-settings-actions { display:flex; gap:10px; margin-top:18px; }
+  .footer-settings-actions .btn-primary { flex:2; }
+  .footer-settings-cancel { flex:1; border:0; background:#f1f5f9; color:var(--dark); border-radius:50px; font-family:inherit; font-weight:700; cursor:pointer; }
+  body.dark-mode .footer-settings-modal { background:#111827; }
+  body.dark-mode .footer-settings-head { background:linear-gradient(135deg,#0f766e,#059669); }
+  body.dark-mode .footer-settings-body { background:#111827; }
+  body.dark-mode .footer-settings-cancel { background:#1f2937; color:#f1f5f9; }
+  @media (max-width:768px) {
+    .footer-settings-grid { grid-template-columns:1fr; }
+    .footer-settings-actions { flex-direction:column; }
+    .footer-settings-actions .btn-primary, .footer-settings-cancel { flex:none; width:100%; }
+  }
+</style></head><body>
     <h2>فاتورة خدمة - عبيد للصيانة</h2>
     <div class="row"><span>رقم الفاتورة</span><strong>${num}</strong></div>
     <div class="row"><span>التاريخ</span><strong>${invoice.date || ''}</strong></div>
@@ -7742,18 +7793,18 @@ function showSettingsPanel() {
   const c = siteSettings.colors || {};
   const l = siteSettings.labels || {};
   showModal(`
-    <div style="padding:0;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;">
+    <div style="padding:0;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;">
       <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px 25px;border-radius:var(--radius) var(--radius) 0 0;">
         <h3 style="margin:0;"><i class="fas fa-palette"></i> التسميات والألوان</h3>
       </div>
       <div style="background:white;padding:20px;">
         <h4 style="margin-bottom:10px;color:var(--dark);">الألوان</h4>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
-          <div><label style="font-size:0.8rem;color:var(--gray);">أساسي</label><input type="color" id="setColorPrimary" value="${c.primary||'#2563eb'}" style="width:100%;height:40px;border:none;border-radius:8px;"></div>
-          <div><label style="font-size:0.8rem;color:var(--gray);">ثانوي</label><input type="color" id="setColorSecondary" value="${c.secondary||'#3b82f6'}" style="width:100%;height:40px;border:none;border-radius:8px;"></div>
-          <div><label style="font-size:0.8rem;color:var(--gray);">مميز</label><input type="color" id="setColorAccent" value="${c.accent||'#f59e0b'}" style="width:100%;height:40px;border:none;border-radius:8px;"></div>
+          <div><label style="font-size:.8rem;color:var(--gray);">أساسي</label><input type="color" id="setColorPrimary" value="${c.primary||'#2563eb'}" style="width:100%;height:40px;border:none;border-radius:8px;"></div>
+          <div><label style="font-size:.8rem;color:var(--gray);">ثانوي</label><input type="color" id="setColorSecondary" value="${c.secondary||'#3b82f6'}" style="width:100%;height:40px;border:none;border-radius:8px;"></div>
+          <div><label style="font-size:.8rem;color:var(--gray);">مميز</label><input type="color" id="setColorAccent" value="${c.accent||'#f59e0b'}" style="width:100%;height:40px;border:none;border-radius:8px;"></div>
         </div>
-        <h4 style="margin-bottom:10px;color:var(--dark);">التسميات</h4>
+        <h4 style="margin-bottom:10px;color:var(--dark);">التسميات العامة</h4>
         <div style="display:grid;gap:10px;margin-bottom:20px;">
           <input type="text" id="setSiteName" class="form-control" value="${l.siteName||''}" placeholder="اسم الموقع">
           <input type="text" id="setServicesTitle" class="form-control" value="${l.servicesTitle||''}" placeholder="عنوان الخدمات">
@@ -7782,7 +7833,59 @@ function saveSettingsFromPanel() {
   closeModal();
 }
 
+// ===== إعدادات القائمة السفلية =====
+function showFooterSettingsPanel() {
+  if (!currentAdmin) { showAlert('هذه الميزة متاحة للمدير فقط', 'warning'); return; }
+  const l = siteSettings.labels || {};
+  const field = (id, label, value, placeholder) => `
+    <div>
+      <label style="display:block;margin-bottom:6px;color:var(--gray);font-size:.84rem;font-weight:700;">${label}</label>
+      <input type="text" id="${id}" class="form-control" value="${String(value||'').replace(/"/g,'&quot;')}" placeholder="${placeholder||''}">
+    </div>`;
+  showModal(`
+    <div class="footer-settings-modal">
+      <div class="footer-settings-head">
+        <div class="footer-settings-icon"><i class="fas fa-address-card"></i></div>
+        <div><h3>إعدادات القائمة السفلية</h3><p>تحكم بالمعلومات التي تظهر للزوار في أسفل التطبيق.</p></div>
+      </div>
+      <div class="footer-settings-body">
+        <div class="footer-settings-grid">
+          ${field('footerSetTitle','عنوان القسم',l.footerTitle,'مثال: بيت الصيانة — عبيد للصيانة')}
+          ${field('footerSetDescription','النص التعريفي',l.footerDescription,'وصف مختصر للخدمات')}
+          ${field('footerSetPhone','رقم الهاتف',l.footerPhone,'رقم التواصل')}
+          ${field('footerSetEmail','البريد الإلكتروني',l.footerEmail,'البريد')}
+          ${field('footerSetLocation','الموقع / نطاق الخدمة',l.footerLocation,'مثال: جميع مناطق المدينة')}
+          ${field('footerSetHours','مواعيد العمل',l.footerHours,'مثال: 24 ساعة طوال الأسبوع')}
+          ${field('footerSetEmergency','نص الطوارئ',l.footerEmergency,'نص خدمة الطوارئ')}
+          ${field('footerSetTechnicians','نص الفنيين',l.footerTechnicians,'مثال: فنيون معتمدون')}
+          ${field('footerSetCopyright','نص الحقوق',l.footerText,'مثال: جميع الحقوق محفوظة')}
+        </div>
+        <div class="footer-settings-actions">
+          <button onclick="saveFooterSettingsPanel()" class="btn-primary"><i class="fas fa-save"></i> حفظ التعديلات</button>
+          <button onclick="closeModal()" class="footer-settings-cancel">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+function saveFooterSettingsPanel() {
+  const l = siteSettings.labels || (siteSettings.labels = {});
+  const get = id => document.getElementById(id)?.value?.trim() || '';
+  l.footerTitle = get('footerSetTitle');
+  l.footerDescription = get('footerSetDescription');
+  l.footerPhone = get('footerSetPhone');
+  l.footerEmail = get('footerSetEmail');
+  l.footerLocation = get('footerSetLocation');
+  l.footerHours = get('footerSetHours');
+  l.footerEmergency = get('footerSetEmergency');
+  l.footerTechnicians = get('footerSetTechnicians');
+  l.footerText = get('footerSetCopyright');
+  saveSettings();
+  closeModal();
+}
+
 // ----- الفني: قبول طلب -----
+
 async function techAcceptOrder(orderId) {
   if (!currentTechnician?.id) { showAlert('يجب تسجيل الدخول كفني لقبول الطلبات', 'error'); return; }
   try {
