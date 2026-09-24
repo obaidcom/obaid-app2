@@ -2873,7 +2873,7 @@ async function searchUserForTech() {
           <i class="fas fa-user" style="color:white;font-size:1.1rem;"></i>
         </div>
         <div style="flex:1;">
-          <div style="font-weight:800;color:var(--dark);font-size:1rem;">${user.name}</div>
+          <div style="font-weight:800;color:var(--dark);font-size:1rem;">${user.name} ${user.is_verified === true ? '<span class="verified-badge" title="حساب موثّق" aria-label="حساب موثّق">✓</span>' : ''} </div>
           <div style="font-size:0.83rem;color:var(--gray);">${user.email}</div>
           <div style="font-size:0.83rem;color:var(--gray);">${user.phone||'لا يوجد هاتف'}</div>
         </div>
