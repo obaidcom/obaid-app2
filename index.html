@@ -109,8 +109,8 @@
   .slide.next { transform: translateX(-100%); opacity: 0; }
   .slide-content { position: absolute; top: 0; right: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(30, 64, 175, 0.95) 0%, rgba(37, 99, 235, 0.75) 50%, rgba(59, 130, 246, 0.5) 100%); display: flex; flex-direction: column; justify-content: center; color: white; padding: clamp(1.5rem, 4vw, 4rem); border-radius: var(--radius); animation: slideInContent 1s ease-out 0.3s both; }
   @keyframes slideInContent { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-  .slide-content h2 { font-size: clamp(1.75rem, 4vw, 3.5rem); margin-bottom: 1rem; font-weight: 900; line-height: 1.2; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); animation: fadeInUp 0.8s ease-out 0.5s both; }
-  .slide-content p { font-size: clamp(1rem, 2vw, 1.4rem); margin-bottom: 2.5rem; max-width: 600px; line-height: 1.8; opacity: 0.9; animation: fadeInUp 0.8s ease-out 0.7s both; }
+  .slide-content h2 { font-size: clamp(1.75rem, 4vw, 3.5rem); margin-bottom: 1rem; font-weight: 900; line-height: 1.2; color:#0f172a; text-shadow:0 2px 8px rgba(255,255,255,.65); animation: fadeInUp 0.8s ease-out 0.5s both; }
+  .slide-content p { font-size: clamp(1rem, 2vw, 1.4rem); margin-bottom: 2.5rem; max-width: 600px; line-height: 1.8; opacity:1; color:#111827; text-shadow:0 2px 8px rgba(255,255,255,.7); animation: fadeInUp 0.8s ease-out 0.7s both; }
   .slide-content .btn-primary { animation: fadeInUp 0.8s ease-out 0.9s both; width: auto; max-width: 300px; padding: 1rem 2.5rem; border-radius: 50px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
   .slider-controls { position: absolute; bottom: clamp(1rem, 2vw, 2rem); right: 50%; transform: translateX(50%); display: flex; align-items: center; gap: 1.5rem; z-index: 10; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1rem, 2vw, 1.5rem); border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
@@ -1764,6 +1764,18 @@ function normalizeArabicPlaceName(value) {
 async function loadSyriaSubdistricts() {
   if (SYRIA_SUBDISTRICTS_LOADED) return true;
   if (SYRIA_SUBDISTRICTS_LOADING) return SYRIA_SUBDISTRICTS_LOADING;
+
+  // استخدم آخر نسخة ناجحة مخزنة على الهاتف فوراً، ثم حاول التحديث من المصدر.
+  try {
+    const cached = JSON.parse(localStorage.getItem('obied_syria_subdistricts_cache') || 'null');
+    if (Array.isArray(cached?.subdistricts) && cached.subdistricts.length) {
+      SYRIA_SUBDISTRICTS = cached.subdistricts;
+      SYRIA_DISTRICTS_META = Array.isArray(cached?.districts) ? cached.districts : [];
+      SYRIA_SUBDISTRICTS_LOADED = true;
+      return true;
+    }
+  } catch(e) {}
+
   SYRIA_SUBDISTRICTS_LOADING = (async () => {
     const baseUrls = [
       './assets/syria-districts.json',
@@ -1773,25 +1785,47 @@ async function loadSyriaSubdistricts() {
       './assets/syria-subdistricts.json',
       'https://raw.githubusercontent.com/Open-Syria/data-geography/main/data/subdistricts.json'
     ];
+
+    async function fetchOne(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3500);
+      try {
+        const res = await fetch(url, { cache:'no-store', signal:controller.signal });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
     async function fetchJson(urls) {
       for (const url of urls) {
         try {
-          const res = await fetch(url, { cache: 'force-cache' });
-          if (res.ok) return await res.json();
-        } catch (e) {}
+          const data = await fetchOne(url);
+          if (data) return data;
+        } catch(e) {}
       }
       throw new Error('تعذر تحميل بيانات النواحي');
     }
+
     try {
-      [SYRIA_DISTRICTS_META, SYRIA_SUBDISTRICTS] = await Promise.all([
+      const [districts, subdistricts] = await Promise.all([
         fetchJson(baseUrls), fetchJson(subUrls)
       ]);
-      SYRIA_SUBDISTRICTS_LOADED = Array.isArray(SYRIA_SUBDISTRICTS) && SYRIA_SUBDISTRICTS.length > 0;
-      return SYRIA_SUBDISTRICTS_LOADED;
+      if (!Array.isArray(subdistricts) || !subdistricts.length) throw new Error('بيانات النواحي فارغة');
+      SYRIA_DISTRICTS_META = Array.isArray(districts) ? districts : [];
+      SYRIA_SUBDISTRICTS = subdistricts;
+      SYRIA_SUBDISTRICTS_LOADED = true;
+      try {
+        localStorage.setItem('obied_syria_subdistricts_cache', JSON.stringify({
+          districts: SYRIA_DISTRICTS_META,
+          subdistricts: SYRIA_SUBDISTRICTS,
+          savedAt: Date.now()
+        }));
+      } catch(e) {}
+      return true;
     } catch (e) {
       console.warn('Syria subdistrict dataset load failed', e);
-      SYRIA_DISTRICTS_META = [];
-      SYRIA_SUBDISTRICTS = [];
       return false;
     } finally {
       SYRIA_SUBDISTRICTS_LOADING = null;
@@ -1799,6 +1833,7 @@ async function loadSyriaSubdistricts() {
   })();
   return SYRIA_SUBDISTRICTS_LOADING;
 }
+
 
 function getDistrictMeta(governorate, districtName) {
   const g = normalizeArabicPlaceName(governorate);
@@ -1849,26 +1884,33 @@ async function updateBookingSubdistricts() {
   subSelect.innerHTML = '<option value="">جارٍ تحميل النواحي...</option>';
   if (count) count.textContent = '';
 
-  // تحميل القائمة الرسمية إن أمكن، لكن لا نوقف القائمة إذا فشل المصدر الرسمي؛
-  // النواحي التي يضيفها المدير من Supabase يجب أن تظهر حتى عند تعذر المصدر الخارجي.
-  const loaded = await loadSyriaSubdistricts();
-  if (!loaded) {
-    console.warn('المصدر الرسمي للنواحي غير متاح؛ سيتم عرض النواحي المضافة من الإدارة إن وجدت.');
-  }
-
   const govId = SYRIA_GOV_ID_MAP[normalizeArabicPlaceName(gov)];
 
-  // النواحي التي يضيفها المدير من لوحة الإدارة تُدمج مع القائمة الرسمية.
-  let customSubdistricts = [];
-  try {
-    const { data: customRows } = await sb.from('service_subdistricts')
-      .select('id,governorate,name,is_active')
-      .eq('governorate', gov)
-      .eq('is_active', true)
-      .order('name', { ascending: true });
-    customSubdistricts = Array.isArray(customRows) ? customRows : [];
-  } catch (e) {
-    console.warn('تعذر تحميل النواحي المضافة من الإدارة', e);
+  // اجلب نواحي الإدارة بسرعة بالتوازي مع المصدر الرسمي.
+  const customPromise = (async () => {
+    try {
+      const { data: customRows } = await sb.from('service_subdistricts')
+        .select('id,governorate,name,is_active')
+        .eq('governorate', gov)
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      return Array.isArray(customRows) ? customRows : [];
+    } catch (e) {
+      console.warn('تعذر تحميل النواحي المضافة من الإدارة', e);
+      return [];
+    }
+  })();
+
+  const officialPromise = loadSyriaSubdistricts();
+  let customSubdistricts = await customPromise;
+  let loaded = SYRIA_SUBDISTRICTS_LOADED;
+  // لا تجعل واجهة الحجز معلقة بسبب مصدر خارجي بطيء.
+  if (!loaded) {
+    await Promise.race([
+      officialPromise,
+      new Promise(resolve => setTimeout(resolve, 1200))
+    ]);
+    loaded = SYRIA_SUBDISTRICTS_LOADED;
   }
 
   // كل ناحية في مصدر البيانات تحمل governorateId مباشرة.
@@ -3245,25 +3287,48 @@ async function showAdminStats() {
 async function loadServiceCatalog() {
   const select = document.getElementById('bookingService');
   if (!select) return;
+
+  const fallback = [
+    ['كهرباء','صيانة كهرباء'],
+    ['مياه','صيانة مياه'],
+    ['طاقة شمسية','طاقة شمسية'],
+    ['طوارئ','خدمة طوارئ']
+  ];
+
+  // اعرض آخر قائمة ناجحة/احتياطية فوراً حتى لا يبقى الحقل فارغاً.
+  let cachedRows = [];
   try {
-    const { data, error } = await sb.from('service_catalog')
+    cachedRows = JSON.parse(localStorage.getItem('obied_service_catalog_cache') || '[]');
+  } catch(e) {}
+  const immediateRows = Array.isArray(cachedRows) && cachedRows.length ? cachedRows : fallback;
+  select.innerHTML = '<option value="">اختر الخدمة</option>' +
+    immediateRows.map(r => '<option value="' + String(r.name || r[0]).replace(/"/g,'&quot;') + '">' +
+      String(r.name || r[1]).replace(/</g,'&lt;') + '</option>').join('');
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const queryPromise = sb.from('service_catalog')
       .select('id,name,is_active').eq('is_active', true).order('name', { ascending: true });
+    const result = await Promise.race([
+      queryPromise,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),3500))
+    ]);
+    clearTimeout(timer);
+    const { data, error } = result;
     if (error) throw error;
     const rows = Array.isArray(data) ? data : [];
-    select.innerHTML = '<option value="">اختر الخدمة</option>' +
-      rows.map(r => '<option value="' + String(r.name).replace(/"/g,'&quot;') + '">' +
-        String(r.name).replace(/</g,'&lt;') + '</option>').join('');
-    if (!rows.length) select.innerHTML = '<option value="">لا توجد خدمات متاحة</option>';
+    if (rows.length) {
+      select.innerHTML = '<option value="">اختر الخدمة</option>' +
+        rows.map(r => '<option value="' + String(r.name).replace(/"/g,'&quot;') + '">' +
+          String(r.name).replace(/</g,'&lt;') + '</option>').join('');
+      try { localStorage.setItem('obied_service_catalog_cache', JSON.stringify(rows)); } catch(e) {}
+    }
   } catch (e) {
-    console.warn('تعذر تحميل الخدمات من الإدارة', e);
-    select.innerHTML =
-      '<option value="">اختر الخدمة</option>' +
-      '<option value="كهرباء">صيانة كهرباء</option>' +
-      '<option value="مياه">صيانة مياه</option>' +
-      '<option value="طاقة شمسية">طاقة شمسية</option>' +
-      '<option value="طوارئ">خدمة طوارئ</option>';
+    console.warn('تعذر تحديث الخدمات سريعاً؛ تم استخدام القائمة المحلية', e);
   }
 }
+
 
 async function showServiceCatalogManagement() {
   if (!currentAdmin) return;
@@ -7902,6 +7967,13 @@ function printInvoice(invoiceId) {
     border-radius:14px; box-shadow:0 10px 25px rgba(15,23,42,.20); transition:transform .2s ease,box-shadow .2s ease;
   }
   .slide-content .btn-primary:hover { transform:translateY(-3px); box-shadow:0 15px 30px rgba(15,23,42,.25); }
+  .slide-content { z-index:2; color:#0f172a !important; background:linear-gradient(90deg,rgba(255,255,255,.92) 0%,rgba(255,255,255,.72) 48%,rgba(255,255,255,.18) 100%) !important; }
+  .slide-content h2, .slide-content p { color:#0f172a !important; }
+  .slide-content .btn-primary { position:relative; z-index:3; background:#111827 !important; color:#fff !important; border:2px solid #0f172a !important; }
+  .slide-content .btn-primary:hover { background:#000 !important; color:#fff !important; }
+  .slide > div:first-child { z-index:1; pointer-events:none; }
+  .slider-controls, .slider-nav { z-index:10 !important; }
+
   .services-section { background:linear-gradient(180deg,#fff 0%,#f8fbff 100%); }
   .section-title { letter-spacing:-.02em; }
   .section-title::after { width:72px; height:4px; background:linear-gradient(90deg,var(--primary),var(--accent)); box-shadow:0 4px 12px rgba(37,99,235,.22); }
