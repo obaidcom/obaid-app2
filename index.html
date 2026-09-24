@@ -4056,6 +4056,7 @@ async function showUserNotificationsPanel() {
                       ${!n.is_read ? '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:50px;font-size:0.7rem;font-weight:700;">جديد</span>' : ''}
                     </div>
                     <div style="font-size:0.88rem;color:#1f2937;${!n.is_read?'font-weight:600;':''}line-height:1.5;">${n.message}</div>
+                    ${n.action_url && /^https?:\\/\\//i.test(String(n.action_url)) ? '<button onclick="event.stopPropagation();closeModal();openNotificationUrl(\\'' + String(n.action_url).replace(/\\'/g, '\\\\'') + '\\')" style="margin-top:9px;border:0;background:#2563eb;color:#fff;padding:8px 14px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;">فتح الرابط</button>' : ''}
                     <div style="font-size:0.75rem;color:#9ca3af;margin-top:5px;"><i class="fas fa-clock"></i> ${date} - ${time}</div>
                   </div>
                 </div>
@@ -4077,6 +4078,19 @@ async function showUserNotificationsPanel() {
       if (ids.length) sb.from('notifications').update({is_read:true}).in('id', ids).then(()=>updateNotifBadge(0)).catch(()=>{});
     }, 2000);
   }
+}
+
+async function openNotificationUrl(url) {
+  const target = String(url || '').trim();
+  if (!/^https?:\\/\\//i.test(target)) return;
+  try {
+    const AppPlugin = window.Capacitor?.Plugins?.App;
+    if (AppPlugin?.openUrl) {
+      await AppPlugin.openUrl({ url: target });
+      return;
+    }
+  } catch (e) { console.warn('open notification url:', e); }
+  window.open(target, '_blank', 'noopener,noreferrer');
 }
 
 async function markAllNotifsRead(uid) {
@@ -8513,6 +8527,9 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
             if (data.related_id && typeof viewUserInvoice === 'function') viewUserInvoice(data.related_id);
             else if (typeof switchProfileTab === 'function') switchProfileTab('invoices');
           }, 500);
+        }
+        else if (data.action_url && /^https?:\\/\\//i.test(String(data.action_url))) {
+          openNotificationUrl(data.action_url);
         }
         else if (data.type === 'order_update' && typeof showProfile === 'function') showProfile();
         else if (typeof showHome === 'function') showHome();
