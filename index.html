@@ -2424,7 +2424,7 @@ async function sendPasswordResetEmail() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
   try {
     // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
-    const redirectTo = 'https://obaidcom.github.io/obaid-app2/reset-password.html';
+    const redirectTo = 'https://obaidcom.github.io/obaid-app2/?reset=1';
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     closeModal();
