@@ -1372,7 +1372,6 @@ function showEditAccount() {
       </div>
     </div>`);
 }
-async 
 function verifiedBadge(user){ return user?.is_verified === true ? '<span class="verified-badge" title="حساب موثق" aria-label="حساب موثق">✓</span>' : ''; }
 
 function saveAccountProfile() {
@@ -2428,7 +2427,7 @@ async function sendPasswordResetEmail() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
   try {
     // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
-    const redirectTo = window.location.origin + window.location.pathname + '?reset=1';
+    const redirectTo = 'https://obaidcom.github.io/obaid-app2/reset-password.html';
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     closeModal();
