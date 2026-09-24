@@ -3846,6 +3846,11 @@ function showBroadcastNotification() {
           <label>نص الإشعار:</label>
           <textarea id="broadcastMessage" class="form-control" rows="4" placeholder="مثال: تم تحديث التطبيق لإصدار جديد، يرجى التحديث للحصول على أحدث الميزات."></textarea>
         </div>
+        <div class="form-group">
+          <label>رابط عند الضغط (اختياري):</label>
+          <input id="broadcastActionUrl" class="form-control" type="url" inputmode="url" placeholder="https://obaidcom.github.io/obaid-app2/">
+          <small style="display:block;margin-top:6px;color:#6b7280;">رابط صفحة الهبوط التي تحتوي على النسخة الجديدة. عند الضغط على الإشعار سيفتح الرابط في المتصفح.</small>
+        </div>
         <button onclick="sendBroadcastNotification()" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:13px;border-radius:50px;cursor:pointer;font-family:inherit;font-size:1rem;font-weight:700;margin-bottom:10px;">
           <i class="fas fa-paper-plane"></i> إرسال للجميع
         </button>
@@ -3858,7 +3863,12 @@ function showBroadcastNotification() {
 async function sendBroadcastNotification() {
   const target  = document.getElementById('broadcastTarget')?.value || 'all';
   const message = document.getElementById('broadcastMessage')?.value?.trim();
+  const actionUrl = document.getElementById('broadcastActionUrl')?.value?.trim() || '';
   if (!message) { showAlert('اكتب نص الإشعار أولاً', 'error'); return; }
+  if (actionUrl && !/^https?:\/\//i.test(actionUrl)) {
+    showAlert('رابط الضغط يجب أن يبدأ بـ https:// أو http://', 'error');
+    return;
+  }
   if (!confirm('سيتم إرسال هذا الإشعار لعدد كبير من المستخدمين. متابعة؟')) return;
 
   try {
@@ -3872,7 +3882,8 @@ async function sendBroadcastNotification() {
     const rows = users.map(u => ({
       user_id: u.id,
       message: '📢 ' + message,
-      type: 'general',
+      type: actionUrl ? 'general_link' : 'general',
+      action_url: actionUrl || null,
       is_read: false
     }));
     // إدراج على دفعات لتفادي تجاوز حجم الطلب مع أعداد كبيرة
