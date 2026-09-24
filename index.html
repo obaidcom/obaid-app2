@@ -2403,10 +2403,23 @@ function showForgotPasswordEmailStep() {
   setTimeout(() => document.getElementById('forgotPasswordEmail')?.focus(), 100);
 }
 
+function normalizeRecoveryEmail(value) {
+  return String(value || '')
+    .replace(/[\\u200B-\\u200D\\uFEFF]/g, '')
+    .replace(/[\\u00A0]/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 async function sendPasswordResetEmail() {
-  const email = document.getElementById('forgotPasswordEmail')?.value?.trim().toLowerCase();
-  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-    showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error');
+  const input = document.getElementById('forgotPasswordEmail');
+  const email = normalizeRecoveryEmail(input?.value);
+
+  // لا نرفض البريد الصحيح بسبب اختلافات المسافات/محارف النسخ واللصق.
+  // التحقق النهائي يتم أيضاً من Supabase.
+  if (!email || !email.includes('@') || email.startsWith('@') || email.endsWith('@')) {
+    showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error', 4000);
+    input?.focus();
     return;
   }
 
@@ -2417,7 +2430,6 @@ async function sendPasswordResetEmail() {
   }
 
   try {
-    // لا نستخدم redirectTo: الرمز سيُكتب يدوياً داخل التطبيق.
     const { error } = await sb.auth.resetPasswordForEmail(email);
     if (error) throw error;
 
@@ -2425,7 +2437,8 @@ async function sendPasswordResetEmail() {
     showForgotPasswordOtpStep();
     showAlert('✅ تم إرسال رمز التحقق إلى بريدك الإلكتروني', 'success', 6000);
   } catch (err) {
-    showAlert('تعذر إرسال رمز التحقق: ' + (err.message || 'خطأ غير معروف'), 'error', 5000);
+    console.error('password recovery request:', err);
+    showAlert('تعذر إرسال رمز التحقق: ' + (err?.message || 'خطأ غير معروف'), 'error', 6000);
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رمز التحقق';
@@ -2468,7 +2481,7 @@ async function verifyPasswordResetOtp() {
     showForgotPasswordEmailStep();
     return;
   }
-  if (!token || !/^\\d{6,8}$/.test(token)) {
+  if (!token || !/^\d{6,8}$/.test(token)) {
     showAlert('أدخل رمز التحقق المرسل إلى بريدك', 'error');
     return;
   }
