@@ -198,6 +198,7 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: UBEYD Android v1.0.${{ github.run_number }}
           files: android/app/build/outputs/apk/release/app-release.apk
+          asset_name: obied-app.apk
           body: |
             إصدار Android جديد من تطبيق عبيد للصيانة.
             رابط التحميل المباشر الثابت: https://github.com/obaidcom/obaid-app2/releases/latest/download/obied-app.apk
