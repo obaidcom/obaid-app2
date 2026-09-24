@@ -2404,11 +2404,12 @@ function showForgotPasswordEmailStep() {
 }
 
 function normalizeRecoveryEmail(value) {
-  return String(value || '')
-    .replace(/[\\u200B-\\u200D\\uFEFF]/g, '')
-    .replace(/[\\u00A0]/g, ' ')
-    .trim()
-    .toLowerCase();
+  let email = String(value || '');
+  // إزالة محارف النسخ الخفية والمسافات غير العادية بدون المساس بحروف البريد.
+  for (const code of [0x200B, 0x200C, 0x200D, 0xFEFF, 0x00A0]) {
+    email = email.split(String.fromCharCode(code)).join(code === 0x00A0 ? ' ' : '');
+  }
+  return email.trim().toLowerCase();
 }
 
 async function sendPasswordResetEmail() {
