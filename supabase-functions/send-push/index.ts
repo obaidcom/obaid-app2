@@ -81,6 +81,7 @@ Deno.serve(async (req: Request) => {
     const type = record.type || "general";
     const relatedId = record.related_id ?? record.relatedId ?? record.id ?? "";
     const invoiceId = record.invoice_id ?? record.invoiceId ?? "";
+    const actionUrl = record.action_url ?? record.actionUrl ?? "";
 
     if (!userId) {
       return new Response(JSON.stringify({ ok: false, error: "user_id missing" }), { status: 400 });
@@ -101,7 +102,8 @@ Deno.serve(async (req: Request) => {
       subs.map((s) => sendToToken(accessToken, s.device_token, title, body, {
         type: String(type),
         related_id: String(relatedId),
-        invoice_id: String(invoiceId)
+        invoice_id: String(invoiceId),
+        action_url: String(actionUrl)
       }))
     );
 
