@@ -389,6 +389,7 @@
     .form-control { font-size: 16px !important; }
     .payment-btn { padding: 1rem !important; font-size: 1rem !important; }
   }
+.verified-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:900;vertical-align:middle;margin-right:5px;box-shadow:0 1px 3px rgba(37,99,235,.35)}
 </style><style id="obied-booking-polish">
   /* تحسين مظهر نموذج الحجز فقط */
   .booking-form, #bookingForm {
@@ -1004,7 +1005,7 @@ h1,h2,h3,h4{letter-spacing:-.2px}
           <button class="upload-photo-btn" onclick="document.getElementById('profileImageUpload').click()"><i class="fas fa-camera"></i></button>
         </div>
         <div class="user-details">
-          <h1 id="profileUserName">اسم المستخدم <span id="profileVerifiedBadge" title="حساب موثّق" style="display:none;vertical-align:middle;margin-right:7px;background:#f59e0b;color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:.78rem;"><i class="fas fa-check"></i></span></h1>
+          <h1 id="profileUserName">اسم المستخدم <span id="profileVerifiedBadge" title="حساب موثّق" style="display:none;vertical-align:middle;margin-right:7px;background:#2563eb;color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:.78rem;"><i class="fas fa-check"></i></span></h1>
           <p id="profileUserEmail"><i class="fas fa-envelope"></i> user@example.com</p>
           <p id="profileUserPhone"><i class="fas fa-phone"></i> 05xxxxxxxx</p>
           <div class="user-id" id="profileUserId">ID: #0001</div>
@@ -1371,6 +1372,8 @@ function showEditAccount() {
       </div>
     </div>`);
 }
+function verifiedBadge(user){ return user?.is_verified === true ? '<span class="verified-badge" title="حساب موثّق" aria-label="حساب موثّق">✓</span>' : ''; }
+
 async function saveAccountProfile() {
   if (!currentUser?.id) return;
   const name = document.getElementById('editAccountName')?.value?.trim();
@@ -1383,7 +1386,7 @@ async function saveAccountProfile() {
     const { data, error } = await sb.from('users').update({ name, phone }).eq('id', currentUser.id)
       .select('id,name,email,phone,profile_image,role,is_verified,auth_uid').single();
     if (error) throw error;
-    currentUser = { ...currentUser, name:data.name, phone:data.phone, profileImage:data.profile_image, role:data.role };
+    currentUser = { ...currentUser, name:data.name, phone:data.phone, profileImage:data.profile_image, role:data.role, is_verified:data.is_verified === true };
     localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
     updateProfilePage();
     updateAccountAvatar();
@@ -1465,9 +1468,10 @@ async function logoutAdmin() {
   if (anb) anb.style.display = 'none';
   if (window._techPollInterval) { clearInterval(window._techPollInterval); window._techPollInterval = null; }
   if (typeof stopRealtime === 'function') stopRealtime();
-  // تسجيل الخروج الحقيقي من Supabase Auth
-  await sb.auth.signOut().catch(e => console.error('admin signOut error:', e));
+  // حدّث الواجهة فوراً ولا تجعل تسجيل الخروج معلقاً بسبب الشبكة
   updateUIForLoggedOutUser();
+  const signOutPromise = sb.auth.signOut().catch(e => console.error('admin signOut error:', e));
+  await Promise.race([signOutPromise, new Promise(resolve => setTimeout(resolve, 2500))]);
   const wp = document.getElementById('welcomePage');
   if (wp) { wp.style.display = 'flex'; if (wp.classList) wp.classList.remove('hidden'); }
   showAlert('تم تسجيل الخروج من لوحة الإدارة', 'success');
@@ -1549,10 +1553,11 @@ async function doLogoutUser() {
   localStorage.removeItem('obied_admin');
   localStorage.removeItem('obied_tech');
   if (typeof stopRealtime === 'function') stopRealtime();
-  // تسجيل الخروج الحقيقي من Supabase Auth - لا يكفي مسح localStorage فقط
-  await sb.auth.signOut().catch(e => console.error('signOut error:', e));
+  // حدّث الواجهة فوراً ثم نفّذ تسجيل الخروج من Auth بمهلة قصيرة
   closeModal();
   updateUIForLoggedOutUser();
+  const signOutPromise = sb.auth.signOut().catch(e => console.error('signOut error:', e));
+  await Promise.race([signOutPromise, new Promise(resolve => setTimeout(resolve, 2500))]);
   hideAllPages();
   const wp = document.getElementById('welcomePage');
   if (wp) { wp.style.display = 'flex'; if (wp.classList) wp.classList.remove('hidden'); }
@@ -2382,7 +2387,7 @@ async function sendPasswordResetEmail() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
   try {
     // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
-    const redirectTo = window.location.origin + window.location.pathname + '?reset=1';
+    const redirectTo = 'https://obaidcom.github.io/obaid-app2/reset-password.html';
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     closeModal();
@@ -6824,7 +6829,7 @@ function showUsersList() {
     <div style="background:white;padding:20px;">
       ${allUsers.map(u => {
         const verified = !!u.is_verified;
-        const badge = verified ? '<span title="حساب موثّق" style="display:inline-flex;align-items:center;justify-content:center;margin-right:6px;background:#f59e0b;color:#fff;width:22px;height:22px;border-radius:50%;font-size:.65rem;"><i class="fas fa-check"></i></span>' : '';
+        const badge = verified ? '<span title="حساب موثّق" style="display:inline-flex;align-items:center;justify-content:center;margin-right:6px;background:#2563eb;color:#fff;width:22px;height:22px;border-radius:50%;font-size:.65rem;"><i class="fas fa-check"></i></span>' : '';
         return `<div class="order-item"><div class="order-info"><h4>${u.name || 'مستخدم'} ${badge}</h4><div class="order-meta"><span><i class="fas fa-envelope"></i> ${u.email||''}</span><span><i class="fas fa-phone"></i> ${u.phone||''}</span></div></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>${allOrders.filter(o=>o.userId===u.id).length} طلبات</span><button class="btn-primary" style="padding:6px 10px;font-size:.75rem;background:${verified?'#64748b':'#f59e0b'};" onclick="event.stopPropagation();toggleUserVerification(${u.id},${!verified})">${verified?'إلغاء التوثيق':'✓ توثيق الحساب'}</button></div></div>`;
       }).join('')}
       <div style="margin-top:20px;"><button class="btn-danger" onclick="closeModal()"><i class="fas fa-times"></i> إغلاق</button></div>
