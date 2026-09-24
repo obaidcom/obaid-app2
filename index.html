@@ -2424,7 +2424,7 @@ async function sendPasswordResetEmail() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
   try {
     // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
-    const redirectTo = window.location.origin + window.location.pathname + '?reset=1';
+    const redirectTo = 'https://obaidcom.github.io/obaid-app2/reset-password.html';
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     closeModal();
@@ -5060,6 +5060,9 @@ function buildSlider() {
     // لون/شفافية التراكب فوق الصورة - قابل للتخصيص لكل سلايد
     const overlayColor   = slide.overlayColor   || 'rgba(15,23,42,0.4)';
     const overlayGradient= slide.overlayGradient|| 'linear-gradient(0deg, rgba(15,23,42,0.75) 0%, rgba(15,23,42,0.25) 55%, rgba(15,23,42,0.05) 100%)';
+    const titleColor = slide.titleColor || '#0f172a';
+    const descriptionColor = slide.descriptionColor || '#111827';
+    const buttonTextColor = slide.buttonTextColor || '#ffffff';
 
     const slideEl = document.createElement('div');
     slideEl.className = 'slide' + (index === 0 ? ' active' : '');
@@ -5080,12 +5083,11 @@ function buildSlider() {
     const content = document.createElement('div');
     content.className = 'slide-content';
     content.style.background = contentBg;
-    content.innerHTML = `
-      ${slide.icon ? `<h2><i class="fas ${slide.icon}"></i> ${slide.title||''}</h2>` : `<h2>${slide.title||''}</h2>`}
-      <p>${description}</p>
-      <button class="btn-primary" onclick="scrollToSection('booking')" style="width:auto;max-width:250px;">
-        <i class="fas fa-calendar-alt"></i> ${buttonText}
-      </button>`;
+    content.innerHTML = \`
+      \${slide.icon ? \`<h2 style="color:\${titleColor}"><i class="fas \${slide.icon}"></i> \${slide.title||''}</h2>\` : \`<h2 style="color:\${titleColor}">\${slide.title||''}</h2>\`}
+      <p style="color:\${descriptionColor}">\${description}</p>
+      <button class="btn-primary" onclick="scrollToSection('booking')" style="width:auto;max-width:250px;color:\${buttonTextColor};">
+        <i class="fas fa-calendar-alt"></i> \${buttonText}</button>\`
     slideEl.appendChild(content);
     container.appendChild(slideEl);
 
@@ -5475,6 +5477,11 @@ function renderSliderModal() {
         <div>
           <label style="font-size:0.78rem;color:var(--gray);display:block;margin-bottom:3px;">الوصف</label>
           <input type="text" value="${s.desc||s.description||''}" onchange="updateSlide(${i},'desc',this.value)" class="form-control" style="font-size:0.85rem;padding:7px;">
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <div><label style="font-size:0.78rem;color:var(--gray);display:block;margin-bottom:3px;">لون العنوان</label><input type="color" value="${s.titleColor||'#0f172a'}" onchange="updateSlide(${i},'titleColor',this.value)" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;"></div>
+          <div><label style="font-size:0.78rem;color:var(--gray);display:block;margin-bottom:3px;">لون الوصف</label><input type="color" value="${s.descriptionColor||'#111827'}" onchange="updateSlide(${i},'descriptionColor',this.value)" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;"></div>
+          <div><label style="font-size:0.78rem;color:var(--gray);display:block;margin-bottom:3px;">لون نص الزر</label><input type="color" value="${s.buttonTextColor||'#ffffff'}" onchange="updateSlide(${i},'buttonTextColor',this.value)" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div>
