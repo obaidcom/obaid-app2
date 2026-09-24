@@ -2090,7 +2090,7 @@ async function resolveUserRole(userRow) {
 async function applyRoleAndRoute(userRow, role, { isNewAccount = false } = {}) {
   currentAdmin = null;
   currentTechnician = null;
-  currentUser = { id: userRow.id, name: userRow.name, email: userRow.email, phone: userRow.phone, profileImage: userRow.profile_image, role };
+  currentUser = { id: userRow.id, name: userRow.name, email: userRow.email, phone: userRow.phone, profileImage: userRow.profile_image, role, is_verified: userRow.is_verified === true };
   localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
   localStorage.removeItem('obied_admin');
   localStorage.removeItem('obied_tech');
@@ -7810,7 +7810,7 @@ function updateProfilePage() {
   const emailEl = document.getElementById('profileUserEmail');
   const phoneEl = document.getElementById('profileUserPhone');
   const idEl    = document.getElementById('profileUserId');
-  if (nameEl)  nameEl.innerHTML = (currentUser.name || 'اسم المستخدم') + ' <span id="profileVerifiedBadge" title="حساب موثّق" style="display:' + (currentUser.is_verified === true ? 'inline-flex' : 'none') + ';vertical-align:middle;margin-right:7px;background:#f59e0b;color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:.78rem;"><i class="fas fa-check"></i></span>';
+  if (nameEl) nameEl.innerHTML = (currentUser.name || 'اسم المستخدم') + (currentUser.is_verified === true ? ' <span id="profileVerifiedBadge" title="حساب موثّق" aria-label="حساب موثّق" style="display:inline-flex;vertical-align:middle;margin-right:7px;background:#2563eb;color:#fff;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:.65rem;box-shadow:0 1px 4px rgba(37,99,235,.35);"><i class="fas fa-check"></i></span>' : '');
   if (emailEl) emailEl.innerHTML    = '<i class="fas fa-envelope"></i> ' + (currentUser.email || '');
   if (phoneEl) phoneEl.innerHTML    = '<i class="fas fa-phone"></i> ' + (currentUser.phone || '');
   if (idEl)    idEl.textContent     = 'ID: #' + String(currentUser.id).padStart(4, '0');
@@ -7986,7 +7986,7 @@ async function handleProfileImageUpload(event) {
       await sb.storage.from('avatars').remove([path]).catch(()=>{});
       throw dbError;
     }
-    currentUser = { ...currentUser, name:updatedUser.name, phone:updatedUser.phone, profileImage:updatedUser.profile_image, role:updatedUser.role };
+    currentUser = { ...currentUser, name:updatedUser.name, phone:updatedUser.phone, profileImage:updatedUser.profile_image, role:updatedUser.role, is_verified:updatedUser.is_verified === true };
     localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
     const img = document.getElementById('profileImage');
     const icon = document.getElementById('profileIcon');
