@@ -389,6 +389,7 @@
     .form-control { font-size: 16px !important; }
     .payment-btn { padding: 1rem !important; font-size: 1rem !important; }
   }
+.verified-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:900;vertical-align:middle;margin-right:5px;box-shadow:0 1px 3px rgba(37,99,235,.35)}
 </style><style id="obied-booking-polish">
   /* تحسين مظهر نموذج الحجز فقط */
   .booking-form, #bookingForm {
@@ -1371,7 +1372,10 @@ function showEditAccount() {
       </div>
     </div>`);
 }
-async function saveAccountProfile() {
+async 
+function verifiedBadge(user){ return user?.is_verified === true ? '<span class="verified-badge" title="حساب موثق" aria-label="حساب موثق">✓</span>' : ''; }
+
+function saveAccountProfile() {
   if (!currentUser?.id) return;
   const name = document.getElementById('editAccountName')?.value?.trim();
   const phone = document.getElementById('editAccountPhone')?.value?.trim();
@@ -2424,7 +2428,7 @@ async function sendPasswordResetEmail() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
   try {
     // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
-    const redirectTo = 'https://obaidcom.github.io/obaid-app2/?reset=1';
+    const redirectTo = window.location.origin + window.location.pathname + '?reset=1';
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     closeModal();
