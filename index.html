@@ -2354,23 +2354,30 @@ function setupEventListeners() {
 
 // ================== نهاية الدوال الأساسية الناقصة ==================
 
-// ===== نسيت كلمة المرور =====
+// ===== استعادة كلمة المرور داخل التطبيق عبر OTP =====
+let passwordRecoveryEmail = '';
+
 function showForgotPassword() {
+  passwordRecoveryEmail = '';
+  showForgotPasswordEmailStep();
+}
+
+function showForgotPasswordEmailStep() {
   showModal(`
-    <div style="padding:0;max-width:400px;width:100%;">
+    <div style="padding:0;max-width:420px;width:100%;">
       <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
         <i class="fas fa-key" style="font-size:2rem;margin-bottom:8px;display:block;"></i>
         <h3 style="margin:0;">نسيت كلمة المرور؟</h3>
       </div>
       <div style="background:white;padding:24px;">
-        <p style="color:var(--gray);margin-bottom:18px;text-align:center;">أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور</p>
+        <p style="color:var(--gray);margin-bottom:18px;text-align:center;">أدخل البريد الإلكتروني الذي سجلت به، وسنرسل رمز تحقق إلى بريدك.</p>
         <div class="form-group" style="margin-bottom:16px;">
           <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-envelope"></i> البريد الإلكتروني</label>
-          <input type="email" id="forgotPasswordEmail" class="form-control" placeholder="example@email.com" required>
+          <input type="email" id="forgotPasswordEmail" class="form-control" placeholder="example@email.com" autocomplete="email" required>
         </div>
         <div style="display:flex;gap:10px;">
           <button onclick="sendPasswordResetEmail()" style="flex:2;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;" id="forgotPwBtn">
-            <i class="fas fa-paper-plane"></i> إرسال رابط الاسترداد
+            <i class="fas fa-paper-plane"></i> إرسال رمز التحقق
           </button>
           <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
         </div>
@@ -2381,28 +2388,102 @@ function showForgotPassword() {
 }
 
 async function sendPasswordResetEmail() {
-  const email = document.getElementById('forgotPasswordEmail')?.value?.trim();
-  if (!email || !/^\S+@\S+\.\S+$/.test(email)) { showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error'); return; }
+  const email = document.getElementById('forgotPasswordEmail')?.value?.trim().toLowerCase();
+  if (!email || !/^\\S+@\\S+\\.\\S+$/.test(email)) {
+    showAlert('يرجى إدخال بريد إلكتروني صحيح', 'error');
+    return;
+  }
+
   const btn = document.getElementById('forgotPwBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ إرسال الرمز...';
+  }
+
   try {
-    // redirectTo: رابط العودة للتطبيق بعد تعيين كلمة المرور
-    const redirectTo = 'https://obaidcom.github.io/obaid-app2/reset-password.html';
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    // لا نستخدم redirectTo: الرمز سيُكتب يدوياً داخل التطبيق.
+    const { error } = await sb.auth.resetPasswordForEmail(email);
     if (error) throw error;
-    closeModal();
-    showAlert('✅ تم إرسال رابط إعادة التعيين إلى ' + email + ' - تحقق من صندوق الوارد', 'success', 7000);
-  } catch(err) {
-    showAlert('خطأ: ' + (err.message || 'تعذر إرسال الرابط'), 'error');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رابط الاسترداد'; }
+
+    passwordRecoveryEmail = email;
+    showForgotPasswordOtpStep();
+    showAlert('✅ تم إرسال رمز التحقق إلى بريدك الإلكتروني', 'success', 6000);
+  } catch (err) {
+    showAlert('تعذر إرسال رمز التحقق: ' + (err.message || 'خطأ غير معروف'), 'error', 5000);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رمز التحقق';
+    }
   }
 }
 
-// ===== نموذج إعادة تعيين كلمة المرور (بعد فتح الرابط) =====
-function showResetPasswordForm() {
-  hideAllPages();
-  const wp = document.getElementById('welcomePage');
-  if (wp) { wp.style.display = 'none'; }
+function showForgotPasswordOtpStep() {
+  showModal(`
+    <div style="padding:0;max-width:420px;width:100%;">
+      <div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
+        <i class="fas fa-shield-alt" style="font-size:2rem;margin-bottom:8px;display:block;"></i>
+        <h3 style="margin:0;">أدخل رمز التحقق</h3>
+      </div>
+      <div style="background:white;padding:24px;">
+        <p style="color:var(--gray);margin-bottom:8px;text-align:center;">أرسلنا رمزاً إلى:</p>
+        <p style="font-weight:800;text-align:center;color:var(--dark);margin-bottom:18px;direction:ltr;">${passwordRecoveryEmail}</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-shield-alt"></i> رمز التحقق</label>
+          <input type="text" id="forgotPasswordOtp" class="form-control" placeholder="أدخل الرمز" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="text-align:center;letter-spacing:5px;font-size:1.25rem;font-weight:800;" required>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="verifyPasswordResetOtp()" style="flex:2;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;" id="verifyPwOtpBtn">
+            <i class="fas fa-check-circle"></i> تحقق من الرمز
+          </button>
+          <button onclick="sendPasswordResetEmail()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;" id="resendPwOtpBtn">
+            إعادة إرسال
+          </button>
+        </div>
+      </div>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('forgotPasswordOtp')?.focus(), 100);
+}
+
+async function verifyPasswordResetOtp() {
+  const token = document.getElementById('forgotPasswordOtp')?.value?.trim();
+  if (!passwordRecoveryEmail) {
+    showAlert('انتهت جلسة استعادة كلمة المرور. ابدأ العملية من جديد.', 'error');
+    showForgotPasswordEmailStep();
+    return;
+  }
+  if (!token || !/^\\d{6,8}$/.test(token)) {
+    showAlert('أدخل رمز التحقق المرسل إلى بريدك', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('verifyPwOtpBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ التحقق...';
+  }
+
+  try {
+    const { data, error } = await sb.auth.verifyOtp({
+      email: passwordRecoveryEmail,
+      token,
+      type: 'recovery'
+    });
+    if (error) throw error;
+    if (!data?.session) throw new Error('لم يتم إنشاء جلسة استعادة صالحة');
+
+    showForgotPasswordNewPasswordStep();
+    showAlert('✅ تم التحقق من الرمز. أدخل كلمة المرور الجديدة.', 'success', 4500);
+  } catch (err) {
+    showAlert('رمز التحقق غير صحيح أو منتهي الصلاحية: ' + (err.message || ''), 'error', 5000);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check-circle"></i> تحقق من الرمز';
+    }
+  }
+}
+
+function showForgotPasswordNewPasswordStep() {
   showModal(`
     <div style="padding:0;max-width:420px;width:100%;">
       <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
@@ -2410,17 +2491,18 @@ function showResetPasswordForm() {
         <h3 style="margin:0;">تعيين كلمة مرور جديدة</h3>
       </div>
       <div style="background:white;padding:24px;">
+        <p style="color:var(--gray);margin-bottom:18px;text-align:center;">تم التحقق من هويتك. أدخل كلمة المرور الجديدة ثم أكدها.</p>
         <div class="form-group" style="margin-bottom:16px;">
           <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> كلمة المرور الجديدة</label>
           <div style="position:relative;">
-            <input type="password" id="newResetPassword" class="form-control" placeholder="8 أحرف على الأقل" minlength="8" style="padding-left:45px;">
+            <input type="password" id="newResetPassword" class="form-control" placeholder="8 أحرف على الأقل" minlength="8" autocomplete="new-password" style="padding-left:45px;">
             <button type="button" onclick="togglePasswordVisibility('newResetPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:20px;">
           <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> تأكيد كلمة المرور</label>
           <div style="position:relative;">
-            <input type="password" id="newResetPasswordConfirm" class="form-control" placeholder="أعد إدخال كلمة المرور" style="padding-left:45px;">
+            <input type="password" id="newResetPasswordConfirm" class="form-control" placeholder="أعد إدخال كلمة المرور" autocomplete="new-password" style="padding-left:45px;">
             <button type="button" onclick="togglePasswordVisibility('newResetPasswordConfirm',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
           </div>
         </div>
@@ -2430,31 +2512,59 @@ function showResetPasswordForm() {
       </div>
     </div>
   `);
+  setTimeout(() => document.getElementById('newResetPassword')?.focus(), 100);
 }
 
 async function saveNewPassword() {
-  const newPw  = document.getElementById('newResetPassword')?.value?.trim();
-  const confPw = document.getElementById('newResetPasswordConfirm')?.value?.trim();
-  if (!newPw || newPw.length < 8) { showAlert('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error'); return; }
-  if (newPw !== confPw) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
+  const newPw  = document.getElementById('newResetPassword')?.value || '';
+  const confPw = document.getElementById('newResetPasswordConfirm')?.value || '';
+  if (!newPw || newPw.length < 8) {
+    showAlert('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error');
+    return;
+  }
+  if (newPw !== confPw) {
+    showAlert('كلمتا المرور غير متطابقتين', 'error');
+    return;
+  }
+
   const btn = document.getElementById('saveNewPwBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...';
+  }
+
   try {
-    // تغيير كلمة المرور عبر Supabase Auth - لا تُخزَّن في users.pass_word
     const { error } = await sb.auth.updateUser({ password: newPw });
     if (error) throw error;
+
+    // بعد تغيير كلمة المرور لا نترك جلسة الاسترداد مفتوحة.
+    await sb.auth.signOut();
+    passwordRecoveryEmail = '';
     closeModal();
-    showAlert('✅ تم تغيير كلمة المرور بنجاح - سيتم تسجيل دخولك تلقائياً', 'success', 5000);
-    setTimeout(() => restoreSession(), 1500);
-  } catch(err) {
-    showAlert('خطأ: ' + (err.message || 'تعذر تغيير كلمة المرور'), 'error');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ كلمة المرور الجديدة'; }
+    showAlert('✅ تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول بكلمة المرور الجديدة.', 'success', 6000);
+    setTimeout(() => {
+      if (typeof showLoginPage === 'function') showLoginPage();
+    }, 500);
+  } catch (err) {
+    showAlert('تعذر تغيير كلمة المرور: ' + (err.message || 'خطأ غير معروف'), 'error', 5000);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> حفظ كلمة المرور الجديدة';
+    }
   }
+}
+
+// التوافق مع أي استدعاء قديم للدالة
+function showResetPasswordForm() {
+  showForgotPasswordNewPasswordStep();
 }
 
 // ===== تغيير كلمة المرور للمستخدم المسجّل دخول =====
 function showChangePassword() {
-  if (!currentUser) { showAlert('يجب تسجيل الدخول أولاً', 'error'); return; }
+  if (!currentUser) {
+    showAlert('يجب تسجيل الدخول أولاً', 'error');
+    return;
+  }
   showModal(`
     <div style="padding:0;max-width:420px;width:100%;">
       <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;text-align:center;">
@@ -2462,47 +2572,89 @@ function showChangePassword() {
         <h3 style="margin:0;">تغيير كلمة المرور</h3>
       </div>
       <div style="background:white;padding:24px;">
+        <p style="color:var(--gray);margin-bottom:18px;text-align:center;">لأمان حسابك، أدخل كلمة المرور الحالية أولاً.</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> كلمة المرور الحالية</label>
+          <div style="position:relative;">
+            <input type="password" id="changeCurrentPassword" class="form-control" placeholder="كلمة المرور الحالية" autocomplete="current-password" style="padding-left:45px;">
+            <button type="button" onclick="togglePasswordVisibility('changeCurrentPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
         <div class="form-group" style="margin-bottom:16px;">
           <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> كلمة المرور الجديدة</label>
           <div style="position:relative;">
-            <input type="password" id="changeNewPassword" class="form-control" placeholder="8 أحرف على الأقل" minlength="8" style="padding-left:45px;">
+            <input type="password" id="changeNewPassword" class="form-control" placeholder="8 أحرف على الأقل" minlength="8" autocomplete="new-password" style="padding-left:45px;">
             <button type="button" onclick="togglePasswordVisibility('changeNewPassword',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:20px;">
           <label style="display:block;margin-bottom:6px;font-weight:600;"><i class="fas fa-lock"></i> تأكيد كلمة المرور الجديدة</label>
           <div style="position:relative;">
-            <input type="password" id="changeNewPasswordConfirm" class="form-control" placeholder="أعد إدخال كلمة المرور" style="padding-left:45px;">
+            <input type="password" id="changeNewPasswordConfirm" class="form-control" placeholder="أعد إدخال كلمة المرور" autocomplete="new-password" style="padding-left:45px;">
             <button type="button" onclick="togglePasswordVisibility('changeNewPasswordConfirm',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray);cursor:pointer;"><i class="fas fa-eye"></i></button>
           </div>
         </div>
         <div style="display:flex;gap:10px;">
           <button onclick="doChangePassword()" style="flex:2;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:700;" id="changePwBtn">
-            <i class="fas fa-save"></i> حفظ كلمة المرور
+            <i class="fas fa-save"></i> تغيير كلمة المرور
           </button>
           <button onclick="closeModal()" style="flex:1;background:#f1f5f9;color:var(--dark);border:none;padding:12px;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
         </div>
       </div>
     </div>
   `);
+  setTimeout(() => document.getElementById('changeCurrentPassword')?.focus(), 100);
 }
 
 async function doChangePassword() {
-  const newPw  = document.getElementById('changeNewPassword')?.value?.trim();
-  const confPw = document.getElementById('changeNewPasswordConfirm')?.value?.trim();
-  if (!newPw || newPw.length < 8) { showAlert('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'error'); return; }
-  if (newPw !== confPw) { showAlert('كلمتا المرور غير متطابقتين', 'error'); return; }
+  const currentPw = document.getElementById('changeCurrentPassword')?.value || '';
+  const newPw  = document.getElementById('changeNewPassword')?.value || '';
+  const confPw = document.getElementById('changeNewPasswordConfirm')?.value || '';
+
+  if (!currentPw) {
+    showAlert('أدخل كلمة المرور الحالية', 'error');
+    return;
+  }
+  if (!newPw || newPw.length < 8) {
+    showAlert('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل', 'error');
+    return;
+  }
+  if (newPw !== confPw) {
+    showAlert('كلمتا المرور الجديدتان غير متطابقتين', 'error');
+    return;
+  }
+  if (currentPw === newPw) {
+    showAlert('كلمة المرور الجديدة يجب أن تختلف عن الحالية', 'error');
+    return;
+  }
+
   const btn = document.getElementById('changePwBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ التحقق والحفظ...';
+  }
+
   try {
-    // تغيير كلمة المرور عبر Supabase Auth فقط - لا تُخزَّن في users.pass_word
-    const { error } = await sb.auth.updateUser({ password: newPw });
+    const { data: authUserData, error: authUserError } = await sb.auth.getUser();
+    if (authUserError || !authUserData?.user?.email) {
+      throw new Error('تعذر التحقق من الحساب الحالي');
+    }
+
+    // Supabase Auth v2.102+ يتحقق من current_password على الخادم قبل تغيير كلمة المرور.
+    const { error } = await sb.auth.updateUser({
+      password: newPw,
+      current_password: currentPw
+    });
     if (error) throw error;
+
     closeModal();
-    showAlert('✅ تم تغيير كلمة المرور بنجاح', 'success', 4000);
-  } catch(err) {
-    showAlert('خطأ: ' + (err.message || 'تعذر تغيير كلمة المرور - تأكد من أنك سجّلت الدخول بـ Supabase Auth'), 'error', 5000);
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> حفظ كلمة المرور'; }
+    showAlert('✅ تم التحقق من كلمة المرور الحالية وتغيير كلمة المرور بنجاح', 'success', 5000);
+  } catch (err) {
+    showAlert('تعذر تغيير كلمة المرور: ' + (err.message || 'كلمة المرور الحالية غير صحيحة'), 'error', 6000);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> تغيير كلمة المرور';
+    }
   }
 }
 
