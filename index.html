@@ -4664,7 +4664,7 @@ async function loadUserData(userId) {
   try {
     const [oRes, iRes] = await Promise.all([
       sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
     ]);
     if (oRes.error) throw oRes.error;
     if (iRes.error) throw iRes.error;
@@ -5854,7 +5854,7 @@ async function payInvoice(invoiceId) {
     try {
       const uid = parseInt(currentUser.id, 10);
       const { data: invs } = await sb.from('invoices')
-        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at')
+        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at')
         .eq('customer_id', uid)
         .order('created_at', { ascending: false });
       if (invs?.length) {
@@ -5867,7 +5867,7 @@ async function payInvoice(invoiceId) {
   if (!invoice) {
     try {
       const { data, error } = await sb.from('invoices')
-        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at')
+        .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at')
         .eq('id', invoiceId).single();
       if (error || !data) { showAlert('لم يتم العثور على الفاتورة', 'error'); return; }
       invoice = normalizeInvoices([data])[0];
@@ -5917,11 +5917,35 @@ async function payInvoice(invoiceId) {
             <p style="margin:5px 0 0;opacity:0.9;font-size:0.88rem;">رقم: ${invoice.invoiceNumber||invoice.invoice_number}</p>
           </div>
           <div style="text-align:left;">
+            ${invoice.discountAmount > 0 ? `<div style="font-size:0.78rem;text-decoration:line-through;opacity:.7;">${parseFloat(invoice.originalTotal||invoice.total||0).toFixed(2)} ل.س</div>` : ''}
             <div style="font-size:1.8rem;font-weight:900;">${parseFloat(invoice.total||0).toFixed(2)}</div>
             <div style="font-size:0.8rem;opacity:0.85;">ل.س</div>
           </div>
         </div>
       </div>
+      <!-- كوبون الخصم -->
+      <div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:14px;padding:18px 20px;margin:16px 20px 0;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <span style="width:30px;height:30px;background:#f97316;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;"><i class="fas fa-tag"></i></span>
+          <div>
+            <h4 style="margin:0;color:#9a3412;">هل لديك كوبون خصم؟</h4>
+            <p style="margin:2px 0 0;font-size:.8rem;color:#7c2d12;">أدخل الكود ليتم التحقق منه وتطبيق الخصم على الفاتورة.</p>
+          </div>
+        </div>
+        ${invoice.discountCode ? `
+          <div style="background:#dcfce7;color:#166534;border-radius:10px;padding:11px;font-weight:700;text-align:center;">
+            <i class="fas fa-check-circle"></i> تم تطبيق الكوبون <strong>${invoice.discountCode}</strong> — خصم ${parseFloat(invoice.discountPercent||0).toFixed(0)}% (${parseFloat(invoice.discountAmount||0).toFixed(2)} ل.س)
+          </div>
+        ` : `
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="invoiceCouponInput-${invoiceId}" class="form-control" type="text" maxlength="40" placeholder="أدخل كود الخصم" autocomplete="off" style="flex:1;text-transform:uppercase;">
+            <button type="button" onclick="applyInvoiceCoupon('${invoiceId}')" style="border:0;background:#f97316;color:#fff;border-radius:12px;padding:11px 16px;font-family:inherit;font-weight:800;white-space:nowrap;">
+              <i class="fas fa-check"></i> تطبيق
+            </button>
+          </div>
+        `}
+      </div>
+
       <!-- شريط الخطوات -->
       <div style="background:#f8fafc;padding:15px 20px;display:flex;align-items:center;justify-content:center;gap:5px;border-bottom:1px solid #e2e8f0;">
         <div style="display:flex;align-items:center;gap:5px;font-size:0.82rem;">
@@ -5953,8 +5977,17 @@ async function payInvoice(invoiceId) {
           <div style="background:white;border-radius:12px;padding:14px;display:grid;gap:8px;">
             <div style="display:flex;justify-content:space-between;"><span style="color:#6b7280;font-size:0.88rem;">رقم الفاتورة</span><span style="font-weight:700;font-size:0.88rem;">${invoice.invoiceNumber||invoice.invoice_number}</span></div>
             <div style="display:flex;justify-content:space-between;"><span style="color:#6b7280;font-size:0.88rem;">الخدمة</span><span style="font-weight:600;font-size:0.88rem;">${invoice.service||'—'}</span></div>
+            ${invoice.discountAmount > 0 ? `
             <div style="display:flex;justify-content:space-between;border-top:2px solid #f1f5f9;padding-top:8px;margin-top:4px;">
-              <span style="color:#065f46;font-weight:700;">المبلغ الإجمالي</span>
+              <span style="color:#6b7280;font-size:.9rem;">قبل الخصم</span>
+              <span style="color:#6b7280;font-weight:700;text-decoration:line-through;">${parseFloat(invoice.originalTotal||invoice.total||0).toFixed(2)} ل.س</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-top:5px;">
+              <span style="color:#c2410c;font-size:.9rem;">خصم الكوبون (${parseFloat(invoice.discountPercent||0).toFixed(0)}%)</span>
+              <span style="color:#c2410c;font-weight:800;">-${parseFloat(invoice.discountAmount||0).toFixed(2)} ل.س</span>
+            </div>` : ''}
+            <div style="display:flex;justify-content:space-between;border-top:2px solid #f1f5f9;padding-top:8px;margin-top:4px;">
+              <span style="color:#065f46;font-weight:700;">المبلغ المطلوب للدفع</span>
               <span style="color:#059669;font-weight:900;font-size:1.15rem;">${parseFloat(invoice.total||0).toFixed(2)} ل.س</span>
             </div>
           </div>
@@ -6005,6 +6038,27 @@ async function payInvoice(invoiceId) {
       </div>
     </div>
   `);
+}
+
+async function applyInvoiceCoupon(invoiceId) {
+  const input = document.getElementById(`invoiceCouponInput-${invoiceId}`);
+  const code = String(input?.value || '').trim().toUpperCase();
+  if (!code) { showAlert('أدخل كود الخصم أولاً', 'warning'); return; }
+  try {
+    if (!currentUser) { showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
+    const { data, error } = await sb.functions.invoke('apply-invoice-discount', {
+      body: { invoice_id: Number(invoiceId), code }
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || 'تعذر تطبيق الكوبون');
+    const idx = allInvoices.findIndex(inv => String(inv.id) === String(invoiceId));
+    if (idx !== -1) allInvoices[idx] = normalizeInvoices([{ ...allInvoices[idx], ...data.invoice }])[0];
+    showAlert(`تم تطبيق الكوبون بنجاح — الخصم ${Number(data.invoice.discount_percent || 0).toFixed(0)}% بقيمة ${Number(data.invoice.discount_amount || 0).toFixed(2)} ل.س`, 'success', 4000);
+    await payInvoice(invoiceId);
+  } catch (e) {
+    console.error('applyInvoiceCoupon error:', e);
+    showAlert(e?.message || 'تعذر تطبيق كوبون الخصم', 'error');
+  }
 }
 
 function handleReceiptUpload(event, invoiceId) {
@@ -6085,6 +6139,11 @@ async function saveInvoice(invoiceData) {
       base_price:             invoiceData.basePrice     ?? 0,
       tax:                    invoiceData.tax           ?? 0,
       total:                  invoiceData.total         ?? 0,
+      original_total:         invoiceData.originalTotal ?? invoiceData.original_total ?? invoiceData.total ?? 0,
+      discount_code:          invoiceData.discountCode ?? invoiceData.discount_code ?? null,
+      discount_percent:       invoiceData.discountPercent ?? invoiceData.discount_percent ?? 0,
+      discount_amount:        invoiceData.discountAmount ?? invoiceData.discount_amount ?? 0,
+      discount_applied_at:    invoiceData.discountAppliedAt ?? invoiceData.discount_applied_at ?? null,
       status:                 invoiceData.status        || 'pending_payment',
       payment_method:         invoiceData.paymentMethod || '',
       notes:                  invoiceData.notes         || '',
@@ -6667,13 +6726,13 @@ async function viewUserInvoice(invoiceId) {
   // إذا لم توجد اجلبها مباشرة
   if (!invoice) {
     const { data } = await sb.from('invoices')
-      .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at')
+      .select('id,order_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at')
       .eq('id', invoiceId).single();
     if (data) { invoice = normalizeInvoices([data])[0]; allInvoices.unshift(invoice); }
   }
   if (!invoice) {
     try {
-      const { data } = await sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,notes,sent_at,created_at').eq('id', invoiceId).single();
+      const { data } = await sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,barcode_image,payment_barcode_image,notes,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at').eq('id', invoiceId).single();
       if (data) { invoice = normalizeInvoices([data])[0]; allInvoices.unshift(invoice); }
     } catch(e) {}
   }
@@ -6973,7 +7032,7 @@ async function loadAdminData() {
     // اجلب المستخدمين والفواتير في الخلفية بعد ما تظهر الطلبات
     const [uRes, iRes] = await Promise.all([
       sb.from('users').select('id,name,email,phone,is_verified,created_at').order('created_at', { ascending: true }).limit(500),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
     ]);
 
     allUsers    = (uRes.data || []).map(u => ({ ...u, profileImage: u.profile_image }));
