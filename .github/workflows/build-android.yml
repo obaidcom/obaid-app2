@@ -146,7 +146,22 @@ jobs:
               exit 1
             fi
           done
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/obied-release.jks
+          python3 - <<'PY'
+          import base64, os, re
+          raw = os.environ["ANDROID_KEYSTORE_BASE64"]
+          # Normalize copied/pasted Base64 from Termux/GitHub and restore optional padding.
+          normalized = re.sub(r"\\s+", "", raw)
+          normalized += "=" * ((4 - len(normalized) % 4) % 4)
+          try:
+              data = base64.b64decode(normalized, validate=True)
+          except Exception as exc:
+              raise SystemExit(f"ERROR: ANDROID_KEYSTORE_BASE64 is not valid Base64: {exc}")
+          if len(data) < 1024:
+              raise SystemExit("ERROR: decoded keystore is unexpectedly small.")
+          with open("android/app/obied-release.jks", "wb") as f:
+              f.write(data)
+          print(f"Release keystore decoded successfully ({len(data)} bytes).")
+          PY
           test -s android/app/obied-release.jks
 
       - name: Configure stable release signing
