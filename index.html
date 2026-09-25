@@ -6046,8 +6046,9 @@ async function applyInvoiceCoupon(invoiceId) {
   if (!code) { showAlert('أدخل كود الخصم أولاً', 'warning'); return; }
   try {
     if (!currentUser) { showAlert('يجب تسجيل الدخول أولاً', 'warning'); return; }
-    const { data, error } = await sb.functions.invoke('apply-invoice-discount', {
-      body: { invoice_id: Number(invoiceId), code }
+    const { data, error } = await sb.rpc('apply_invoice_coupon', {
+      p_invoice_id: Number(invoiceId),
+      p_code: code
     });
     if (error) throw error;
     if (!data?.ok) throw new Error(data?.error || 'تعذر تطبيق الكوبون');
