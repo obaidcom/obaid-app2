@@ -163,7 +163,7 @@ jobs:
           print(f"Release keystore decoded successfully ({len(data)} bytes).")
           PY
           test -s android/app/obied-release.jks
-          keytool -list -keystore android/app/obied-release.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          keytool -list -keystore android/app/obied-release.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS"
           echo "Release keystore integrity and credentials validated."
 
       - name: Configure stable release signing
