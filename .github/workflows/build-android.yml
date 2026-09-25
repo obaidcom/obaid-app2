@@ -153,7 +153,7 @@ jobs:
           normalized = re.sub(r"\s+", "", raw)
           normalized += "=" * ((4 - len(normalized) % 4) % 4)
           try:
-              data = base64.b64decode(normalized, validate=True)
+              data = base64.b64decode(normalized, validate=False)
           except Exception as exc:
               raise SystemExit(f"ERROR: ANDROID_KEYSTORE_BASE64 is not valid Base64: {exc}")
           if len(data) < 1024:
@@ -163,6 +163,8 @@ jobs:
           print(f"Release keystore decoded successfully ({len(data)} bytes).")
           PY
           test -s android/app/obied-release.jks
+          keytool -list -keystore android/app/obied-release.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          echo "Release keystore integrity and credentials validated."
 
       - name: Configure stable release signing
         run: |
