@@ -150,7 +150,7 @@ jobs:
           import base64, os, re
           raw = os.environ["ANDROID_KEYSTORE_BASE64"]
           # Normalize copied/pasted Base64 from Termux/GitHub and restore optional padding.
-          normalized = re.sub(r"\\s+", "", raw)
+          normalized = re.sub(r"\s+", "", raw)
           normalized += "=" * ((4 - len(normalized) % 4) % 4)
           try:
               data = base64.b64decode(normalized, validate=True)
