@@ -4450,6 +4450,28 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===== استعادة الجلسة عبر Supabase Auth الحقيقي =====
 // المصدر الحقيقي للهوية هو auth.uid() وليس localStorage
 async function restoreSession() {
+  // عرض آخر حالة محفوظة فوراً — لا ننتظر الشبكة لفتح الواجهة.
+  // هذا يجعل التحديث/إعادة فتح التطبيق شبه فوري، ثم تتم المزامنة الآمنة في الخلفية.
+  const cachedRaw = localStorage.getItem('obied_current_user');
+  if (cachedRaw) {
+    try {
+      const cached = JSON.parse(cachedRaw);
+      if (cached?.id) {
+        currentUser = cached;
+        updateUIForLoggedInUser();
+        if (cached.role === 'admin') {
+          currentAdmin = { id: cached.id, email: cached.email, name: cached.name, role: 'admin' };
+          showAdminDashboard();
+        } else {
+          hideAllPages();
+          showHome();
+          if (typeof loadUserData === 'function') loadUserData(cached.id);
+          if (typeof startRealtimeForUser === 'function') startRealtimeForUser(cached.id);
+        }
+      }
+    } catch (_) {}
+  }
+
   try {
     // 1) تحقق من جلسة Supabase Auth الحقيقية أولاً
     const { data: { session } } = await sb.auth.getSession();
@@ -4461,7 +4483,7 @@ async function restoreSession() {
         .eq('auth_uid', session.user.id).maybeSingle();
 
       if (userRow) {
-        const role = await resolveUserRole(userRow);
+        const role = userRow.role || 'user';
         await applyRoleAndRoute(userRow, role);
         return;
       }
@@ -4474,7 +4496,7 @@ async function restoreSession() {
       if (byEmail) {
         // ربط تلقائي صامت
         await sb.from('users').update({ auth_uid: session.user.id }).eq('id', byEmail.id).catch(()=>{});
-        const role = await resolveUserRole(byEmail);
+        const role = byEmail.role || 'user';
         await applyRoleAndRoute(byEmail, role);
         return;
       }
