@@ -4728,27 +4728,75 @@ function generateUserId() { return '#' + Math.floor(1000 + Math.random() * 9000)
 async function loadUserData(userId) {
   const uid = parseInt(userId, 10);
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
-  try {
-    const [oRes, iRes] = await Promise.all([
-      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false }).limit(100)
-    ]);
-    if (oRes.error) throw oRes.error;
-    if (iRes.error) throw iRes.error;
-    allOrders = (oRes.data || []).map(o => ({
-      ...o, userId: o.user_id, createdAt: o.created_at,
-      invoiceId: o.invoice_id, invoiceNumber: o.invoice_number
-    }));
-    allInvoices = normalizeInvoices(iRes.data || []);
-    updateProfilePage();
-    // تحقق من إشعارات غير مقروءة
-    checkUserNotifications(uid);
-    checkOverdueInvoices(uid);
-  } catch(err) {
-    console.error('loadUserData error:', err);
-  }
-}
 
+  // لا نجعل فشل استعلام واحد يمنع بقية بيانات المستخدم من الظهور.
+  const loadUserRow = async () => {
+    const { data, error } = await sb.from('users')
+      .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
+      .eq('id', uid)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return;
+
+    currentUser = {
+      ...currentUser,
+      id: data.id,
+      name: data.name || '',
+      email: data.email || '',
+      phone: data.phone || '',
+      profileImage: data.profile_image || null,
+      role: data.role || currentUser?.role || 'user',
+      is_verified: data.is_verified === true
+    };
+    localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+    updateUIForLoggedInUser();
+    updateProfilePage();
+  };
+
+  const loadOrders = async () => {
+    const { data, error } = await sb.from('orders')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    allOrders = (data || []).map(o => ({
+      ...o,
+      userId: o.user_id,
+      createdAt: o.created_at,
+      invoiceId: o.invoice_id,
+      invoiceNumber: o.invoice_number
+    }));
+  };
+
+  const loadInvoices = async () => {
+    const { data, error } = await sb.from('invoices')
+      .select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at')
+      .eq('customer_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    allInvoices = normalizeInvoices(data || []);
+  };
+
+  const results = await Promise.allSettled([
+    loadUserRow(),
+    loadOrders(),
+    loadInvoices()
+  ]);
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const names = ['users', 'orders', 'invoices'];
+      console.error('loadUserData ' + names[index] + ' error:', result.reason);
+    }
+  });
+
+  // تحديث الملف حتى لو كانت الفواتير أو الطلبات فاشلة.
+  updateProfilePage();
+  checkUserNotifications(uid);
+  checkOverdueInvoices(uid);
+}
 // ===== نظام الشكاوى =====
 async function showComplaintForm(orderId, service) {
   showModal(`
