@@ -4450,107 +4450,116 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===== استعادة الجلسة عبر Supabase Auth الحقيقي =====
 // المصدر الحقيقي للهوية هو auth.uid() وليس localStorage
 async function restoreSession() {
-  // عرض آخر حالة محفوظة فوراً — لا ننتظر الشبكة لفتح الواجهة.
-  // هذا يجعل التحديث/إعادة فتح التطبيق شبه فوري، ثم تتم المزامنة الآمنة في الخلفية.
+  // 1) اعرض آخر حساب محفوظ فوراً. هذا cache للواجهة فقط وليس بديلاً عن صلاحيات Supabase.
   const cachedRaw = localStorage.getItem('obied_current_user');
-  if (cachedRaw) {
-    try {
-      const cached = JSON.parse(cachedRaw);
-      if (cached?.id) {
-        currentUser = cached;
-        updateUIForLoggedInUser();
-        if (cached.role === 'admin') {
-          currentAdmin = { id: cached.id, email: cached.email, name: cached.name, role: 'admin' };
-          showAdminDashboard();
-        } else {
-          hideAllPages();
-          showHome();
-          if (typeof loadUserData === 'function') loadUserData(cached.id);
-          if (typeof startRealtimeForUser === 'function') startRealtimeForUser(cached.id);
-        }
-      }
-    } catch (_) {}
+  let cachedUser = null;
+  try {
+    cachedUser = cachedRaw ? JSON.parse(cachedRaw) : null;
+  } catch (_) {
+    cachedUser = null;
+  }
+
+  if (cachedUser?.id) {
+    currentUser = cachedUser;
+    updateUIForLoggedInUser();
+    if (cachedUser.role === 'admin') {
+      currentAdmin = {
+        id: cachedUser.id,
+        email: cachedUser.email,
+        name: cachedUser.name,
+        role: 'admin'
+      };
+      showAdminDashboard();
+    } else {
+      hideAllPages();
+      showHome();
+      // لا ننتظر تحميل البيانات قبل إظهار الحساب.
+      Promise.resolve(typeof loadUserData === 'function' ? loadUserData(cachedUser.id) : null).catch(() => {});
+      if (typeof startRealtimeForUser === 'function') startRealtimeForUser(cachedUser.id);
+    }
   }
 
   try {
-    // 1) تحقق من جلسة Supabase Auth الحقيقية أولاً
-    const { data: { session } } = await sb.auth.getSession();
+    // 2) تحقق من جلسة Auth الحقيقية في الخلفية.
+    const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+    if (sessionError) throw sessionError;
+    const session = sessionData?.session || null;
 
     if (session?.user) {
-      // جلسة Auth حقيقية موجودة - اجلب بيانات المستخدم من قاعدة البيانات
-      const { data: userRow } = await sb.from('users')
+      let userRow = null;
+      let userError = null;
+
+      const byAuth = await sb.from('users')
         .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
-        .eq('auth_uid', session.user.id).maybeSingle();
+        .eq('auth_uid', session.user.id)
+        .maybeSingle();
+      userRow = byAuth.data;
+      userError = byAuth.error;
+
+      if (userError) throw userError;
+
+      if (!userRow && session.user.email) {
+        const byEmail = await sb.from('users')
+          .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
+          .eq('email', session.user.email)
+          .maybeSingle();
+
+        if (byEmail.error) throw byEmail.error;
+        if (byEmail.data) {
+          userRow = byEmail.data;
+          // الربط اختياري؛ فشل الربط لا يمسح الجلسة ولا الحساب المحفوظ.
+          await sb.from('users')
+            .update({ auth_uid: session.user.id })
+            .eq('id', byEmail.data.id)
+            .then(() => {})
+            .catch(() => {});
+        }
+      }
 
       if (userRow) {
-        const role = userRow.role || 'user';
-        await applyRoleAndRoute(userRow, role);
+        await applyRoleAndRoute(userRow, userRow.role || 'user');
         return;
       }
 
-      // Auth موجود لكن لا يوجد سجل users مرتبط - حاول الربط عبر البريد
-      const { data: byEmail } = await sb.from('users')
-        .select('id,name,email,phone,profile_image,role,is_verified')
-        .eq('email', session.user.email).maybeSingle();
-
-      if (byEmail) {
-        // ربط تلقائي صامت
-        await sb.from('users').update({ auth_uid: session.user.id }).eq('id', byEmail.id).catch(()=>{});
-        const role = byEmail.role || 'user';
-        await applyRoleAndRoute(byEmail, role);
+      // توجد جلسة Auth لكن لا يوجد سجل users. لا نمسح الـcache القديم تلقائياً.
+      if (cachedUser?.id) {
+        currentUser = cachedUser;
+        updateUIForLoggedInUser();
+        _showUserHome(currentUser);
         return;
       }
 
-      // Auth موجود لكن لا يوجد سجل users على الإطلاق - اعرض الترحيب
       _showWelcome();
       return;
     }
 
-    // 2) لا توجد جلسة Auth - تحقق من localStorage كـ fallback مؤقت للمستخدمين القدامى
-    // الذين لم يسجلوا دخول بعد بالنظام الجديد (يُزال هذا الـ fallback تدريجياً)
-    const rawUser = localStorage.getItem('obied_current_user');
-    if (rawUser) {
-      const u = JSON.parse(rawUser);
-      if (u && u.id) {
-        // تحقق صامت من أن السجل لا يزال موجوداً في قاعدة البيانات
-        const { data: freshUser } = await sb.from('users')
-          .select('id,name,email,phone,profile_image,role,is_verified')
-          .eq('id', u.id).maybeSingle();
-        if (freshUser) {
-          currentUser = { id: freshUser.id, name: freshUser.name, email: freshUser.email,
-                         phone: freshUser.phone, profileImage: freshUser.profile_image, is_verified: !!freshUser.is_verified, role: freshUser.role };
-          localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
-          // محاولة رفع الجلسة: إذا كان لديه pass_word في قاعدة البيانات، ننبّهه بأن يسجّل دخول مرة أخرى
-          _showUserHome(currentUser);
-          updateUIForLoggedInUser();
-          // تنبيه غير مزعج: "نسيت كيفية إعادة التوثيق"
-          if (typeof syncPushToken === 'function') syncPushToken();
-          // إعادة تحقق صامتة
-          revalidateRoleInBackground(currentUser);
-          return;
-        }
-      }
-      localStorage.removeItem('obied_current_user');
-      localStorage.removeItem('obied_admin');
-      localStorage.removeItem('obied_tech');
+    // 3) لا توجد جلسة Auth: إذا كان هناك cache، أبقه ظاهراً.
+    // مهم: لا نحذف obied_current_user هنا بسبب انقطاع شبكة/RLS/تأخر Auth.
+    if (cachedUser?.id) {
+      currentUser = cachedUser;
+      updateUIForLoggedInUser();
+      _showUserHome(currentUser);
+      return;
     }
 
-    // إذا تعذر الوصول إلى Auth مؤقتاً، لا نمسح بيانات الحساب المحفوظة.
-    // نعرض الحساب المحفوظ محلياً مؤقتاً ونحاول مزامنة الجلسة في الخلفية.
-    const cached = localStorage.getItem('obied_current_user');
-    if (cached) {
-      try {
-        const u = JSON.parse(cached);
-        if (u && u.id) {
-          currentUser = u;
-          _showUserHome(currentUser);
-          updateUIForLoggedInUser();
-          setTimeout(() => restoreSession(), 3000);
-          return;
-        }
-      } catch (_) {}
+    _showWelcome();
+  } catch (err) {
+    // أي خطأ شبكة/Auth/RLS لا يجب أن يحوّل المستخدم إلى حساب فارغ.
+    console.warn('restoreSession background check failed:', err);
+    if (cachedUser?.id) {
+      currentUser = cachedUser;
+      updateUIForLoggedInUser();
+      _showUserHome(currentUser);
+      // إعادة محاولة واحدة بعد تأخير قصير بدون حلقة متكررة.
+      if (!window._obiedRestoreRetryScheduled) {
+        window._obiedRestoreRetryScheduled = true;
+        setTimeout(() => {
+          window._obiedRestoreRetryScheduled = false;
+          restoreSession().catch(() => {});
+        }, 5000);
+      }
+      return;
     }
-    console.error('restoreSession error:', e);
     _showWelcome();
   }
 }
@@ -4565,12 +4574,14 @@ function setupAuthStateListener() {
       return;
     }
     if (event === 'SIGNED_OUT') {
+      // لا تمسح cache الحساب هنا. دوال تسجيل الخروج الصريحة هي التي تنظف التخزين.
+      // هذا يمنع اختفاء الحساب عند refresh أو عند انتهاء/تأخر جلسة Auth مؤقتاً.
       currentUser = null;
       currentAdmin = null;
       currentTechnician = null;
-      localStorage.removeItem('obied_current_user');
       localStorage.removeItem('obied_admin');
       localStorage.removeItem('obied_tech');
+      updateUIForLoggedOutUser();
     }
   });
 }
