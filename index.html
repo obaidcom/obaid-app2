@@ -1180,7 +1180,15 @@ function applyStoredDarkMode() {
 // ===== Supabase Config =====
 const SUPABASE_URL = 'https://pullcihxwmcoxqmzldqi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1bGxjaWh4d21jb3hxbXpsZHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0OTk2NTksImV4cCI6MjA5MjA3NTY1OX0.TcT-rvrd8gO_4kv8WJM3Hw2MxyrqXyKDUBcDQVABs58';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: window.localStorage,
+    storageKey: 'obied-supabase-auth'
+  }
+});
 
 // ================== الدوال الأساسية الناقصة ==================
 
@@ -4505,8 +4513,21 @@ async function restoreSession() {
       localStorage.removeItem('obied_tech');
     }
 
-    _showWelcome();
-  } catch(e) {
+    // إذا تعذر الوصول إلى Auth مؤقتاً، لا نمسح بيانات الحساب المحفوظة.
+    // نعرض الحساب المحفوظ محلياً مؤقتاً ونحاول مزامنة الجلسة في الخلفية.
+    const cached = localStorage.getItem('obied_current_user');
+    if (cached) {
+      try {
+        const u = JSON.parse(cached);
+        if (u && u.id) {
+          currentUser = u;
+          _showUserHome(currentUser);
+          updateUIForLoggedInUser();
+          setTimeout(() => restoreSession(), 3000);
+          return;
+        }
+      } catch (_) {}
+    }
     console.error('restoreSession error:', e);
     _showWelcome();
   }
