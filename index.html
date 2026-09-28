@@ -4729,7 +4729,46 @@ async function loadUserData(userId) {
   const uid = parseInt(userId, 10);
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
 
-  // لا نجعل فشل استعلام واحد يمنع بقية بيانات المستخدم من الظهور.
+  // المسار الأساسي: RPC موحّد وآمن يعتمد على auth.uid().
+  // يجلب الملف + الطلبات + الفواتير في استدعاء واحد، فلا تختفي البيانات بسبب فشل استعلام منفصل.
+  try {
+    const { data: bundle, error } = await sb.rpc('get_my_profile_data');
+    if (!error && bundle?.user) {
+      const u = bundle.user;
+      currentUser = {
+        ...currentUser,
+        id: u.id,
+        name: u.name || '',
+        email: u.email || '',
+        phone: u.phone || '',
+        profileImage: u.profile_image || null,
+        role: u.role || currentUser?.role || 'user',
+        is_verified: u.is_verified === true
+      };
+      localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+
+      allOrders = (Array.isArray(bundle.orders) ? bundle.orders : []).map(o => ({
+        ...o,
+        userId: o.user_id,
+        createdAt: o.created_at,
+        invoiceId: o.invoice_id,
+        invoiceNumber: o.invoice_number
+      }));
+      allInvoices = normalizeInvoices(Array.isArray(bundle.invoices) ? bundle.invoices : []);
+
+      updateUIForLoggedInUser();
+      updateProfilePage();
+      checkUserNotifications(uid);
+      checkOverdueInvoices(uid);
+      return;
+    }
+
+    console.warn('get_my_profile_data failed; using direct queries:', error?.message || error);
+  } catch (rpcErr) {
+    console.warn('get_my_profile_data error; using direct queries:', rpcErr);
+  }
+
+  // احتياطي: تحميل كل مجموعة مستقلة حتى لا يفشل الملف بسبب الطلبات أو الفواتير.
   const loadUserRow = async () => {
     const { data, error } = await sb.from('users')
       .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
@@ -4737,7 +4776,6 @@ async function loadUserData(userId) {
       .maybeSingle();
     if (error) throw error;
     if (!data) return;
-
     currentUser = {
       ...currentUser,
       id: data.id,
@@ -4761,11 +4799,8 @@ async function loadUserData(userId) {
       .limit(50);
     if (error) throw error;
     allOrders = (data || []).map(o => ({
-      ...o,
-      userId: o.user_id,
-      createdAt: o.created_at,
-      invoiceId: o.invoice_id,
-      invoiceNumber: o.invoice_number
+      ...o, userId: o.user_id, createdAt: o.created_at,
+      invoiceId: o.invoice_id, invoiceNumber: o.invoice_number
     }));
   };
 
@@ -4779,20 +4814,13 @@ async function loadUserData(userId) {
     allInvoices = normalizeInvoices(data || []);
   };
 
-  const results = await Promise.allSettled([
-    loadUserRow(),
-    loadOrders(),
-    loadInvoices()
-  ]);
-
+  const results = await Promise.allSettled([loadUserRow(), loadOrders(), loadInvoices()]);
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
-      const names = ['users', 'orders', 'invoices'];
-      console.error('loadUserData ' + names[index] + ' error:', result.reason);
+      console.error('loadUserData ' + ['users','orders','invoices'][index] + ' error:', result.reason);
     }
   });
 
-  // تحديث الملف حتى لو كانت الفواتير أو الطلبات فاشلة.
   updateProfilePage();
   checkUserNotifications(uid);
   checkOverdueInvoices(uid);
