@@ -6032,6 +6032,20 @@ async function payInvoice(invoiceId) {
   // 4) QR مولّد محلياً (آخر احتياط)
   let barcodeImage = invoice.payment_barcode_image || invoice.invoiceBarcodeImage || null;
 
+  // الصور لا تُحمّل مع قائمة الفواتير. عند الدفع فقط نجلب باركود هذه الفاتورة.
+  if (!barcodeImage) {
+    try {
+      const { data: barcodeRow } = await sb.from('invoices')
+        .select('payment_barcode_image,barcode_image')
+        .eq('id', invoice.id).maybeSingle();
+      barcodeImage = barcodeRow?.payment_barcode_image || barcodeRow?.barcode_image || null;
+      if (barcodeImage) {
+        invoice.payment_barcode_image = barcodeImage;
+        invoice.invoiceBarcodeImage = barcodeRow?.barcode_image || null;
+      }
+    } catch (e) {}
+  }
+
   if (!barcodeImage && (invoice.techId || invoice.tech_id)) {
     try {
       const { data: techRow } = await sb.from('technicians')
