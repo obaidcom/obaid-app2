@@ -1872,10 +1872,13 @@ async function updateBookingSubdistricts() {
 
   // تحميل القائمة الرسمية إن أمكن، لكن لا نوقف القائمة إذا فشل المصدر الرسمي؛
   // النواحي التي يضيفها المدير من Supabase يجب أن تظهر حتى عند تعذر المصدر الخارجي.
-  const loaded = await loadSyriaSubdistricts();
-  if (!loaded) {
-    console.warn('المصدر الرسمي للنواحي غير متاح؛ سيتم عرض النواحي المضافة من الإدارة إن وجدت.');
-  }
+  // لا نحجب نموذج الحجز أثناء تنزيل بيانات النواحي الخارجية.
+  // نبدأ التحميل في الخلفية، ثم نكمل من Supabase/البيانات المحلية عند توفرها.
+  const loaded = await Promise.race([
+    loadSyriaSubdistricts(),
+    new Promise(resolve => setTimeout(() => resolve(false), 2500))
+  ]);
+  if (!loaded) console.warn('بيانات النواحي الخارجية ما زالت قيد التحميل؛ نستخدم المتاح محلياً/من الإدارة.');
 
   const govId = SYRIA_GOV_ID_MAP[normalizeArabicPlaceName(gov)];
 
@@ -4416,11 +4419,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // تفعيل مستمع تغييرات Auth (مرة واحدة عند بدء التطبيق)
   setupAuthStateListener();
 
-  // استعادة الجلسة أولاً ثم تحميل الإعدادات
+  // بدء الواجهة فوراً: لا ننتظر الإعدادات أو بيانات المواقع الخارجية
   applyStoredDarkMode();
   restoreSession();
-  loadSocialLinks();
-  loadSettings().then(() => initSlider()).catch(() => initSlider());
+  // هذه البيانات ثانوية ولا يجب أن تمنع ظهور التطبيق
+  Promise.allSettled([
+    loadSocialLinks(),
+    loadSettings().then(() => initSlider()).catch(() => initSlider())
+  ]);
 
   // تحقق من reset=1 في الـ URL (عودة من رابط إعادة تعيين كلمة المرور)
   if (urlParams.get('reset') === '1') {
@@ -4671,7 +4677,7 @@ async function loadUserData(userId) {
   try {
     const [oRes, iRes] = await Promise.all([
       sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
+      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false }).limit(100)
     ]);
     if (oRes.error) throw oRes.error;
     if (iRes.error) throw iRes.error;
@@ -7030,7 +7036,7 @@ async function loadAdminData() {
     const { data: ordersData, error: oErr } = await sb
       .from('orders')
       .select('id,user_id,name,phone,service,date,time,status,governorate,notes,photo,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }).limit(200);
     if (oErr) throw oErr;
 
     allOrders = (ordersData || []).map(o => ({ ...o, userId: o.user_id, createdAt: o.created_at }));
@@ -7412,6 +7418,7 @@ async function loadTechOrders() {
       }
     }
 
+    query = query.limit(100);
     const { data: orders, error } = await query;
     if (error) throw error;
 
