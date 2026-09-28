@@ -35,14 +35,19 @@ jobs:
 
       - name: Validate canonical tracker flow
         run: |
-          grep -Fq "const statusOrder = ['pending','accepted','assigned','in-progress','completed'];" index.html
+          grep -Fq "const statusOrder = ['pending','accepted','assigned','on-the-way','in-progress','completed'];" index.html
+          grep -Fq "async function techAssignOrder(orderId)" index.html
+          grep -Fq "async function techOnTheWay(orderId)" index.html
           grep -Fq "async function techStartProcessing(orderId)" index.html
           grep -Fq "label: 'تم استلام الطلب'" index.html
           grep -Fq "label: 'تم قبول الطلب'" index.html
           grep -Fq "label: 'تم تعيين فني'" index.html
+          grep -Fq "label: 'في الطريق'" index.html
           grep -Fq "label: 'جاري المعالجة'" index.html
           grep -Fq "label: 'تم الانتهاء'" index.html
           grep -Fq "sb.rpc('accept_order', { p_order_id: orderId })" index.html
+          grep -Fq "sb.rpc('advance_tech_order_stage'" index.html
+          grep -Fq "window.Capacitor?.Plugins?.Geolocation" index.html
           echo "Canonical tracker validation passed."
 
       - name: Validate application fixes before Android build
