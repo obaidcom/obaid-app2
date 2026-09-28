@@ -15,7 +15,8 @@
     "@capacitor/push-notifications": "^6.0.2",
     "@capacitor/splash-screen": "^6.0.2",
     "@capacitor/status-bar": "^6.0.2",
-    "@capacitor/app": "^6.0.1"
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/geolocation": "^6.0.2"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.1.2",
