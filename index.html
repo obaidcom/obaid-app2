@@ -8678,6 +8678,8 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
     `);
   }
 
+  window.showObiedSharedReceiptInvoicePicker = function() { if (obiedSharedReceiptPending) showSharedReceiptInvoicePicker(obiedSharedReceiptPending); };
+
   window.selectSharedReceiptInvoice = async function(invoiceId) {
     const shared = obiedSharedReceiptPending;
     if (!shared?.dataUrl) return;
@@ -8696,7 +8698,7 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
           <img src="${shared.dataUrl}" alt="إيصال البنك" style="display:block;max-width:100%;max-height:420px;margin:0 auto;border-radius:12px;border:2px solid #dbeafe;">
           <div style="display:flex;gap:10px;margin-top:18px;">
             <button onclick="completeSharedReceiptPayment('${String(invoiceId).replace(/'/g,"\\'")}')" style="flex:1;padding:14px;background:#10b981;color:white;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;"><i class="fas fa-paper-plane"></i> إرسال الإيصال</button>
-            <button onclick="showSharedReceiptInvoicePicker(obiedSharedReceiptPending)" style="flex:1;padding:14px;background:#f1f5f9;color:#334155;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;">اختيار فاتورة أخرى</button>
+            <button onclick="showObiedSharedReceiptInvoicePicker()" style="flex:1;padding:14px;background:#f1f5f9;color:#334155;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;">اختيار فاتورة أخرى</button>
           </div>
         </div>
       </div>
