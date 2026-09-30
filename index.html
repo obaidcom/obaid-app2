@@ -6006,7 +6006,7 @@ async function payInvoice(invoiceId) {
             <span style="width:28px;height:28px;background:#3b82f6;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;">2</span>
             <h4 style="margin:0;color:#1e3a8a;">ارفع صورة إيصال الدفع</h4>
           </div>
-          <div onclick="document.getElementById('receiptFileInput').click()"
+          <div id="receiptUploadArea" onclick="document.getElementById('receiptFileInput').click()"
                style="padding:20px;text-align:center;border:2px dashed #93c5fd;border-radius:12px;background:white;cursor:pointer;transition:all 0.2s;"
                onmouseover="this.style.borderColor='#3b82f6';this.style.background='#f0f7ff'"
                onmouseout="this.style.borderColor='#93c5fd';this.style.background='white'">
@@ -8566,6 +8566,167 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
     setTimeout(loadServiceCatalog, 500);
   });
 })();
+
+<script>
+(function(){
+  let obiedSharedReceiptPending = null;
+  let obiedSharedReceiptProcessing = false;
+
+  function receiveObiedSharedReceipt(detail) {
+    if (!detail || !detail.path) return;
+    const key = String(detail.path);
+    if (obiedSharedReceiptPending?.path === key && obiedSharedReceiptProcessing) return;
+    obiedSharedReceiptPending = {
+      path: key,
+      mimeType: detail.mimeType || 'image/jpeg',
+      name: detail.name || 'receipt.jpg'
+    };
+    obiedSharedReceiptProcessing = false;
+    try { localStorage.setItem('obied_pending_shared_receipt', JSON.stringify(obiedSharedReceiptPending)); } catch(e) {}
+    setTimeout(processObiedSharedReceipt, 700);
+  }
+
+  async function processObiedSharedReceipt(attempt) {
+    attempt = Number(attempt || 0);
+    if (!obiedSharedReceiptPending || obiedSharedReceiptProcessing) return;
+    if (!currentUser) {
+      if (attempt < 30) {
+        setTimeout(() => processObiedSharedReceipt(attempt + 1), 1000);
+      } else {
+        showAlert('تم استلام الإيصال. سجّل الدخول أولاً ثم أعد المشاركة من البنك.', 'warning', 6000);
+      }
+      return;
+    }
+
+    obiedSharedReceiptProcessing = true;
+    try {
+      showAlert('📥 تم استلام إيصال البنك، جارٍ تجهيز الفواتير...', 'info', 3000);
+      const rawPath = obiedSharedReceiptPending.path;
+      const webPath = window.Capacitor?.convertFileSrc
+        ? window.Capacitor.convertFileSrc(rawPath)
+        : rawPath;
+      const response = await fetch(webPath);
+      if (!response.ok) throw new Error('تعذر قراءة صورة الإيصال');
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/')) throw new Error('الإيصال المستلم ليس صورة');
+      if (blob.size > 5 * 1024 * 1024) throw new Error('حجم صورة الإيصال أكبر من 5MB');
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('تعذر تجهيز صورة الإيصال'));
+        reader.readAsDataURL(blob);
+      });
+      const compressed = await compressImage(dataUrl, 800, 0.6);
+      obiedSharedReceiptPending.dataUrl = compressed;
+      obiedSharedReceiptPending.webPath = webPath;
+      showSharedReceiptInvoicePicker(obiedSharedReceiptPending);
+    } catch (e) {
+      console.error('Shared receipt error:', e);
+      showAlert(e?.message || 'تعذر استلام إيصال البنك', 'error', 5000);
+    } finally {
+      obiedSharedReceiptProcessing = false;
+    }
+  }
+
+  async function showSharedReceiptInvoicePicker(shared) {
+    if (!currentUser) return;
+    let invoices = [];
+    try {
+      const { data, error } = await sb.from('invoices')
+        .select('id,invoice_number,service,service_date,total,status,receipt_status,created_at')
+        .eq('customer_id', Number(currentUser.id))
+        .in('status', ['pending_payment','awaiting_payment','overdue'])
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      invoices = data || [];
+    } catch (e) {
+      console.error('Shared receipt invoices error:', e);
+      showAlert('تعذر تحميل فواتيرك غير المدفوعة', 'error', 5000);
+      return;
+    }
+
+    if (!invoices.length) {
+      showAlert('لا توجد فاتورة غير مدفوعة يمكن رفع الإيصال لها.', 'warning', 5000);
+      return;
+    }
+
+    showModal(`
+      <div style="padding:0;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;">
+        <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;">
+          <h3 style="margin:0;"><i class="fas fa-share-alt"></i> رفع إيصال من تطبيق آخر</h3>
+          <p style="margin:6px 0 0;opacity:.9;font-size:.88rem;">اختر الفاتورة التي يخصها هذا الإيصال</p>
+        </div>
+        <div style="padding:18px;">
+          <div style="background:#f8fafc;border-radius:14px;padding:12px;margin-bottom:14px;text-align:center;">
+            <img src="${shared.dataUrl}" alt="إيصال البنك" style="max-width:100%;max-height:190px;border-radius:10px;border:2px solid #dbeafe;">
+          </div>
+          <div style="display:grid;gap:10px;">
+            ${invoices.map(inv => `
+              <button onclick="selectSharedReceiptInvoice('${String(inv.id).replace(/'/g,"\\'")}')" style="width:100%;text-align:right;background:white;border:1px solid #dbeafe;border-radius:14px;padding:14px;cursor:pointer;font-family:inherit;">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+                  <strong style="color:#1e3a8a;">فاتورة #${inv.invoice_number || inv.id}</strong>
+                  <strong style="color:#059669;">${Number(inv.total || 0).toFixed(2)} ل.س</strong>
+                </div>
+                <div style="margin-top:5px;color:#64748b;font-size:.84rem;">${inv.service || 'خدمة صيانة'} ${inv.service_date ? '— ' + inv.service_date : ''}</div>
+              </button>
+            `).join('')}
+          </div>
+          <button onclick="closeModal()" style="width:100%;margin-top:14px;padding:12px;background:#f1f5f9;border:0;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
+        </div>
+      </div>
+    `);
+  }
+
+  window.selectSharedReceiptInvoice = async function(invoiceId) {
+    const shared = obiedSharedReceiptPending;
+    if (!shared?.dataUrl) return;
+    currentReceiptForPayment = {
+      invoiceId: String(invoiceId),
+      image: shared.dataUrl,
+      fileName: shared.name || 'bank-receipt.jpg'
+    };
+    showModal(`
+      <div style="padding:0;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;">
+        <div style="background:linear-gradient(135deg,#059669,#10b981);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;">
+          <h3 style="margin:0;"><i class="fas fa-receipt"></i> تأكيد رفع الإيصال</h3>
+          <p style="margin:6px 0 0;opacity:.9;font-size:.88rem;">سيتم إرفاق الإيصال بالفاتورة التي اخترتها</p>
+        </div>
+        <div style="padding:18px;">
+          <img src="${shared.dataUrl}" alt="إيصال البنك" style="display:block;max-width:100%;max-height:420px;margin:0 auto;border-radius:12px;border:2px solid #dbeafe;">
+          <div style="display:flex;gap:10px;margin-top:18px;">
+            <button onclick="completeSharedReceiptPayment('${String(invoiceId).replace(/'/g,"\\'")}')" style="flex:1;padding:14px;background:#10b981;color:white;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;"><i class="fas fa-paper-plane"></i> إرسال الإيصال</button>
+            <button onclick="showSharedReceiptInvoicePicker(obiedSharedReceiptPending)" style="flex:1;padding:14px;background:#f1f5f9;color:#334155;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;">اختيار فاتورة أخرى</button>
+          </div>
+        </div>
+      </div>
+    `);
+  };
+
+  window.completeSharedReceiptPayment = function(invoiceId) {
+    if (!currentReceiptForPayment || String(currentReceiptForPayment.invoiceId) !== String(invoiceId)) {
+      showAlert('تعذر تجهيز الإيصال المحدد', 'error');
+      return;
+    }
+    completePayment(invoiceId);
+    obiedSharedReceiptPending = null;
+    try { localStorage.removeItem('obied_pending_shared_receipt'); } catch(e) {}
+  };
+
+  window.addEventListener('obiedSharedReceipt', function(event) {
+    receiveObiedSharedReceipt(event?.detail || null);
+  });
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('obied_pending_shared_receipt') || 'null');
+    if (saved?.path) obiedSharedReceiptPending = saved;
+  } catch(e) {}
+
+  setTimeout(() => {
+    if (obiedSharedReceiptPending?.path && !obiedSharedReceiptPending.dataUrl) processObiedSharedReceipt();
+  }, 1800);
+})();
+</script>
 </script>
 </body>
 </html>
