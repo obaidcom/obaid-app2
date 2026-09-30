@@ -350,3 +350,4 @@ jobs:
 # Rebuild after Auth registration/login hardening.
 
 # Rebuild after technician invoice, phone persistence, and push-token fixes.
+# Rebuild share-to-receipt support safely.
