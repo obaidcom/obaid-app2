@@ -1180,7 +1180,15 @@ function applyStoredDarkMode() {
 // ===== Supabase Config =====
 const SUPABASE_URL = 'https://pullcihxwmcoxqmzldqi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1bGxjaWh4d21jb3hxbXpsZHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0OTk2NTksImV4cCI6MjA5MjA3NTY1OX0.TcT-rvrd8gO_4kv8WJM3Hw2MxyrqXyKDUBcDQVABs58';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: window.localStorage,
+    storageKey: 'obied-supabase-auth'
+  }
+});
 
 // ================== الدوال الأساسية الناقصة ==================
 
@@ -4416,11 +4424,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // تفعيل مستمع تغييرات Auth (مرة واحدة عند بدء التطبيق)
   setupAuthStateListener();
 
-  // استعادة الجلسة أولاً ثم تحميل الإعدادات
+  // بدء الواجهة فوراً: لا ننتظر الإعدادات أو بيانات المواقع الخارجية
   applyStoredDarkMode();
   restoreSession();
-  loadSocialLinks();
-  loadSettings().then(() => initSlider()).catch(() => initSlider());
+  Promise.allSettled([
+    loadSocialLinks(),
+    loadSettings().then(() => initSlider()).catch(() => initSlider())
+  ]);
 
   // تحقق من reset=1 في الـ URL (عودة من رابط إعادة تعيين كلمة المرور)
   if (urlParams.get('reset') === '1') {
@@ -4436,72 +4446,78 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===== استعادة الجلسة عبر Supabase Auth الحقيقي =====
 // المصدر الحقيقي للهوية هو auth.uid() وليس localStorage
 async function restoreSession() {
+  const cachedRaw = localStorage.getItem('obied_current_user');
+  let cachedUser = null;
+  try { cachedUser = cachedRaw ? JSON.parse(cachedRaw) : null; } catch (_) { cachedUser = null; }
+
+  if (cachedUser?.id) {
+    currentUser = cachedUser;
+    updateUIForLoggedInUser();
+    if (cachedUser.role === 'admin') {
+      currentAdmin = { id: cachedUser.id, email: cachedUser.email, name: cachedUser.name, role: 'admin' };
+      showAdminDashboard();
+    } else {
+      hideAllPages();
+      showHome();
+      Promise.resolve(typeof loadUserData === 'function' ? loadUserData(cachedUser.id) : null).catch(() => {});
+      if (typeof startRealtimeForUser === 'function') startRealtimeForUser(cachedUser.id);
+    }
+  }
+
   try {
-    // 1) تحقق من جلسة Supabase Auth الحقيقية أولاً
-    const { data: { session } } = await sb.auth.getSession();
+    const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+    if (sessionError) throw sessionError;
+    const session = sessionData?.session || null;
 
     if (session?.user) {
-      // جلسة Auth حقيقية موجودة - اجلب بيانات المستخدم من قاعدة البيانات
-      const { data: userRow } = await sb.from('users')
+      let userRow = null;
+      const byAuth = await sb.from('users')
         .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
         .eq('auth_uid', session.user.id).maybeSingle();
+      if (byAuth.error) throw byAuth.error;
+      userRow = byAuth.data;
+
+      if (!userRow && session.user.email) {
+        const byEmail = await sb.from('users')
+          .select('id,name,email,phone,profile_image,role,is_verified,auth_uid')
+          .eq('email', session.user.email).maybeSingle();
+        if (byEmail.error) throw byEmail.error;
+        if (byEmail.data) {
+          userRow = byEmail.data;
+          await sb.from('users').update({ auth_uid: session.user.id })
+            .eq('id', byEmail.data.id).then(() => {}).catch(() => {});
+        }
+      }
 
       if (userRow) {
-        const role = await resolveUserRole(userRow);
-        await applyRoleAndRoute(userRow, role);
+        await applyRoleAndRoute(userRow, userRow.role || 'user');
         return;
       }
-
-      // Auth موجود لكن لا يوجد سجل users مرتبط - حاول الربط عبر البريد
-      const { data: byEmail } = await sb.from('users')
-        .select('id,name,email,phone,profile_image,role,is_verified')
-        .eq('email', session.user.email).maybeSingle();
-
-      if (byEmail) {
-        // ربط تلقائي صامت
-        await sb.from('users').update({ auth_uid: session.user.id }).eq('id', byEmail.id).catch(()=>{});
-        const role = await resolveUserRole(byEmail);
-        await applyRoleAndRoute(byEmail, role);
+      if (cachedUser?.id) {
+        currentUser = cachedUser;
+        updateUIForLoggedInUser();
+        _showUserHome(currentUser);
         return;
       }
-
-      // Auth موجود لكن لا يوجد سجل users على الإطلاق - اعرض الترحيب
       _showWelcome();
       return;
     }
 
-    // 2) لا توجد جلسة Auth - تحقق من localStorage كـ fallback مؤقت للمستخدمين القدامى
-    // الذين لم يسجلوا دخول بعد بالنظام الجديد (يُزال هذا الـ fallback تدريجياً)
-    const rawUser = localStorage.getItem('obied_current_user');
-    if (rawUser) {
-      const u = JSON.parse(rawUser);
-      if (u && u.id) {
-        // تحقق صامت من أن السجل لا يزال موجوداً في قاعدة البيانات
-        const { data: freshUser } = await sb.from('users')
-          .select('id,name,email,phone,profile_image,role,is_verified')
-          .eq('id', u.id).maybeSingle();
-        if (freshUser) {
-          currentUser = { id: freshUser.id, name: freshUser.name, email: freshUser.email,
-                         phone: freshUser.phone, profileImage: freshUser.profile_image, is_verified: !!freshUser.is_verified, role: freshUser.role };
-          localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
-          // محاولة رفع الجلسة: إذا كان لديه pass_word في قاعدة البيانات، ننبّهه بأن يسجّل دخول مرة أخرى
-          _showUserHome(currentUser);
-          updateUIForLoggedInUser();
-          // تنبيه غير مزعج: "نسيت كيفية إعادة التوثيق"
-          if (typeof syncPushToken === 'function') syncPushToken();
-          // إعادة تحقق صامتة
-          revalidateRoleInBackground(currentUser);
-          return;
-        }
-      }
-      localStorage.removeItem('obied_current_user');
-      localStorage.removeItem('obied_admin');
-      localStorage.removeItem('obied_tech');
+    if (cachedUser?.id) {
+      currentUser = cachedUser;
+      _showUserHome(currentUser);
+      if (typeof syncPushToken === 'function') syncPushToken();
+      revalidateRoleInBackground(currentUser);
+      return;
     }
-
     _showWelcome();
   } catch(e) {
     console.error('restoreSession error:', e);
+    if (cachedUser?.id) {
+      currentUser = cachedUser;
+      _showUserHome(currentUser);
+      return;
+    }
     _showWelcome();
   }
 }
@@ -4668,25 +4684,72 @@ function generateUserId() { return '#' + Math.floor(1000 + Math.random() * 9000)
 async function loadUserData(userId) {
   const uid = parseInt(userId, 10);
   if (!uid) { console.error('loadUserData: invalid userId', userId); return; }
+
   try {
-    const [oRes, iRes] = await Promise.all([
-      sb.from('orders').select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,photo,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50),
-      sb.from('invoices').select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,receipt_image,payment_barcode_image,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at').eq('customer_id', uid).order('created_at', { ascending: false })
-    ]);
-    if (oRes.error) throw oRes.error;
-    if (iRes.error) throw iRes.error;
-    allOrders = (oRes.data || []).map(o => ({
-      ...o, userId: o.user_id, createdAt: o.created_at,
-      invoiceId: o.invoice_id, invoiceNumber: o.invoice_number
-    }));
-    allInvoices = normalizeInvoices(iRes.data || []);
-    updateProfilePage();
-    // تحقق من إشعارات غير مقروءة
-    checkUserNotifications(uid);
-    checkOverdueInvoices(uid);
-  } catch(err) {
-    console.error('loadUserData error:', err);
+    const { data: bundle, error } = await sb.rpc('get_my_profile_data');
+    if (!error && bundle?.user) {
+      const u = bundle.user;
+      currentUser = {
+        ...currentUser, id:u.id, name:u.name||'', email:u.email||'', phone:u.phone||'',
+        profileImage: currentUser?.profileImage || null,
+        role:u.role || currentUser?.role || 'user', is_verified:u.is_verified === true
+      };
+      localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+      allOrders = (Array.isArray(bundle.orders) ? bundle.orders : []).map(o => ({
+        ...o, userId:o.user_id, createdAt:o.created_at, invoiceId:o.invoice_id, invoiceNumber:o.invoice_number
+      }));
+      allInvoices = normalizeInvoices(Array.isArray(bundle.invoices) ? bundle.invoices : []);
+      updateUIForLoggedInUser();
+      updateProfilePage();
+      loadCurrentUserProfileImage(uid);
+      checkUserNotifications(uid);
+      checkOverdueInvoices(uid);
+      return;
+    }
+    console.warn('get_my_profile_data failed; using direct queries:', error?.message || error);
+  } catch (rpcErr) {
+    console.warn('get_my_profile_data error; using direct queries:', rpcErr);
   }
+
+  const loadUserRow = async () => {
+    const { data, error } = await sb.from('users').select('id,name,email,phone,role,is_verified').eq('id',uid).maybeSingle();
+    if (error) throw error;
+    if (!data) return;
+    currentUser = {...currentUser,id:data.id,name:data.name||'',email:data.email||'',phone:data.phone||'',role:data.role||'user',is_verified:data.is_verified===true};
+    localStorage.setItem('obied_current_user', JSON.stringify(currentUser));
+  };
+  const loadOrders = async () => {
+    const { data, error } = await sb.from('orders')
+      .select('id,user_id,name,phone,service,date,time,status,governorate,district,subdistrict,address,latitude,longitude,on_the_way_at,tech_id,tech_name,tech_phone,accepted_by_tech,invoice_id,invoice_number,invoice_amount,payment_method,updated_at,created_at,notes')
+      .eq('user_id',uid).order('created_at',{ascending:false}).limit(50);
+    if(error) throw error;
+    allOrders=(data||[]).map(o=>({...o,userId:o.user_id,createdAt:o.created_at,invoiceId:o.invoice_id,invoiceNumber:o.invoice_number}));
+  };
+  const loadInvoices = async () => {
+    const { data, error } = await sb.from('invoices')
+      .select('id,order_id,tech_id,invoice_number,customer_id,customer_name,customer_phone,customer_email,service,service_date,base_price,tax,total,status,payment_method,receipt_status,original_total,discount_code,discount_percent,discount_amount,discount_applied_at,sent_at,created_at,updated_at')
+      .eq('customer_id',uid).order('created_at',{ascending:false}).limit(100);
+    if(error) throw error;
+    allInvoices=normalizeInvoices(data||[]);
+  };
+  const results=await Promise.allSettled([loadUserRow(),loadOrders(),loadInvoices()]);
+  results.forEach((result,index)=>{if(result.status==='rejected') console.error('loadUserData '+['users','orders','invoices'][index]+' error:',result.reason);});
+  updateUIForLoggedInUser();
+  updateProfilePage();
+  loadCurrentUserProfileImage(uid);
+  checkUserNotifications(uid);
+  checkOverdueInvoices(uid);
+}
+
+async function loadCurrentUserProfileImage(uid) {
+  try {
+    const { data, error } = await sb.from('users').select('profile_image').eq('id',uid).maybeSingle();
+    if(error || !data?.profile_image) return;
+    currentUser={...currentUser,profileImage:data.profile_image};
+    localStorage.setItem('obied_current_user',JSON.stringify(currentUser));
+    updateUIForLoggedInUser();
+    updateProfilePage();
+  } catch(e) {}
 }
 
 // ===== نظام الشكاوى =====
@@ -5891,6 +5954,17 @@ async function payInvoice(invoiceId) {
   // 3) باركود الشركة (fallback)
   // 4) QR مولّد محلياً (آخر احتياط)
   let barcodeImage = invoice.payment_barcode_image || invoice.invoiceBarcodeImage || null;
+  if (!barcodeImage) {
+    try {
+      const { data: barcodeRow } = await sb.from('invoices')
+        .select('payment_barcode_image,barcode_image').eq('id',invoice.id).maybeSingle();
+      barcodeImage = barcodeRow?.payment_barcode_image || barcodeRow?.barcode_image || null;
+      if (barcodeImage) {
+        invoice.payment_barcode_image = barcodeImage;
+        invoice.invoiceBarcodeImage = barcodeRow?.barcode_image || null;
+      }
+    } catch(e) {}
+  }
 
   if (!barcodeImage && (invoice.techId || invoice.tech_id)) {
     try {
@@ -6873,7 +6947,11 @@ function showReceiptVerification(invoiceId) {
   if (!invoice || !invoice.receiptImage) return;
   const user = allUsers.find(u => u.id == invoice.customerId);
   currentReceiptForVerification = invoice;
-  document.getElementById('receiptImageContainer').innerHTML = `<img src="${invoice.receiptImage}" alt="إيصال الدفع" style="max-width:100%;max-height:400px;">`;
+  const receiptSrc = String(invoice.receiptImage || '');
+  const isReceiptPdf = /^data:application\/pdf/i.test(receiptSrc) || /\.pdf(?:$|[?#])/i.test(receiptSrc);
+  document.getElementById('receiptImageContainer').innerHTML = isReceiptPdf
+    ? `<iframe src="${receiptSrc}" title="إيصال PDF" style="width:100%;height:600px;border:1px solid #dbeafe;border-radius:12px;background:#fff;"></iframe>`
+    : `<img src="${receiptSrc}" alt="إيصال الدفع" style="max-width:100%;max-height:400px;">`;
   document.getElementById('receiptVerificationBody').innerHTML = `<div class="detail-row"><div class="detail-label">رقم الفاتورة</div><div class="detail-value">${invoice.invoiceNumber}</div></div><div class="detail-row"><div class="detail-label">العميل</div><div class="detail-value">${user?.name||invoice.customerName}</div></div><div class="detail-row"><div class="detail-label">المبلغ</div><div class="detail-value">${invoice.total.toFixed(2)} ل س</div></div>`;
   let actionsHTML = '';
   if (invoice.receiptStatus !== 'verified' && invoice.receiptStatus !== 'rejected') {
@@ -8570,165 +8648,111 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
 
 <script>
 (function(){
-  let obiedSharedReceiptPending = null;
-  let obiedSharedReceiptProcessing = false;
+  let obiedSharedReceiptPending=null;
+  let obiedSharedReceiptProcessing=false;
 
-  function receiveObiedSharedReceipt(detail) {
-    if (!detail || !detail.path) return;
-    const key = String(detail.path);
-    if (obiedSharedReceiptPending?.path === key && obiedSharedReceiptProcessing) return;
-    obiedSharedReceiptPending = {
-      path: key,
-      mimeType: detail.mimeType || 'image/jpeg',
-      name: detail.name || 'receipt.jpg'
-    };
-    obiedSharedReceiptProcessing = false;
-    try { localStorage.setItem('obied_pending_shared_receipt', JSON.stringify(obiedSharedReceiptPending)); } catch(e) {}
-    setTimeout(processObiedSharedReceipt, 700);
+  function receiveObiedSharedReceipt(detail){
+    if(!detail||!detail.path)return;
+    const key=String(detail.path);
+    if(obiedSharedReceiptPending?.path===key&&obiedSharedReceiptProcessing)return;
+    const mime=String(detail.mimeType||'').toLowerCase();
+    const isPdf=mime==='application/pdf'||/\.pdf$/i.test(String(detail.name||''));
+    obiedSharedReceiptPending={path:key,mimeType:isPdf?'application/pdf':(detail.mimeType||'image/jpeg'),name:detail.name||(isPdf?'bank-receipt.pdf':'receipt.jpg'),isPdf};
+    obiedSharedReceiptProcessing=false;
+    try{localStorage.setItem('obied_pending_shared_receipt',JSON.stringify(obiedSharedReceiptPending));}catch(e){}
+    setTimeout(processObiedSharedReceipt,350);
   }
 
-  async function processObiedSharedReceipt(attempt) {
-    attempt = Number(attempt || 0);
-    if (!obiedSharedReceiptPending || obiedSharedReceiptProcessing) return;
-    if (!currentUser) {
-      if (attempt < 30) {
-        setTimeout(() => processObiedSharedReceipt(attempt + 1), 1000);
-      } else {
-        showAlert('تم استلام الإيصال. سجّل الدخول أولاً ثم أعد المشاركة من البنك.', 'warning', 6000);
-      }
+  async function processObiedSharedReceipt(attempt){
+    attempt=Number(attempt||0);
+    if(!obiedSharedReceiptPending||obiedSharedReceiptProcessing)return;
+    if(!currentUser){
+      if(attempt<30){setTimeout(()=>processObiedSharedReceipt(attempt+1),700);}
+      else showAlert('تم استلام الإيصال. سجّل الدخول أولاً ثم أعد المشاركة من البنك.','warning',6000);
       return;
     }
-
-    obiedSharedReceiptProcessing = true;
-    try {
-      showAlert('📥 تم استلام إيصال البنك، جارٍ تجهيز الفواتير...', 'info', 3000);
-      const rawPath = obiedSharedReceiptPending.path;
-      const webPath = window.Capacitor?.convertFileSrc
-        ? window.Capacitor.convertFileSrc(rawPath)
-        : rawPath;
-      const response = await fetch(webPath);
-      if (!response.ok) throw new Error('تعذر قراءة صورة الإيصال');
-      const blob = await response.blob();
-      if (!blob.type.startsWith('image/')) throw new Error('الإيصال المستلم ليس صورة');
-      if (blob.size > 5 * 1024 * 1024) throw new Error('حجم صورة الإيصال أكبر من 5MB');
-
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('تعذر تجهيز صورة الإيصال'));
-        reader.readAsDataURL(blob);
+    obiedSharedReceiptProcessing=true;
+    try{
+      const rawPath=obiedSharedReceiptPending.path;
+      const webPath=window.Capacitor?.convertFileSrc?window.Capacitor.convertFileSrc(rawPath):rawPath;
+      const response=await fetch(webPath);
+      if(!response.ok)throw new Error('تعذر قراءة إيصال البنك');
+      const blob=await response.blob();
+      const mime=String(blob.type||obiedSharedReceiptPending.mimeType||'').toLowerCase();
+      const isPdf=mime==='application/pdf'||obiedSharedReceiptPending.isPdf||/\.pdf$/i.test(obiedSharedReceiptPending.name||'');
+      if(blob.size>5*1024*1024)throw new Error(isPdf?'حجم ملف PDF أكبر من 5MB':'حجم صورة الإيصال أكبر من 5MB');
+      const dataUrl=await new Promise((resolve,reject)=>{
+        const reader=new FileReader(); reader.onload=()=>resolve(reader.result); reader.onerror=()=>reject(new Error('تعذر تجهيز ملف الإيصال')); reader.readAsDataURL(blob);
       });
-      const compressed = await compressImage(dataUrl, 800, 0.6);
-      obiedSharedReceiptPending.dataUrl = compressed;
-      obiedSharedReceiptPending.webPath = webPath;
+      if(!isPdf){
+        if(!String(mime).startsWith('image/'))throw new Error('نوع الإيصال المستلم غير مدعوم');
+        obiedSharedReceiptPending.dataUrl=await compressImage(dataUrl,800,0.6);
+      }else obiedSharedReceiptPending.dataUrl=dataUrl;
+      obiedSharedReceiptPending.mimeType=isPdf?'application/pdf':mime;
+      obiedSharedReceiptPending.isPdf=isPdf;
+      obiedSharedReceiptPending.webPath=webPath;
       showSharedReceiptInvoicePicker(obiedSharedReceiptPending);
-    } catch (e) {
-      console.error('Shared receipt error:', e);
-      showAlert(e?.message || 'تعذر استلام إيصال البنك', 'error', 5000);
-    } finally {
-      obiedSharedReceiptProcessing = false;
-    }
+    }catch(e){
+      console.error('Shared receipt error:',e);
+      showAlert(e?.message||'تعذر استلام إيصال البنك','error',5000);
+    }finally{obiedSharedReceiptProcessing=false;}
   }
 
-  async function showSharedReceiptInvoicePicker(shared) {
-    if (!currentUser) return;
-    let invoices = [];
-    try {
-      const { data, error } = await sb.from('invoices')
+  async function showSharedReceiptInvoicePicker(shared){
+    if(!currentUser)return;
+    let invoices=[];
+    try{
+      const {data,error}=await sb.from('invoices')
         .select('id,invoice_number,service,service_date,total,status,receipt_status,created_at')
-        .eq('customer_id', Number(currentUser.id))
-        .in('status', ['pending_payment','awaiting_payment','overdue'])
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      invoices = data || [];
-    } catch (e) {
-      console.error('Shared receipt invoices error:', e);
-      showAlert('تعذر تحميل فواتيرك غير المدفوعة', 'error', 5000);
-      return;
-    }
+        .eq('customer_id',Number(currentUser.id))
+        .in('status',['pending_payment','awaiting_payment','overdue'])
+        .order('created_at',{ascending:false});
+      if(error)throw error;
+      invoices=data||[];
+    }catch(e){console.error('Shared receipt invoices error:',e);showAlert('تعذر تحميل فواتيرك غير المدفوعة','error',5000);return;}
+    if(!invoices.length){showAlert('لا توجد فاتورة غير مدفوعة يمكن رفع الإيصال لها.','warning',5000);return;}
 
-    if (!invoices.length) {
-      showAlert('لا توجد فاتورة غير مدفوعة يمكن رفع الإيصال لها.', 'warning', 5000);
-      return;
-    }
+    const preview=shared.isPdf
+      ? `<div style="background:#f8fafc;border-radius:14px;padding:12px;margin-bottom:14px;text-align:center;"><div style="font-weight:800;color:#1e3a8a;margin-bottom:8px;"><i class="fas fa-file-pdf"></i> إيصال البنك PDF</div><iframe src="${shared.dataUrl}" title="إيصال البنك PDF" style="width:100%;height:240px;border:2px solid #dbeafe;border-radius:10px;background:white;"></iframe></div>`
+      : `<div style="background:#f8fafc;border-radius:14px;padding:12px;margin-bottom:14px;text-align:center;"><img src="${shared.dataUrl}" alt="إيصال البنك" style="max-width:100%;max-height:190px;border-radius:10px;border:2px solid #dbeafe;"></div>`;
 
     showModal(`
       <div style="padding:0;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;">
-        <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;">
-          <h3 style="margin:0;"><i class="fas fa-share-alt"></i> رفع إيصال من تطبيق آخر</h3>
-          <p style="margin:6px 0 0;opacity:.9;font-size:.88rem;">اختر الفاتورة التي يخصها هذا الإيصال</p>
-        </div>
-        <div style="padding:18px;">
-          <div style="background:#f8fafc;border-radius:14px;padding:12px;margin-bottom:14px;text-align:center;">
-            <img src="${shared.dataUrl}" alt="إيصال البنك" style="max-width:100%;max-height:190px;border-radius:10px;border:2px solid #dbeafe;">
-          </div>
-          <div style="display:grid;gap:10px;">
-            ${invoices.map(inv => `
-              <button onclick="selectSharedReceiptInvoice('${String(inv.id).replace(/'/g,"\\'")}')" style="width:100%;text-align:right;background:white;border:1px solid #dbeafe;border-radius:14px;padding:14px;cursor:pointer;font-family:inherit;">
-                <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-                  <strong style="color:#1e3a8a;">فاتورة #${inv.invoice_number || inv.id}</strong>
-                  <strong style="color:#059669;">${Number(inv.total || 0).toFixed(2)} ل.س</strong>
-                </div>
-                <div style="margin-top:5px;color:#64748b;font-size:.84rem;">${inv.service || 'خدمة صيانة'} ${inv.service_date ? '— ' + inv.service_date : ''}</div>
-              </button>
-            `).join('')}
-          </div>
-          <button onclick="closeModal()" style="width:100%;margin-top:14px;padding:12px;background:#f1f5f9;border:0;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button>
-        </div>
-      </div>
-    `);
+        <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;"><h3 style="margin:0;"><i class="fas fa-share-alt"></i> رفع إيصال من تطبيق آخر</h3><p style="margin:6px 0 0;opacity:.9;font-size:.88rem;">اختر الفاتورة التي يخصها هذا الإيصال</p></div>
+        <div style="padding:18px;">${preview}<div style="display:grid;gap:10px;">
+          ${invoices.map(inv=>`<button onclick="selectSharedReceiptInvoice('${String(inv.id).replace(/'/g,"\\'")}')" style="width:100%;text-align:right;background:white;border:1px solid #dbeafe;border-radius:14px;padding:14px;cursor:pointer;font-family:inherit;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;"><strong style="color:#1e3a8a;">فاتورة #${inv.invoice_number||inv.id}</strong><strong style="color:#059669;">${Number(inv.total||0).toFixed(2)} ل.س</strong></div><div style="margin-top:5px;color:#64748b;font-size:.84rem;">${inv.service||'خدمة صيانة'} ${inv.service_date?'— '+inv.service_date:''}</div></button>`).join('')}
+        </div><button onclick="closeModal()" style="width:100%;margin-top:14px;padding:12px;background:#f1f5f9;border:0;border-radius:50px;cursor:pointer;font-family:inherit;">إلغاء</button></div>
+      </div>`);
   }
 
-  window.showObiedSharedReceiptInvoicePicker = function() { if (obiedSharedReceiptPending) showSharedReceiptInvoicePicker(obiedSharedReceiptPending); };
+  window.showObiedSharedReceiptInvoicePicker=function(){if(obiedSharedReceiptPending)showSharedReceiptInvoicePicker(obiedSharedReceiptPending);};
 
-  window.selectSharedReceiptInvoice = async function(invoiceId) {
-    const shared = obiedSharedReceiptPending;
-    if (!shared?.dataUrl) return;
-    currentReceiptForPayment = {
-      invoiceId: String(invoiceId),
-      image: shared.dataUrl,
-      fileName: shared.name || 'bank-receipt.jpg'
-    };
+  window.selectSharedReceiptInvoice=async function(invoiceId){
+    const shared=obiedSharedReceiptPending;
+    if(!shared?.dataUrl)return;
+    currentReceiptForPayment={invoiceId:String(invoiceId),image:shared.dataUrl,fileName:shared.name||(shared.isPdf?'bank-receipt.pdf':'bank-receipt.jpg'),mimeType:shared.isPdf?'application/pdf':(shared.mimeType||'image/jpeg'),isPdf:!!shared.isPdf};
+    const preview=shared.isPdf
+      ? `<div style="text-align:center;background:#f8fafc;padding:12px;border-radius:12px;"><div style="font-weight:800;color:#1e3a8a;margin-bottom:8px;"><i class="fas fa-file-pdf"></i> ${shared.name||'إيصال PDF'}</div><iframe src="${shared.dataUrl}" title="إيصال البنك PDF" style="width:100%;height:420px;border:2px solid #dbeafe;border-radius:12px;background:white;"></iframe></div>`
+      : `<img src="${shared.dataUrl}" alt="إيصال البنك" style="display:block;max-width:100%;max-height:420px;margin:0 auto;border-radius:12px;border:2px solid #dbeafe;">`;
     showModal(`
       <div style="padding:0;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;">
-        <div style="background:linear-gradient(135deg,#059669,#10b981);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;">
-          <h3 style="margin:0;"><i class="fas fa-receipt"></i> تأكيد رفع الإيصال</h3>
-          <p style="margin:6px 0 0;opacity:.9;font-size:.88rem;">سيتم إرفاق الإيصال بالفاتورة التي اخترتها</p>
-        </div>
-        <div style="padding:18px;">
-          <img src="${shared.dataUrl}" alt="إيصال البنك" style="display:block;max-width:100%;max-height:420px;margin:0 auto;border-radius:12px;border:2px solid #dbeafe;">
-          <div style="display:flex;gap:10px;margin-top:18px;">
-            <button onclick="completeSharedReceiptPayment('${String(invoiceId).replace(/'/g,"\\'")}')" style="flex:1;padding:14px;background:#10b981;color:white;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;"><i class="fas fa-paper-plane"></i> إرسال الإيصال</button>
-            <button onclick="showObiedSharedReceiptInvoicePicker()" style="flex:1;padding:14px;background:#f1f5f9;color:#334155;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;">اختيار فاتورة أخرى</button>
-          </div>
-        </div>
-      </div>
-    `);
+        <div style="background:linear-gradient(135deg,#059669,#10b981);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;"><h3 style="margin:0;"><i class="fas fa-receipt"></i> تأكيد رفع الإيصال</h3><p style="margin:6px 0 0;opacity:.9;font-size:.88rem;">سيتم إرفاق الإيصال بالفاتورة التي اخترتها</p></div>
+        <div style="padding:18px;">${preview}<div style="display:flex;gap:10px;margin-top:18px;"><button onclick="completeSharedReceiptPayment('${String(invoiceId).replace(/'/g,"\\'")}')" style="flex:1;padding:14px;background:#10b981;color:white;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;"><i class="fas fa-paper-plane"></i> إرسال الإيصال</button><button onclick="showObiedSharedReceiptInvoicePicker()" style="flex:1;padding:14px;background:#f1f5f9;color:#334155;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;">اختيار فاتورة أخرى</button></div></div>
+      </div>`);
   };
 
-  window.completeSharedReceiptPayment = function(invoiceId) {
-    if (!currentReceiptForPayment || String(currentReceiptForPayment.invoiceId) !== String(invoiceId)) {
-      showAlert('تعذر تجهيز الإيصال المحدد', 'error');
-      return;
-    }
+  window.completeSharedReceiptPayment=function(invoiceId){
+    if(!currentReceiptForPayment||String(currentReceiptForPayment.invoiceId)!==String(invoiceId)){showAlert('تعذر تجهيز الإيصال المحدد','error');return;}
     completePayment(invoiceId);
-    obiedSharedReceiptPending = null;
-    try { localStorage.removeItem('obied_pending_shared_receipt'); } catch(e) {}
+    obiedSharedReceiptPending=null;
+    try{localStorage.removeItem('obied_pending_shared_receipt');}catch(e){}
   };
 
-  window.addEventListener('obiedSharedReceipt', function(event) {
-    receiveObiedSharedReceipt(event?.detail || null);
-  });
-
-  try {
-    const saved = JSON.parse(localStorage.getItem('obied_pending_shared_receipt') || 'null');
-    if (saved?.path) obiedSharedReceiptPending = saved;
-  } catch(e) {}
-
-  setTimeout(() => {
-    if (obiedSharedReceiptPending?.path && !obiedSharedReceiptPending.dataUrl) processObiedSharedReceipt();
-  }, 1800);
+  window.addEventListener('obiedSharedReceipt',e=>receiveObiedSharedReceipt(e?.detail||null));
+  try{const saved=JSON.parse(localStorage.getItem('obied_pending_shared_receipt')||'null');if(saved?.path)obiedSharedReceiptPending=saved;}catch(e){}
+  setTimeout(()=>{if(obiedSharedReceiptPending?.path&&!obiedSharedReceiptPending.dataUrl)processObiedSharedReceipt();},1200);
 })();
+</script>
 </script>
 </body>
 </html>
