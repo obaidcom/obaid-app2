@@ -147,7 +147,7 @@ jobs:
                   if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
 
                   String mime = intent.getType();
-                  if (mime == null || !mime.startsWith("image/")) return;
+                  if (mime == null || (!mime.startsWith("image/") && !"application/pdf".equalsIgnoreCase(mime))) return;
 
                   Uri uri = null;
                   if (Intent.ACTION_SEND.equals(action)) {
@@ -218,6 +218,16 @@ jobs:
                   '                <action android:name="android.intent.action.SEND_MULTIPLE" />\\n'
                   '                <category android:name="android.intent.category.DEFAULT" />\\n'
                   '                <data android:mimeType="image/*" />\\n'
+                  '            </intent-filter>\\n'
+                  '            <intent-filter>\\n'
+                  '                <action android:name="android.intent.action.SEND" />\\n'
+                  '                <category android:name="android.intent.category.DEFAULT" />\\n'
+                  '                <data android:mimeType="application/pdf" />\\n'
+                  '            </intent-filter>\\n'
+                  '            <intent-filter>\\n'
+                  '                <action android:name="android.intent.action.SEND_MULTIPLE" />\\n'
+                  '                <category android:name="android.intent.category.DEFAULT" />\\n'
+                  '                <data android:mimeType="application/pdf" />\\n'
                   '            </intent-filter>\\n'
               )
               pos = content.find('</activity>')
