@@ -91,6 +91,11 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Add isolated Android share receiver
+        run: |
+          python3 -m py_compile scripts/patch_android_share.py
+          python3 scripts/patch_android_share.py
+
       - name: Set Android version for update builds
         run: |
           python3 - <<'PY'
