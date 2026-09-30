@@ -7000,7 +7000,7 @@ function loadObiedPdfJs() {
   return obiedPdfJsLoading;
 }
 
-async async function renderObiedPdf(container, pdfSource, options = {}) {
+async function renderObiedPdf(container, pdfSource, options = {}) {
   if (!container || !pdfSource) return;
   container.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i><div style="margin-top:10px;">جارٍ عرض الإيصال...</div></div>';
   try {
