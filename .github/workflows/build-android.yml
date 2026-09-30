@@ -93,55 +93,8 @@ jobs:
 
       - name: Add Android share receiver
         run: |
-          mkdir -p android/app/src/main/java/com/obied/maintenance
-          cp native/android/ShareReceiverPlugin.java android/app/src/main/java/com/obied/maintenance/ShareReceiverPlugin.java
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-
-          # Register the custom Capacitor plugin and preserve the generated MainActivity.
-          main = Path('android/app/src/main/java/com/obied/maintenance/MainActivity.java')
-          content = main.read_text(encoding='utf-8')
-          if 'ShareReceiverPlugin' not in content:
-              content = content.replace('import com.getcapacitor.BridgeActivity;', 'import com.getcapacitor.BridgeActivity;\\nimport com.obied.maintenance.ShareReceiverPlugin;')
-              content = content.replace('public class MainActivity extends BridgeActivity {', 'public class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onCreate(android.os.Bundle savedInstanceState) {\\n        registerPlugin(ShareReceiverPlugin.class);\\n        ShareReceiverPlugin.captureIntent(getIntent());\\n        super.onCreate(savedInstanceState);\\n    }\\n\\n    @Override\\n    public void onNewIntent(android.content.Intent intent) {\\n        super.onNewIntent(intent);\\n        setIntent(intent);\\n        ShareReceiverPlugin.captureIntent(intent);\\n    }')
-          main.write_text(content, encoding='utf-8')
-
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
-          m = manifest.read_text(encoding='utf-8')
-          if 'android.intent.action.SEND' not in m:
-              activity = re.search(r'<activity\\b[\\s\\S]*?</activity>', m)
-              if not activity:
-                  raise SystemExit('Main activity not found in AndroidManifest.xml')
-              block = activity.group(0)
-              filters = '''
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/pdf" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="image/jpeg" />
-                <data android:mimeType="image/png" />
-                <data android:mimeType="image/webp" />
-            </intent-filter>
-'''
-              block2 = block.replace('</activity>', filters + '        </activity>')
-              m = m.replace(block, block2, 1)
-          manifest.write_text(m, encoding='utf-8')
-
-          # Inject the web-side receiver after the app HTML is copied to www.
-          web = Path('www/index.html')
-          html = web.read_text(encoding='utf-8')
-          script = '<script src="share-receiver.js"></script>'
-          if script not in html:
-              html = html.replace('</body>', script + '\\n</body>', 1)
-          web.write_text(html, encoding='utf-8')
-          Path('www/share-receiver.js').write_text(Path('scripts/share-receiver.js').read_text(encoding='utf-8'), encoding='utf-8')
-          print('Android share receiver patched successfully')
-          PY
+          python3 -m py_compile scripts/patch_android_share.py
+          python3 scripts/patch_android_share.py
 
       - name: Set Android version for update builds
         run: |
