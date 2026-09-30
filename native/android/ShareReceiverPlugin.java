@@ -129,6 +129,6 @@ public class ShareReceiverPlugin extends Plugin {
     }
 
     private String sanitize(String name) {
-        return name.replaceAll("[\\/:*?"<>|]", "_");
+        return name.replaceAll("[\\\\/:*?\\"<>|]", "_");
     }
 }
