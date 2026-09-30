@@ -208,18 +208,18 @@ jobs:
           if '<application' in content and 'android:label=' not in content.split('<application',1)[1].split('>',1)[0]:
               content = content.replace('<application', '<application android:label="عبيد"', 1)
           if 'obiedSharedReceipt' not in content:
-              filters = '''
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="image/*" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="image/*" />
-            </intent-filter>
-'''
+              filters = (
+                  '\\n            <intent-filter>\\n'
+                  '                <action android:name="android.intent.action.SEND" />\\n'
+                  '                <category android:name="android.intent.category.DEFAULT" />\\n'
+                  '                <data android:mimeType="image/*" />\\n'
+                  '            </intent-filter>\\n'
+                  '            <intent-filter>\\n'
+                  '                <action android:name="android.intent.action.SEND_MULTIPLE" />\\n'
+                  '                <category android:name="android.intent.category.DEFAULT" />\\n'
+                  '                <data android:mimeType="image/*" />\\n'
+                  '            </intent-filter>\\n'
+              )
               pos = content.find('</activity>')
               if pos == -1:
                   raise SystemExit('Main activity closing tag not found')
