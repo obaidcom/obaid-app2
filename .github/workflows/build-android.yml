@@ -219,6 +219,8 @@ jobs:
               content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />', content, count=1)
           if 'android.permission.ACCESS_COARSE_LOCATION' not in content:
               content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />', content, count=1)
+          if '<application' in content and 'android:label=' not in content.split('<application',1)[1].split('>',1)[0]:
+              content = content.replace('<application', '<application android:label="عبيد"', 1)
           if 'obiedSharedReceipt' not in content:
               filters = '''
             <intent-filter>
