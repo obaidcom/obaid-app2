@@ -6121,6 +6121,41 @@ async function payInvoice(invoiceId) {
   `);
 }
 
+
+// تعبئة نافذة الدفع القديمة بالإيصال القادم من تطبيق البنك.
+// لا نغيّر تصميم/مسار الدفع؛ فقط نملأ الخطوة الثانية تلقائياً.
+function prepareOldPaymentPageWithSharedReceipt(invoiceId) {
+  const shared = window.__obiedSharedReceiptForPayment;
+  if (!shared || String(shared.invoiceId) !== String(invoiceId)) return;
+
+  const area = document.getElementById('receiptUploadArea');
+  const preview = document.getElementById('receiptPreview-' + invoiceId);
+  const btn = document.getElementById('completePaymentBtn-' + invoiceId);
+  const step3 = document.getElementById('step3Box-' + invoiceId);
+  if (!area || !preview || !btn || !step3) return;
+
+  area.style.display = 'none';
+  preview.style.display = 'block';
+  btn.style.display = 'flex';
+  step3.style.opacity = '1';
+
+  if (shared.isPdf) {
+    preview.innerHTML =
+      '<div style="background:#f8fafc;border:2px solid #3b82f6;border-radius:12px;padding:12px;">' +
+      '<div style="text-align:center;color:#1e3a8a;font-weight:800;margin-bottom:10px;">' +
+      '<i class="fas fa-file-pdf"></i> ' + (shared.name || 'إيصال البنك PDF') + '</div>' +
+      '<div id="sharedPaymentPdfViewer-' + invoiceId + '"></div></div>' +
+      '<div style="text-align:center;margin-top:10px;"><span style="background:#dbeafe;color:#1d4ed8;padding:5px 15px;border-radius:50px;font-size:.83rem;font-weight:600;"><i class="fas fa-check"></i> تم إرفاق الإيصال</span></div>';
+    renderObiedPdf(document.getElementById('sharedPaymentPdfViewer-' + invoiceId), shared.image);
+  } else {
+    const img = document.getElementById('receiptPreviewImage-' + invoiceId);
+    if (img) img.src = shared.image;
+    preview.innerHTML = '<img id="receiptPreviewImage-' + invoiceId + '" src="' + shared.image + '" style="max-width:100%;max-height:420px;border-radius:12px;margin:0 auto;display:block;border:2px solid #3b82f6;">' +
+      '<div style="text-align:center;margin-top:10px;"><span style="background:#dbeafe;color:#1d4ed8;padding:5px 15px;border-radius:50px;font-size:.83rem;font-weight:600;"><i class="fas fa-check"></i> تم إرفاق الإيصال</span></div>';
+  }
+}
+
+
 async function applyInvoiceCoupon(invoiceId) {
   const input = document.getElementById(`invoiceCouponInput-${invoiceId}`);
   const code = String(input?.value || '').trim().toUpperCase();
@@ -6942,6 +6977,71 @@ async function loadReceiptsForVerification() {
   }
 }
 
+
+// ===== عارض PDF للإيصالات داخل التطبيق =====
+// يتم تحميل PDF.js فقط عند فتح إيصال PDF، لذلك لا يؤثر على سرعة بدء التطبيق.
+let obiedPdfJsLoading = null;
+function loadObiedPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (obiedPdfJsLoading) return obiedPdfJsLoading;
+  obiedPdfJsLoading = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = () => {
+      try {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      } catch (_) {}
+      resolve(window.pdfjsLib);
+    };
+    script.onerror = () => reject(new Error('تعذر تحميل عارض PDF'));
+    document.head.appendChild(script);
+  });
+  return obiedPdfJsLoading;
+}
+
+async function renderObiedPdf(container, pdfSource, options = {}) {
+  if (!container || !pdfSource) return;
+  container.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i><div style="margin-top:10px;">جارٍ عرض الإيصال...</div></div>';
+  try {
+    const pdfjsLib = await loadObiedPdfJs();
+    const binary = atob(String(pdfSource).split(',')[1] || '');
+    const bytes = new Uint8Array(binary.length);
+    for (let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+    const pdf = await pdfjsLib.getDocument({data: bytes}).promise;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:grid;gap:14px;width:100%;';
+    const maxPages = Math.min(pdf.numPages, options.maxPages || 8);
+
+    for (let pageNo=1; pageNo<=maxPages; pageNo++) {
+      const page = await pdf.getPage(pageNo);
+      const baseViewport = page.getViewport({scale:1});
+      const maxWidth = Math.max(280, Math.min(container.clientWidth || 600, 900));
+      const scale = Math.min(2, maxWidth / baseViewport.width);
+      const viewport = page.getViewport({scale});
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      canvas.style.cssText = 'width:100%;height:auto;background:white;border:1px solid #dbeafe;border-radius:10px;box-shadow:0 2px 8px rgba(15,23,42,.08);';
+      wrap.appendChild(canvas);
+      await page.render({canvasContext:canvas.getContext('2d'), viewport}).promise;
+    }
+
+    if (pdf.numPages > maxPages) {
+      const more = document.createElement('div');
+      more.style.cssText = 'text-align:center;color:#64748b;font-size:.82rem;';
+      more.textContent = 'تم عرض أول ' + maxPages + ' صفحات من أصل ' + pdf.numPages + '.';
+      wrap.appendChild(more);
+    }
+
+    container.innerHTML = '';
+    container.appendChild(wrap);
+  } catch (e) {
+    console.error('PDF render error:', e);
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#b91c1c;"><i class="fas fa-file-pdf" style="font-size:2.5rem;"></i><p>تعذر عرض محتوى PDF داخل التطبيق.</p><button class="btn-primary" onclick="window.open(' + JSON.stringify(pdfSource) + ',\'_blank\')">فتح ملف PDF</button></div>';
+  }
+}
+
 function showReceiptVerification(invoiceId) {
   const invoice = allInvoices.find(inv => inv.id == invoiceId);
   if (!invoice || !invoice.receiptImage) return;
@@ -6949,9 +7049,13 @@ function showReceiptVerification(invoiceId) {
   currentReceiptForVerification = invoice;
   const receiptSrc = String(invoice.receiptImage || '');
   const isReceiptPdf = /^data:application\/pdf/i.test(receiptSrc) || /\.pdf(?:$|[?#])/i.test(receiptSrc);
-  document.getElementById('receiptImageContainer').innerHTML = isReceiptPdf
-    ? `<iframe src="${receiptSrc}" title="إيصال PDF" style="width:100%;height:600px;border:1px solid #dbeafe;border-radius:12px;background:#fff;"></iframe>`
-    : `<img src="${receiptSrc}" alt="إيصال الدفع" style="max-width:100%;max-height:400px;">`;
+  const receiptContainer = document.getElementById('receiptImageContainer');
+  if (isReceiptPdf) {
+    receiptContainer.innerHTML = '<div id="obiedReceiptPdfViewer"></div>';
+    renderObiedPdf(document.getElementById('obiedReceiptPdfViewer'), receiptSrc);
+  } else {
+    receiptContainer.innerHTML = `<img src="${receiptSrc}" alt="إيصال الدفع" style="max-width:100%;max-height:400px;">`;
+  }
   document.getElementById('receiptVerificationBody').innerHTML = `<div class="detail-row"><div class="detail-label">رقم الفاتورة</div><div class="detail-value">${invoice.invoiceNumber}</div></div><div class="detail-row"><div class="detail-label">العميل</div><div class="detail-value">${user?.name||invoice.customerName}</div></div><div class="detail-row"><div class="detail-label">المبلغ</div><div class="detail-value">${invoice.total.toFixed(2)} ل س</div></div>`;
   let actionsHTML = '';
   if (invoice.receiptStatus !== 'verified' && invoice.receiptStatus !== 'rejected') {
@@ -8730,21 +8834,34 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
   window.selectSharedReceiptInvoice=async function(invoiceId){
     const shared=obiedSharedReceiptPending;
     if(!shared?.dataUrl)return;
-    currentReceiptForPayment={invoiceId:String(invoiceId),image:shared.dataUrl,fileName:shared.name||(shared.isPdf?'bank-receipt.pdf':'bank-receipt.jpg'),mimeType:shared.isPdf?'application/pdf':(shared.mimeType||'image/jpeg'),isPdf:!!shared.isPdf};
-    const preview=shared.isPdf
-      ? `<div style="text-align:center;background:#f8fafc;padding:12px;border-radius:12px;"><div style="font-weight:800;color:#1e3a8a;margin-bottom:8px;"><i class="fas fa-file-pdf"></i> ${shared.name||'إيصال PDF'}</div><iframe src="${shared.dataUrl}" title="إيصال البنك PDF" style="width:100%;height:420px;border:2px solid #dbeafe;border-radius:12px;background:white;"></iframe></div>`
-      : `<img src="${shared.dataUrl}" alt="إيصال البنك" style="display:block;max-width:100%;max-height:420px;margin:0 auto;border-radius:12px;border:2px solid #dbeafe;">`;
-    showModal(`
-      <div style="padding:0;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;">
-        <div style="background:linear-gradient(135deg,#059669,#10b981);color:white;padding:22px;border-radius:var(--radius) var(--radius) 0 0;"><h3 style="margin:0;"><i class="fas fa-receipt"></i> تأكيد رفع الإيصال</h3><p style="margin:6px 0 0;opacity:.9;font-size:.88rem;">سيتم إرفاق الإيصال بالفاتورة التي اخترتها</p></div>
-        <div style="padding:18px;">${preview}<div style="display:flex;gap:10px;margin-top:18px;"><button onclick="completeSharedReceiptPayment('${String(invoiceId).replace(/'/g,"\\'")}')" style="flex:1;padding:14px;background:#10b981;color:white;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;"><i class="fas fa-paper-plane"></i> إرسال الإيصال</button><button onclick="showObiedSharedReceiptInvoicePicker()" style="flex:1;padding:14px;background:#f1f5f9;color:#334155;border:0;border-radius:50px;cursor:pointer;font-family:inherit;font-weight:800;">اختيار فاتورة أخرى</button></div></div>
-      </div>`);
+
+    window.__obiedSharedReceiptForPayment={
+      invoiceId:String(invoiceId),
+      image:shared.dataUrl,
+      fileName:shared.name||(shared.isPdf?'bank-receipt.pdf':'bank-receipt.jpg'),
+      mimeType:shared.isPdf?'application/pdf':(shared.mimeType||'image/jpeg'),
+      isPdf:!!shared.isPdf,
+      name:shared.name||''
+    };
+    currentReceiptForPayment={
+      invoiceId:String(invoiceId),
+      image:shared.dataUrl,
+      fileName:window.__obiedSharedReceiptForPayment.fileName,
+      mimeType:window.__obiedSharedReceiptForPayment.mimeType,
+      isPdf:window.__obiedSharedReceiptForPayment.isPdf
+    };
+
+    closeModal();
+    // فتح صفحة الدفع القديمة نفسها.
+    await payInvoice(invoiceId);
+    setTimeout(()=>prepareOldPaymentPageWithSharedReceipt(invoiceId),80);
   };
 
   window.completeSharedReceiptPayment=function(invoiceId){
     if(!currentReceiptForPayment||String(currentReceiptForPayment.invoiceId)!==String(invoiceId)){showAlert('تعذر تجهيز الإيصال المحدد','error');return;}
     completePayment(invoiceId);
     obiedSharedReceiptPending=null;
+    window.__obiedSharedReceiptForPayment=null;
     try{localStorage.removeItem('obied_pending_shared_receipt');}catch(e){}
   };
 
@@ -8752,7 +8869,6 @@ async function proceedTechInvoice(orderId, userId, name, phone, service) {
   try{const saved=JSON.parse(localStorage.getItem('obied_pending_shared_receipt')||'null');if(saved?.path)obiedSharedReceiptPending=saved;}catch(e){}
   setTimeout(()=>{if(obiedSharedReceiptPending?.path&&!obiedSharedReceiptPending.dataUrl)processObiedSharedReceipt();},1200);
 })();
-</script>
 </script>
 </body>
 </html>
