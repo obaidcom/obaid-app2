@@ -6166,7 +6166,7 @@ async function payInvoice(invoiceId) {
                onmouseout="this.style.borderColor='#93c5fd';this.style.background='white'">
             <i class="fas fa-cloud-upload-alt" style="font-size:2.2rem;color:#3b82f6;margin-bottom:10px;display:block;"></i>
             <p style="color:#1d4ed8;font-weight:600;margin:0 0 5px;">انقر لرفع صورة الإيصال</p>
-            <p style="font-size:0.8rem;color:#6b7280;margin:0;">JPG أو PNG - حتى 5MB</p>
+            <p style="font-size:0.8rem;color:#6b7280;margin:0;">JPG أو PNG أو PDF - حتى 10MB</p>
           </div>
           <input type="file" id="receiptFileInput" accept="image/*" style="display:none;" onchange="handleReceiptUpload(event,'${invoiceId}')">
           <div id="receiptPreview-${invoiceId}" style="display:none;margin-top:15px;">
@@ -6225,28 +6225,67 @@ async function applyInvoiceCoupon(invoiceId) {
 
 function handleReceiptUpload(event, invoiceId) {
   const file = event.target.files[0];
-  if (!file || !file.type.match('image.*')) { showAlert('يرجى اختيار صورة', 'error'); return; }
-  if (file.size > 5*1024*1024) { showAlert('حجم الصورة يجب أن يكون أقل من 5MB', 'error'); return; }
+  if (!file) return;
+  const isImage = /^image\\//i.test(file.type);
+  const isPdf = file.type === 'application/pdf' || /\\.pdf$/i.test(file.name || '');
+  if (!isImage && !isPdf) { showAlert('يرجى اختيار صورة أو ملف PDF', 'error'); return; }
+  if (file.size > 10*1024*1024) { showAlert('حجم إثبات الدفع يجب أن يكون أقل من 10MB', 'error'); return; }
+
   const reader = new FileReader();
   reader.onload = async function(e) {
-    const compressed = await compressImage(e.target.result, 800, 0.6);
-    // عرض فوري ثم رفع لـ Cloudinary
-    currentReceiptForPayment = { invoiceId: String(invoiceId), image: compressed, fileName: file.name };
-    uploadImageToCloudinary(compressed, 'receipts').then(url => {
-      if (url && currentReceiptForPayment) currentReceiptForPayment.image = url;
-    });
+    let payload = e.target.result;
+    if (isImage) payload = await compressImage(payload, 1200, 0.7);
+
+    currentReceiptForPayment = {
+      invoiceId: String(invoiceId),
+      image: payload,
+      fileName: file.name,
+      mimeType: file.type || (isPdf ? 'application/pdf' : 'image/*')
+    };
+
+    // الصور تُرفع إلى Cloudinary كما كان سابقاً؛ ملفات PDF تبقى كـData URL
+    // حتى لا نكسر مسار التخزين الحالي قبل إضافة bucket مخصص للملفات.
+    if (isImage) {
+      uploadImageToCloudinary(payload, 'receipts').then(url => {
+        if (url && currentReceiptForPayment &&
+            currentReceiptForPayment.invoiceId === String(invoiceId)) {
+          currentReceiptForPayment.image = url;
+        }
+      });
+    }
+
     const prev = document.getElementById(`receiptPreviewImage-${invoiceId}`);
-    if (prev) prev.src = compressed;
     const prevDiv = document.getElementById(`receiptPreview-${invoiceId}`);
     if (prevDiv) prevDiv.style.display = 'block';
+
+    if (prev) {
+      if (isImage) {
+        prev.style.display = 'block';
+        prev.src = payload;
+      } else {
+        prev.style.display = 'none';
+        let link = document.getElementById(`receiptPreviewPdf-${invoiceId}`);
+        if (!link) {
+          link = document.createElement('a');
+          link.id = `receiptPreviewPdf-${invoiceId}`;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.style.cssText = 'display:block;padding:14px;background:#eff6ff;color:#1d4ed8;border-radius:12px;text-decoration:none;font-weight:800;';
+          prev.parentNode.insertBefore(link, prev);
+        }
+        link.href = payload;
+        link.textContent = '📄 فتح ملف إثبات الدفع PDF';
+        link.style.display = 'block';
+      }
+    }
+
     const area = document.getElementById('receiptUploadArea');
     if (area) area.style.display = 'none';
     const btn = document.getElementById(`completePaymentBtn-${invoiceId}`);
     if (btn) btn.style.display = 'flex';
-    // تفعيل الخطوة 3
     const step3 = document.getElementById(`step3Box-${invoiceId}`);
     if (step3) step3.style.opacity = '1';
-    showAlert('✅ تم رفع الإيصال، اضغط "إرسال" لإتمام الدفع', 'success');
+    showAlert('✅ تم تجهيز إثبات الدفع، اضغط "إرسال" لإتمام الدفع', 'success');
   };
   reader.readAsDataURL(file);
 }
@@ -8375,7 +8414,116 @@ function printInvoice(invoiceId) {
     <div class="row"><span>الضريبة</span><strong>${tax} ل.س</strong></div>
     <div class="row"><span>حالة الدفع</span><strong>${typeof getInvoiceStatusText === 'function' ? getInvoiceStatusText(invoice.status) : (invoice.status||'')}</strong></div>
     <div class="total"><span>الإجمالي</span><span>${total} ل.س</span></div>
-    </body></html>`);
+    
+<!-- استقبال إثبات الدفع من تطبيقات البنوك عبر Android Share -->
+<script>
+(function () {
+  let pendingBankShare = null;
+
+  function shareReceiver() {
+    try { return window.Capacitor?.Plugins?.ShareReceiver || null; } catch (e) { return null; }
+  }
+
+  function base64ToDataUrl(base64, mime) {
+    return 'data:' + (mime || 'application/octet-stream') + ';base64,' + base64;
+  }
+
+  function showBankShareInvoices() {
+    if (!currentUser) {
+      showAlert('يجب تسجيل الدخول أولاً حتى نربط إثبات الدفع بحسابك', 'warning', 7000);
+      return;
+    }
+    const invoices = (Array.isArray(allInvoices) ? allInvoices : []).filter(inv =>
+      !['paid','pending_verification','verified'].includes(String(inv.status || '').toLowerCase())
+    );
+    if (!invoices.length) {
+      showAlert('لا توجد فواتير غير مدفوعة يمكن ربط إثبات الدفع بها', 'warning', 6000);
+      return;
+    }
+    const fileName = pendingBankShare?.fileName || 'إثبات الدفع';
+    const fileSize = pendingBankShare?.size ? (pendingBankShare.size / 1024).toFixed(1) + ' KB' : '';
+    showModal(
+      '<div style="padding:20px;max-width:650px;width:100%;">' +
+      '<div style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;padding:18px;border-radius:16px;margin-bottom:15px;">' +
+      '<h3 style="margin:0 0 6px;">📎 إثبات دفع مستلم من البنك</h3>' +
+      '<p style="margin:0;opacity:.9;word-break:break-word;">' + fileName + (fileSize ? ' · ' + fileSize : '') + '</p></div>' +
+      '<p style="font-weight:800;margin:0 0 12px;">اختر الفاتورة التي دفعتَها:</p>' +
+      invoices.map(inv =>
+        '<button onclick="selectBankShareInvoice(\\'' + String(inv.id).replace(/'/g,'') + '\\')" style="width:100%;text-align:right;border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:14px;margin:6px 0;cursor:pointer;font-family:inherit;">' +
+        '<strong>فاتورة #' + (inv.invoice_number || inv.invoiceNumber || inv.id) + '</strong><br><span style="color:#64748b;">' + (inv.service || 'خدمة صيانة') + ' · ' + Number(inv.total || 0).toFixed(2) + '</span>' +
+        '</button>'
+      ).join('') +
+      '<button onclick="closeModal()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:50px;background:#f1f5f9;cursor:pointer;font-family:inherit;">إلغاء</button>' +
+      '</div>'
+    );
+  }
+
+  window.selectBankShareInvoice = async function (invoiceId) {
+    if (!pendingBankShare) return;
+    const share = pendingBankShare;
+    pendingBankShare = null;
+    closeModal();
+    await payInvoice(invoiceId);
+    setTimeout(function () {
+      if (!share.dataUrl) return;
+      currentReceiptForPayment = {
+        invoiceId: String(invoiceId),
+        image: share.dataUrl,
+        fileName: share.fileName || 'bank-payment-proof',
+        mimeType: share.mimeType || 'application/octet-stream'
+      };
+      const prev = document.getElementById('receiptPreviewImage-' + invoiceId);
+      const prevDiv = document.getElementById('receiptPreview-' + invoiceId);
+      if (prevDiv) prevDiv.style.display = 'block';
+      if (prev) {
+        if ((share.mimeType || '').startsWith('image/')) {
+          prev.style.display = 'block'; prev.src = share.dataUrl;
+        } else {
+          prev.style.display = 'none';
+          let link = document.getElementById('receiptPreviewPdf-' + invoiceId);
+          if (!link) {
+            link = document.createElement('a');
+            link.id = 'receiptPreviewPdf-' + invoiceId;
+            link.target = '_blank'; link.rel = 'noopener';
+            link.style.cssText = 'display:block;padding:14px;background:#eff6ff;color:#1d4ed8;border-radius:12px;text-decoration:none;font-weight:800;';
+            prev.parentNode.insertBefore(link, prev);
+          }
+          link.href = share.dataUrl; link.textContent = '📄 فتح ملف إثبات الدفع'; link.style.display = 'block';
+        }
+      }
+      const area = document.getElementById('receiptUploadArea'); if (area) area.style.display = 'none';
+      const btn = document.getElementById('completePaymentBtn-' + invoiceId); if (btn) btn.style.display = 'flex';
+      const step3 = document.getElementById('step3Box-' + invoiceId); if (step3) step3.style.opacity = '1';
+      showAlert('✅ تم إرفاق إثبات الدفع من تطبيق البنك بالفاتورة المحددة. اضغط إرسال.', 'success', 7000);
+    }, 500);
+  };
+
+  async function processIncomingShare(data) {
+    if (!data || !data.base64) return;
+    pendingBankShare = {
+      dataUrl: base64ToDataUrl(data.base64, data.mimeType),
+      mimeType: data.mimeType || 'application/octet-stream',
+      fileName: data.fileName || 'bank-payment-proof',
+      size: Number(data.size || 0)
+    };
+    showBankShareInvoices();
+  }
+
+  async function initShareReceiver() {
+    const plugin = shareReceiver();
+    if (!plugin) return;
+    try {
+      if (plugin.addListener) await plugin.addListener('shareReceived', processIncomingShare);
+      const pending = await plugin.getPendingShare();
+      if (pending?.base64) await processIncomingShare(pending);
+    } catch (e) { console.warn('bank share receiver init failed', e); }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(initShareReceiver, 700); });
+  window.processIncomingBankShare = processIncomingShare;
+})();
+</script>
+</body></html>`);
   w.document.close();
   setTimeout(() => { w.focus(); w.print(); }, 350);
 }
