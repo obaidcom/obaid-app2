@@ -109,6 +109,95 @@ jobs:
       - name: Generate app icons and splash screen
         run: npx capacitor-assets generate --android
 
+      - name: Add Android share-to-receipt support
+        run: |
+          mkdir -p android/app/src/main/java/com/obied/maintenance
+          cat > android/app/src/main/java/com/obied/maintenance/MainActivity.java <<'EOF'
+          package com.obied.maintenance;
+
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.webkit.MimeTypeMap;
+
+          import com.getcapacitor.BridgeActivity;
+
+          import org.json.JSONObject;
+
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
+
+          public class MainActivity extends BridgeActivity {
+              private String pendingSharePath;
+              private String pendingShareMime;
+              private String pendingShareName;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  handleShareIntent(getIntent());
+              }
+
+              @Override
+              protected void onNewIntent(Intent intent) {
+                  super.onNewIntent(intent);
+                  setIntent(intent);
+                  handleShareIntent(intent);
+              }
+
+              private void handleShareIntent(Intent intent) {
+                  if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) return;
+                  String mime = intent.getType();
+                  if (mime == null || !mime.startsWith("image/")) return;
+
+                  Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                  if (uri == null) return;
+
+                  try {
+                      String ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime);
+                      if (ext == null || ext.isEmpty()) ext = "jpg";
+
+                      File out = new File(getCacheDir(), "obied_shared_receipt_" + System.currentTimeMillis() + "." + ext);
+                      try (InputStream in = getContentResolver().openInputStream(uri);
+                           FileOutputStream fos = new FileOutputStream(out)) {
+                          if (in == null) return;
+                          byte[] buffer = new byte[8192];
+                          int read;
+                          while ((read = in.read(buffer)) != -1) fos.write(buffer, 0, read);
+                      }
+
+                      pendingSharePath = out.getAbsolutePath();
+                      pendingShareMime = mime;
+                      pendingShareName = out.getName();
+                      dispatchSharedReceiptWhenReady();
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              private void dispatchSharedReceiptWhenReady() {
+                  if (pendingSharePath == null || getBridge() == null || getBridge().getWebView() == null) return;
+
+                  try {
+                      JSONObject data = new JSONObject();
+                      data.put("path", "file://" + pendingSharePath);
+                      data.put("mimeType", pendingShareMime == null ? "image/jpeg" : pendingShareMime);
+                      data.put("name", pendingShareName == null ? "receipt.jpg" : pendingShareName);
+                      final String json = data.toString();
+
+                      for (int i = 0; i < 8; i++) {
+                          final int delay = 500 + (i * 500);
+                          getBridge().getWebView().postDelayed(() ->
+                              getBridge().getWebView().evaluateJavascript(
+                                  "window.dispatchEvent(new CustomEvent('obiedSharedReceipt',{detail:" + json + "}));",
+                                  null), delay);
+                      }
+                  } catch (Exception ignored) {
+                  }
+              }
+          }
+          EOF
+
       - name: Patch AndroidManifest.xml for push notifications
         run: |
           python3 - <<'PY'
@@ -122,6 +211,23 @@ jobs:
               content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />', content, count=1)
           if 'android.permission.ACCESS_COARSE_LOCATION' not in content:
               content = re.sub(r'(<manifest[^>]*>)', r'\1\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />', content, count=1)
+          if 'obiedSharedReceipt' not in content:
+              filters = '''
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+'''
+              pos = content.find('</activity>')
+              if pos == -1:
+                  raise SystemExit('Main activity closing tag not found')
+              content = content[:pos] + filters + content[pos:]
           if 'default_notification_icon' not in content:
               content = content.replace('</application>', '    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@mipmap/ic_launcher" />\n  </application>')
           if 'default_notification_channel_id' not in content:
